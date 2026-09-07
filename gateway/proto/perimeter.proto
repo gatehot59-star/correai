@@ -1,0 +1,32 @@
+// Copyright (c) 2026 Jorge Abraham Mendieta.
+// Computational Substrate Theory. Todos los derechos reservados.
+
+syntax = "proto3";
+
+package hipersec.gateway.v1;
+
+option go_package = "hipersec/gateway/v1;gatewayv1";
+
+message SovereigntyHeader {
+  string agent_id    = 1;
+  int64  timestamp_ns = 2;
+  uint32 epoch       = 3;
+  uint32 nonce       = 4;
+  bytes  hmac        = 5;
+}
+
+message ContextVector {
+  repeated double values = 1 [packed = true];
+}
+
+message Payload {
+  bytes  ciphertext = 1;
+  uint32 flags      = 2;
+  uint32 padding    = 3;
+}
+
+message PerimeterPacket {
+  SovereigntyHeader header  = 1;
+  ContextVector     context = 2;
+  Payload           payload = 3;
+}
