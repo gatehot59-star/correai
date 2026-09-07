@@ -2,12 +2,12 @@
 Si este es el que cae, aca esta su numero y su mensaje.
 
 === RUN   TestControlPositivoDeCola_CandadoGlobal
-    latencia_test.go:446: 
+    latencia_test.go:489: 
         === CONTROL POSITIVO DE COLA (ns) ===
-        candado por agente (N agentes aislados)        n=800000    media=   5058.5  p50=  2644  p90=   2924  p99=    4547  p99.9=    13380  max=  42466867
-        candado GLOBAL (N agentes aislados)            n=800000    media=  15991.1  p50=  1532  p90=   4737  p99=  548234  p99.9=  1321858  max=   5962291
-    latencia_test.go:454: factor p99 global/porAgente = 120.6x   |   factor p99.9 = 98.8x
---- PASS: TestControlPositivoDeCola_CandadoGlobal (2.67s)
+        candado por agente (N agentes aislados)        n=800000    media=   7100.3  p50=  3667  p90=   3877  p99=    6082  p99.9=    24656  max=  40391260
+        candado GLOBAL (N agentes aislados)            n=800000    media=  24278.8  p50=  3427  p90=   6873  p99=  841945  p99.9=  2760585  max=  11150021
+    latencia_test.go:497: factor p99 global/porAgente = 138.4x   |   factor p99.9 = 112.0x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (3.93s)
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	3.683s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	4.945s
 EXIT=0
