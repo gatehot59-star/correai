@@ -145,3 +145,74 @@ GitHub redirige los links viejos.
 **no es** una busqueda de marca: no se consultaron USPTO, EUIPO ni INPI.
 
 **Archivo de esta respuesta:** `respuestas/2026-09-07-02-bautismo-kampe-ir.md`.
+
+---
+
+## 2026-09-07 · E-004 · ADR-001: el modulo IR es Testis, y aparecieron D-18 y D-19
+
+**Quien pidio:** Abraham. **Literal:** "PUES LE METAMOS UN PRODUCTO IR, SOLO
+DIME DE QUE TIPO QUIRES Y YO TE LO DOY".
+
+En E-003 le objete el "IR" del nombre porque prometia un modulo inexistente.
+Respuesta correcta de su parte: construirlo. Asi que la objecion queda cerrada
+por construccion, no por rebaja del nombre.
+
+**La eleccion no se hizo por catalogo de mercado, se hizo por medicion del
+agujero:**
+
+| Medicion | Instrumento | Resultado |
+| --- | --- | --- |
+| llamadas de log en el paquete `gateway` | grep | **0**. El paquete `log` no esta ni importado |
+| caminos de rechazo / de bloqueo en `handleConn` | grep | **9 rechazos, 7 bloqueos** |
+| driver de base de datos en el gateway | grep | **ninguno**, cero escrituras |
+| importadores de `custos_legis` en codigo de producto | grep | **0** |
+| bytes distintos que ve un cliente rechazado | lectura | **1**: `0xFF` para los 9 casos |
+
+**El sistema aplica y no atestigua.** La "Boveda Criptografica de No-Repudio"
+esta bien construida y **no tiene un solo productor**. Ese es el hueco, y es el
+unico que ningun competidor puede llenar por afuera, porque la evidencia solo
+existe en el punto de aplicacion en el instante de la decision.
+
+**Decision · Testis** (lat. *testigo*, para que rime con Custos Legis): grabador
+de veredictos con **cadena de hash** + **caso por agente** construido sobre esa
+cadena. Explicitamente **no**: SOAR, forense de memoria, threat intel, SIEM.
+Razones por tipo en el ADR §7.
+
+**Hallazgo nuevo · D-18:** `audit_logs` firma **cada fila por separado**. Eso
+prueba que una fila no fue modificada y **no prueba nada sobre el conjunto**: se
+puede **borrar** una fila entera o reordenar, y todas las firmas restantes
+siguen verificando. Para un producto de no-repudio legal, el ataque obvio del
+insider no es editar el registro incomodo: es hacerlo desaparecer. **Por eso la
+cadena de hash no es un adorno de Testis: es Testis.**
+
+**Hallazgo nuevo · D-19:** 2 de los 9 rechazos (FSM ya bloqueado, y tamano de
+frame invalido) **no** escalan el circuit breaker. Spam de frames invalidos le
+cuesta al atacante un handshake TLS y el FSM no lo acumula nunca. Menor, pero es
+exactamente la clase de cosa que hoy es invisible por falta de grabador.
+
+**Dos bloqueantes declarados:**
+
+1. **D-01+D-02 antes de Testis.** Si un paquete con HMAC invalido ladrilla a un
+   agente para siempre, el primer caso IR del primer cliente va a ser un bug
+   nuestro, y el grabador lo va a documentar firmado y encadenado.
+2. **D-06 antes del release.** No se puede vender no-repudio con
+   `canonicalize_event` colisionable viva en el mismo producto.
+
+**Detalle tecnico que evita un bug futuro:** `packet_ts` va `numeric(20)` y no
+`bigint`, porque un `uint64` de ataque (`2^64-1`) no entra en un `bigint` de
+Postgres. Con `bigint`, el veredicto que registra el ataque D-01 explotaria al
+insertarse.
+
+**Defecto propio del turno:** mi primer grep de importadores de la boveda dio
+"2" y los dos hits eran el propio modulo y **mi verificador**. Instrumento
+sucio; recontado a 0 y corregido en el ADR antes de sacar la conclusion.
+
+**Que NO se hizo:** cero codigo. Abraham lo genera; esta entrega es la
+especificacion contra la que se va a medir.
+
+**NO MEDIDO:** el costo del `fsync` por veredicto y la tasa a la que el WAL se
+vuelve cuello de botella (el muestreo de aceptados es hipotesis sin numero); si
+el `AgentState` aguanta el estado de cadena sin cambiar la granularidad de
+`agent.mu` (afirmado por lectura); si D-18 es explotable en el deployment real.
+
+**Archivo de esta respuesta:** `respuestas/2026-09-07-03-spec-ir-testis.md`.
