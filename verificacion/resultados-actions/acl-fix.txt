@@ -1,0 +1,142 @@
+Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)
+Commit:  d6e27496df27318899baae2191fe98868928d0ae
+Fecha:   2026-09-07T19:04:34Z
+runner:  Linux 6.17.0-1022-azure x86_64
+mosquitto version 2.0.18
+acl.conf sha256: b1db1c489759a6662503525bfc3d6e24da17466ca5743ad8a62290cde2cf5a59
+
+=== acl.conf medido (solo lineas efectivas) ===
+pattern read  fleet/%u/#
+pattern write fleet/%u/#
+user fleet_server
+topic readwrite fleet/#
+
+=== arranque del broker ===
+broker: VIVO
+1788807874: mosquitto version 2.0.18 starting
+1788807874: Config loaded from /tmp/mosq.conf.
+1788807874: Opening ipv4 listen socket on port 18832.
+1788807874: mosquitto version 2.0.18 running
+
+=== VEREDICTO POR CASO ===
+T0   PASS  el broker arranca con este ACL                             esperado=VIVO     obtenido=VIVO
+T1   PASS  probe publica en su propio subarbol fleet/probe/t1         esperado=ALLOWED  obtenido=ALLOWED
+T2   PASS  probe publica en el subarbol de OTRO fleet/otro/t2         esperado=DENIED   obtenido=DENIED
+T3   PASS  probe publica fuera del arbol fleet: libre/t3              esperado=DENIED   obtenido=DENIED
+T4   PASS  fleet_server publica en fleet/t4 (control positivo)        esperado=ALLOWED  obtenido=ALLOWED
+T5   PASS  usuario anonymous publica en libre/t5 (era rc0 antes)      esperado=DENIED   obtenido=DENIED
+T6   PASS  OTA llega al nodo: probe recibe en fleet/probe/#           esperado=RECIBIDO obtenido=RECIBIDO
+T7   PASS  aislamiento de lectura: probe NO recibe fleet/otro/#       esperado=VACIO    obtenido=VACIO
+T8   PASS  a_b_c recibe fleet/a_b_c/# (D-45 sigue ABIERTO)            esperado=RECIBIDO obtenido=RECIBIDO
+
+PASSES=9
+FAILS=0
+RESULTADO=VERDE
+
+=== denegaciones registradas por el broker ===
+1788807878: Denied PUBLISH from auto-4890CF4F-AA0B-B167-0899-A5F234F6D0D5 (d0, q1, r0, m1, 'fleet/otro/t2', ... (1 bytes))
+1788807878: Denied PUBLISH from auto-645EB069-8076-F8F0-2B24-B096D9670EAD (d0, q1, r0, m1, 'libre/t3', ... (1 bytes))
+1788807879: Denied PUBLISH from auto-2A89DE9F-B754-03A7-A40F-929B99B8F32E (d0, q1, r0, m1, 'libre/t5', ... (1 bytes))
+conteo_denied=3
+
+=== log completo del broker ===
+1788807874: mosquitto version 2.0.18 starting
+1788807874: Config loaded from /tmp/mosq.conf.
+1788807874: Opening ipv4 listen socket on port 18832.
+1788807874: mosquitto version 2.0.18 running
+1788807877: New connection from 127.0.0.1:53802 on port 18832.
+1788807877: New client connected from 127.0.0.1:53802 as auto-4BE5459D-382C-4A76-413B-08024BEA5D29 (p2, c1, k60, u'probe').
+1788807877: No will message specified.
+1788807877: Sending CONNACK to auto-4BE5459D-382C-4A76-413B-08024BEA5D29 (0, 0)
+1788807877: Received PUBLISH from auto-4BE5459D-382C-4A76-413B-08024BEA5D29 (d0, q1, r0, m1, 'fleet/probe/t1', ... (1 bytes))
+1788807877: Sending PUBACK to auto-4BE5459D-382C-4A76-413B-08024BEA5D29 (m1, rc0)
+1788807877: Received DISCONNECT from auto-4BE5459D-382C-4A76-413B-08024BEA5D29
+1788807877: Client auto-4BE5459D-382C-4A76-413B-08024BEA5D29 disconnected.
+1788807878: New connection from 127.0.0.1:53806 on port 18832.
+1788807878: New client connected from 127.0.0.1:53806 as auto-4890CF4F-AA0B-B167-0899-A5F234F6D0D5 (p2, c1, k60, u'probe').
+1788807878: No will message specified.
+1788807878: Sending CONNACK to auto-4890CF4F-AA0B-B167-0899-A5F234F6D0D5 (0, 0)
+1788807878: Denied PUBLISH from auto-4890CF4F-AA0B-B167-0899-A5F234F6D0D5 (d0, q1, r0, m1, 'fleet/otro/t2', ... (1 bytes))
+1788807878: Sending PUBACK to auto-4890CF4F-AA0B-B167-0899-A5F234F6D0D5 (m1, rc135)
+1788807878: Received DISCONNECT from auto-4890CF4F-AA0B-B167-0899-A5F234F6D0D5
+1788807878: Client auto-4890CF4F-AA0B-B167-0899-A5F234F6D0D5 disconnected.
+1788807878: New connection from 127.0.0.1:53808 on port 18832.
+1788807878: New client connected from 127.0.0.1:53808 as auto-645EB069-8076-F8F0-2B24-B096D9670EAD (p2, c1, k60, u'probe').
+1788807878: No will message specified.
+1788807878: Sending CONNACK to auto-645EB069-8076-F8F0-2B24-B096D9670EAD (0, 0)
+1788807878: Denied PUBLISH from auto-645EB069-8076-F8F0-2B24-B096D9670EAD (d0, q1, r0, m1, 'libre/t3', ... (1 bytes))
+1788807878: Sending PUBACK to auto-645EB069-8076-F8F0-2B24-B096D9670EAD (m1, rc135)
+1788807878: Received DISCONNECT from auto-645EB069-8076-F8F0-2B24-B096D9670EAD
+1788807878: Client auto-645EB069-8076-F8F0-2B24-B096D9670EAD disconnected.
+1788807879: New connection from 127.0.0.1:53812 on port 18832.
+1788807879: New client connected from 127.0.0.1:53812 as auto-E473ADFD-40F7-53DF-C588-C6372F207A80 (p2, c1, k60, u'fleet_server').
+1788807879: No will message specified.
+1788807879: Sending CONNACK to auto-E473ADFD-40F7-53DF-C588-C6372F207A80 (0, 0)
+1788807879: Received PUBLISH from auto-E473ADFD-40F7-53DF-C588-C6372F207A80 (d0, q1, r0, m1, 'fleet/t4', ... (1 bytes))
+1788807879: Sending PUBACK to auto-E473ADFD-40F7-53DF-C588-C6372F207A80 (m1, rc0)
+1788807879: Received DISCONNECT from auto-E473ADFD-40F7-53DF-C588-C6372F207A80
+1788807879: Client auto-E473ADFD-40F7-53DF-C588-C6372F207A80 disconnected.
+1788807879: New connection from 127.0.0.1:53814 on port 18832.
+1788807879: New client connected from 127.0.0.1:53814 as auto-2A89DE9F-B754-03A7-A40F-929B99B8F32E (p2, c1, k60, u'anonymous').
+1788807879: No will message specified.
+1788807879: Sending CONNACK to auto-2A89DE9F-B754-03A7-A40F-929B99B8F32E (0, 0)
+1788807879: Denied PUBLISH from auto-2A89DE9F-B754-03A7-A40F-929B99B8F32E (d0, q1, r0, m1, 'libre/t5', ... (1 bytes))
+1788807879: Sending PUBACK to auto-2A89DE9F-B754-03A7-A40F-929B99B8F32E (m1, rc135)
+1788807879: Received DISCONNECT from auto-2A89DE9F-B754-03A7-A40F-929B99B8F32E
+1788807879: Client auto-2A89DE9F-B754-03A7-A40F-929B99B8F32E disconnected.
+1788807879: New connection from 127.0.0.1:53818 on port 18832.
+1788807879: New client connected from 127.0.0.1:53818 as auto-6DD28A5F-7DFF-ECA5-77A8-6F14C816CC64 (p2, c1, k60, u'probe').
+1788807879: No will message specified.
+1788807879: Sending CONNACK to auto-6DD28A5F-7DFF-ECA5-77A8-6F14C816CC64 (0, 0)
+1788807879: Received SUBSCRIBE from auto-6DD28A5F-7DFF-ECA5-77A8-6F14C816CC64
+1788807879: 	fleet/probe/# (QoS 0)
+1788807879: auto-6DD28A5F-7DFF-ECA5-77A8-6F14C816CC64 0 fleet/probe/#
+1788807879: Sending SUBACK to auto-6DD28A5F-7DFF-ECA5-77A8-6F14C816CC64
+1788807881: New connection from 127.0.0.1:53824 on port 18832.
+1788807881: New client connected from 127.0.0.1:53824 as auto-31FE4F95-3C31-39F3-8E3A-456D55E8C229 (p2, c1, k60, u'fleet_server').
+1788807881: No will message specified.
+1788807881: Sending CONNACK to auto-31FE4F95-3C31-39F3-8E3A-456D55E8C229 (0, 0)
+1788807881: Received PUBLISH from auto-31FE4F95-3C31-39F3-8E3A-456D55E8C229 (d0, q1, r0, m1, 'fleet/probe/ota', ... (9 bytes))
+1788807881: Sending PUBLISH to auto-6DD28A5F-7DFF-ECA5-77A8-6F14C816CC64 (d0, q0, r0, m0, 'fleet/probe/ota', ... (9 bytes))
+1788807881: Sending PUBACK to auto-31FE4F95-3C31-39F3-8E3A-456D55E8C229 (m1, rc0)
+1788807881: Received DISCONNECT from auto-31FE4F95-3C31-39F3-8E3A-456D55E8C229
+1788807881: Client auto-31FE4F95-3C31-39F3-8E3A-456D55E8C229 disconnected.
+1788807881: Received DISCONNECT from auto-6DD28A5F-7DFF-ECA5-77A8-6F14C816CC64
+1788807881: Client auto-6DD28A5F-7DFF-ECA5-77A8-6F14C816CC64 disconnected.
+1788807881: New connection from 127.0.0.1:53832 on port 18832.
+1788807881: New client connected from 127.0.0.1:53832 as auto-30F4367F-1368-9E71-E682-990F3E638DF0 (p2, c1, k60, u'probe').
+1788807881: No will message specified.
+1788807881: Sending CONNACK to auto-30F4367F-1368-9E71-E682-990F3E638DF0 (0, 0)
+1788807881: Received SUBSCRIBE from auto-30F4367F-1368-9E71-E682-990F3E638DF0
+1788807881: 	fleet/otro/# (QoS 0)
+1788807881: auto-30F4367F-1368-9E71-E682-990F3E638DF0 0 fleet/otro/#
+1788807881: Sending SUBACK to auto-30F4367F-1368-9E71-E682-990F3E638DF0
+1788807883: New connection from 127.0.0.1:53842 on port 18832.
+1788807883: New client connected from 127.0.0.1:53842 as auto-A51D3429-3E7D-7051-F538-87656FA38C1A (p2, c1, k60, u'fleet_server').
+1788807883: No will message specified.
+1788807883: Sending CONNACK to auto-A51D3429-3E7D-7051-F538-87656FA38C1A (0, 0)
+1788807883: Received PUBLISH from auto-A51D3429-3E7D-7051-F538-87656FA38C1A (d0, q1, r0, m1, 'fleet/otro/secreto', ... (9 bytes))
+1788807883: Sending PUBACK to auto-A51D3429-3E7D-7051-F538-87656FA38C1A (m1, rc0)
+1788807883: Received DISCONNECT from auto-A51D3429-3E7D-7051-F538-87656FA38C1A
+1788807883: Client auto-A51D3429-3E7D-7051-F538-87656FA38C1A disconnected.
+1788807889: Received DISCONNECT from auto-30F4367F-1368-9E71-E682-990F3E638DF0
+1788807889: Client auto-30F4367F-1368-9E71-E682-990F3E638DF0 disconnected.
+1788807889: New connection from 127.0.0.1:56690 on port 18832.
+1788807889: New client connected from 127.0.0.1:56690 as auto-62C78BB4-6506-F91C-E85B-CB6136590392 (p2, c1, k60, u'a_b_c').
+1788807889: No will message specified.
+1788807889: Sending CONNACK to auto-62C78BB4-6506-F91C-E85B-CB6136590392 (0, 0)
+1788807889: Received SUBSCRIBE from auto-62C78BB4-6506-F91C-E85B-CB6136590392
+1788807889: 	fleet/a_b_c/# (QoS 0)
+1788807889: auto-62C78BB4-6506-F91C-E85B-CB6136590392 0 fleet/a_b_c/#
+1788807889: Sending SUBACK to auto-62C78BB4-6506-F91C-E85B-CB6136590392
+1788807891: New connection from 127.0.0.1:56704 on port 18832.
+1788807891: New client connected from 127.0.0.1:56704 as auto-702C1232-2610-B31D-E479-7893F02200B9 (p2, c1, k60, u'fleet_server').
+1788807891: No will message specified.
+1788807891: Sending CONNACK to auto-702C1232-2610-B31D-E479-7893F02200B9 (0, 0)
+1788807891: Received PUBLISH from auto-702C1232-2610-B31D-E479-7893F02200B9 (d0, q1, r0, m1, 'fleet/a_b_c/x', ... (9 bytes))
+1788807891: Sending PUBLISH to auto-62C78BB4-6506-F91C-E85B-CB6136590392 (d0, q0, r0, m0, 'fleet/a_b_c/x', ... (9 bytes))
+1788807891: Sending PUBACK to auto-702C1232-2610-B31D-E479-7893F02200B9 (m1, rc0)
+1788807891: Received DISCONNECT from auto-702C1232-2610-B31D-E479-7893F02200B9
+1788807891: Client auto-702C1232-2610-B31D-E479-7893F02200B9 disconnected.
+1788807891: Received DISCONNECT from auto-62C78BB4-6506-F91C-E85B-CB6136590392
+1788807891: Client auto-62C78BB4-6506-F91C-E85B-CB6136590392 disconnected.
