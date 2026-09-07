@@ -20,6 +20,12 @@
 //   2. TestControlNegativo_ElFSMNoReportaCarrera: el AgentFSM si toma su mutex.
 //      Distingue "el detector reporta todo" de "reporta lo que hay".
 //   3. Dentro del test de HMAC, cambiar el nonce debe invalidar la firma.
+//
+// DEFECTO PROPIO CORREGIDO (encontrado corriendo, no releyendo): en la primera
+// version la salida del subproceso -- el reporte del detector, o sea LA
+// EVIDENCIA -- solo se imprimia en el camino de fallo. Con todo en verde
+// quedaba un veredicto sin su medicion, que es el testigo unico que W-01
+// prohibe. Ahora se loguea siempre.
 
 package gateway
 
@@ -40,6 +46,12 @@ import (
 // vacio, el binario se comporta como una suite de tests normal.
 const envModo = "KAMPE_MODO_CARRERA"
 
+// marcaReporte es el encabezado exacto que emite el detector del runtime.
+// Se busca la cadena COMPLETA a proposito: buscar solo "DATA RACE" hace que
+// cualquier comentario que mencione el tema cuente como si fuera un reporte.
+// Ese error ya se cometio una vez en el guard del workflow.
+const marcaReporte = "WARNING: DATA RACE"
+
 func TestMain(m *testing.M) {
 	switch os.Getenv(envModo) {
 	case "filtros":
@@ -57,8 +69,10 @@ func TestMain(m *testing.M) {
 }
 
 // correrEnSubproceso reejecuta este mismo binario de test (por lo tanto con la
-// misma instrumentacion) en el modo pedido, y devuelve stdout+stderr juntos.
-// GORACE=halt_on_error=0 hace que el detector imprima TODAS las carreras en
+// misma instrumentacion) en el modo pedido, devuelve stdout+stderr juntos, y
+// SIEMPRE los deja en el log del test. Esa ultima parte no es prolijidad: es
+// lo que hace que el veredicto sea recomputable por otro.
+// GORACE=halt_on_error=0 hace que el detector imprima todas las carreras en
 // vez de abortar en la primera.
 func correrEnSubproceso(t *testing.T, modo string) string {
 	t.Helper()
@@ -69,8 +83,14 @@ func correrEnSubproceso(t *testing.T, modo string) string {
 		"GORACE=halt_on_error=0",
 	)
 
-	salida, _ := cmd.CombinedOutput() // el exit code 66 del detector no es un error del test
-	return string(salida)
+	crudo, err := cmd.CombinedOutput() // el exit 66 del detector no es un error del test
+	salida := string(crudo)
+
+	t.Logf("EVIDENCIA CRUDA modo=%q exit_err=%v bytes=%d reportes=%d\n"+
+		"--- inicio salida del subproceso ---\n%s--- fin salida del subproceso ---",
+		modo, err, len(salida), strings.Count(salida, marcaReporte), salida)
+
+	return salida
 }
 
 // nuevoAgenteCompartido construye el AgentState igual que getOrCreateAgent.
@@ -160,13 +180,13 @@ func reproducirCarreraSembrada() {
 func TestControlPositivo_DetectorArmado(t *testing.T) {
 	salida := correrEnSubproceso(t, "armado")
 
-	if !strings.Contains(salida, "DATA RACE") {
-		t.Fatalf("el detector de carreras NO esta activo: la carrera sembrada "+
-			"no fue reportada. Este archivo solo mide algo con `go test -race`.\n"+
-			"--- salida del subproceso ---\n%s", salida)
+	if !strings.Contains(salida, marcaReporte) {
+		t.Fatalf("el detector de carreras NO esta activo: la carrera sembrada " +
+			"no fue reportada. Este archivo solo mide algo con `go test -race`.")
 	}
 
-	t.Logf("detector armado: reporto la carrera sembrada de contadorSinProteccion")
+	t.Logf("detector armado: %d reporte(s) sobre la carrera sembrada de contadorSinProteccion",
+		strings.Count(salida, marcaReporte))
 }
 
 // ---------------------------------------------------------------------------
@@ -188,18 +208,19 @@ func TestControlPositivo_DetectorArmado(t *testing.T) {
 func TestD26_LosFiltrosCorrenSinSincronizacion(t *testing.T) {
 	salida := correrEnSubproceso(t, "filtros")
 
-	if !strings.Contains(salida, "DATA RACE") {
-		t.Fatalf("D-26 no reproduce. Si los filtros se sincronizaron, borrar este "+
-			"test y cerrar D-26; si no, el reproductor dejo de golpear el mismo "+
-			"AgentState.\n--- salida del subproceso ---\n%s", salida)
+	if !strings.Contains(salida, marcaReporte) {
+		t.Fatalf("D-26 no reproduce. Si los filtros se sincronizaron, borrar este " +
+			"test y cerrar D-26; si no, el reproductor dejo de golpear el mismo " +
+			"AgentState.")
 	}
 
 	if !strings.Contains(salida, "filters.go") {
-		t.Errorf("hay una carrera, pero el reporte no cita filters.go: el sujeto "+
-			"medido puede no ser el que digo.\n--- salida ---\n%s", salida)
+		t.Errorf("hay carrera, pero el reporte no cita filters.go: el sujeto " +
+			"medido puede no ser el que digo")
 	}
 
-	t.Logf("D-26 MEDIDO: el detector reporta carrera en los filtros del agente compartido")
+	t.Logf("D-26 MEDIDO: %d reporte(s) del detector sobre los filtros del agente compartido",
+		strings.Count(salida, marcaReporte))
 }
 
 // ---------------------------------------------------------------------------
@@ -211,9 +232,9 @@ func TestD26_LosFiltrosCorrenSinSincronizacion(t *testing.T) {
 func TestControlNegativo_ElFSMNoReportaCarrera(t *testing.T) {
 	salida := correrEnSubproceso(t, "fsm")
 
-	if strings.Contains(salida, "DATA RACE") {
-		t.Fatalf("el AgentFSM toma su mutex en los cuatro metodos y aun asi hay "+
-			"carrera: el hallazgo es nuevo y mas grave.\n--- salida ---\n%s", salida)
+	if strings.Contains(salida, marcaReporte) {
+		t.Fatalf("el AgentFSM toma su mutex en los cuatro metodos y aun asi hay " +
+			"carrera: el hallazgo es nuevo y mas grave")
 	}
 
 	t.Logf("control negativo OK: el FSM sincronizado no produce reporte")
@@ -276,7 +297,7 @@ func TestD47_ElHMACNoCubreContextNiCiphertext(t *testing.T) {
 	// CONTROL POSITIVO de la funcion: tiene que poder decir NO.
 	pkt.Nonce++
 	if g.verifyPacketHMAC(pkt) {
-		t.Fatal("cambiar el nonce debe invalidar la firma; si no, la funcion "+
+		t.Fatal("cambiar el nonce debe invalidar la firma; si no, la funcion " +
 			"no discrimina y todo lo de abajo no mide nada")
 	}
 	pkt.Nonce--
@@ -285,7 +306,7 @@ func TestD47_ElHMACNoCubreContextNiCiphertext(t *testing.T) {
 	contextoOriginal := pkt.Context[0]
 	pkt.Context[0] = 999999.0
 	if !g.verifyPacketHMAC(pkt) {
-		t.Errorf("D-47 parece cerrado: el context ahora esta firmado. Actualizar "+
+		t.Errorf("D-47 parece cerrado: el context ahora esta firmado. Actualizar " +
 			"el contexto vivo y borrar este bloque")
 	} else {
 		t.Logf("D-47 MEDIDO: Context[0] paso de %v a 999999 y la firma sigue valida",
@@ -296,7 +317,7 @@ func TestD47_ElHMACNoCubreContextNiCiphertext(t *testing.T) {
 	// D-47, segunda mitad: el payload no esta firmado.
 	pkt.Ciphertext = []byte("carga-reemplazada-por-un-atacante")
 	if !g.verifyPacketHMAC(pkt) {
-		t.Errorf("D-47 parece cerrado: el ciphertext ahora esta firmado. "+
+		t.Errorf("D-47 parece cerrado: el ciphertext ahora esta firmado. " +
 			"Actualizar el contexto vivo y borrar este bloque")
 	} else {
 		t.Logf("D-47 MEDIDO: el ciphertext se reemplazo entero y la firma sigue valida")
@@ -369,7 +390,7 @@ func TestAgentFSM_RecordSuccessResetaElBackoff(t *testing.T) {
 	}
 
 	fsm.TriggerBlock(base)
-	if fsm.Allow(base.Add(101 * time.Millisecond)) == false {
+	if !fsm.Allow(base.Add(101 * time.Millisecond)) {
 		t.Error("tras el decay el backoff deberia ser 100ms (50 inicial x2), " +
 			"no los 800ms acumulados")
 	}
