@@ -21,6 +21,25 @@
 // confirmar lo que ya creo no es un guard. Ahora la clasificacion es automatica
 // y la seccion RESPUESTA no puede imprimir un numero sin ella.
 //
+// SEGUNDO DEFECTO PROPIO, PEOR, y es el que ponia ROJO el porton de `main`:
+// este archivo tenia UNA CARRERA DE DATOS. `sumidero` era una sola variable de
+// paquete escrita por las 8 goroutines sin sincronizar, en el archivo que
+// certifica que D-26 (una carrera de datos) esta cerrado. Medido:
+//
+//	latencia_test.go:194  WARNING: DATA RACE
+//	Write at 0x00000083ce80 by goroutine 32:  trabajoSintetico()
+//	Previous write        by goroutine 35:  trabajoSintetico()
+//	testing.go:1398: race detected during execution of test
+//
+// El detector marca el test como fallido DESPUES de que imprimio todo, asi que
+// los tres guards se leian en VERDE y el test caia igual. Eso refuta las dos
+// hipotesis que se habian escrito sobre la causa: GUARD 1 dio 47,2x con el
+// minimo en 3,0x, GUARD 2 dio 8,3x, y el control de contencion pasa solo bajo
+// -race. Ninguno de los dos guards era el problema.
+//
+// El arreglo es un sumidero POR GOROUTINE. No cambia lo que se mide: el sumidero
+// existe solo para que el compilador no elimine el trabajo sintetico.
+//
 // DOS SUJETOS, porque no son la misma pregunta:
 //
 //  1. La ESPERA del candado: cuanto se tarda en ADQUIRIRLO. Se mide directo
@@ -37,6 +56,12 @@
 // RELOJ dio 11.833.488 ns. Un maximo de esa escala es preempcion del scheduler
 // y robo de CPU de la VM, no espera de candado. Publicar el max como cola del
 // candado seria un error de atribucion, no un dato conservador.
+//
+// Y UNA TRAMPA MEDIDA, para el que lea los numeros de las dos condiciones: bajo
+// -race el caso real sube a "MEDIDO 5,7x sobre el piso" cuando sin -race es
+// "NO MEDIDO 1,02x". Eso NO es que el detector mejore la resolucion: infla la
+// operacion mas que el reloj y produce un MEDIDO artificial. Los numeros que se
+// citan son siempre los de SIN -race.
 //
 // Nada se asigna durante la medicion: las muestras van a slices preasignados por
 // goroutine, y los cuantiles se calculan despues.
@@ -178,20 +203,38 @@ func aplanar(por [][]int64) []int64 {
 // SUJETO 1: la espera para adquirir el candado
 // ---------------------------------------------------------------------------
 
-// sumidero evita que el compilador elimine el trabajo sintetico.
-var sumidero float64
+// ranuraSumidero es una ranura de una linea de cache. El padding no es adorno:
+// sin el, ocho ranuras contiguas comparten linea y el false sharing se cuela
+// DENTRO de la seccion critica que este archivo esta cronometrando.
+type ranuraSumidero struct {
+	valor float64
+	_     [56]byte
+}
+
+// sumideros evita que el compilador elimine el trabajo sintetico. Hay UNO POR
+// GOROUTINE a proposito.
+//
+// La version anterior era `var sumidero float64`, una sola variable de paquete
+// escrita por las 8 goroutines: una carrera de datos MIA, reportada por el
+// detector en latencia_test.go:194, y la causa real del rojo del porton de
+// `main`. No era ninguno de los guards.
+var sumideros [64]ranuraSumidero
 
 // trabajoSintetico aproxima la duracion de la seccion critica de
 // CoherenceFilter.Update, que el perfil de mutex senalo como dos tercios del
 // bloqueo. No pretende ser identica: pretende mantener el candado tomado un rato
 // comparable, que es lo que produce la cola.
-func trabajoSintetico(vec [ContextVectorSize]float64) {
+//
+// `ranura` es el indice de la goroutine que llama. Cada una escribe SOLO la
+// suya, asi que no hay carrera y tampoco hay sincronizacion que distorsione la
+// medicion.
+func trabajoSintetico(vec [ContextVectorSize]float64, ranura int) {
 	var dot, normF float64
 	for i := 0; i < ContextVectorSize; i++ {
 		dot += vec[i] * vec[i]
 		normF += vec[i]
 	}
-	sumidero = dot / (normF + DefaultEpsilon)
+	sumideros[ranura&63].valor = dot / (normF + DefaultEpsilon)
 }
 
 // medirEspera cronometra SOLO la adquisicion del candado, con `goroutines`
@@ -214,7 +257,7 @@ func medirEspera(etiqueta string, goroutines, porGoroutine int, candados []*sync
 				t0 := time.Now()
 				mu.Lock()
 				espera := time.Since(t0).Nanoseconds()
-				trabajoSintetico(vec)
+				trabajoSintetico(vec, g)
 				mu.Unlock()
 				muestras[g] = append(muestras[g], espera)
 			}
