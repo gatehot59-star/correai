@@ -1,41 +1,68 @@
 # ESTADO-KAMPE-IR.md
 
-Mapa del proyecto al **2026-09-07 21:00 UTC**, escrito para leerse de una vez.
+Mapa del proyecto al **2026-09-07 22:50 UTC**, escrito para leerse de una vez.
 El estado tecnico vivo esta en `CONTEXTO-KAMPE-IR.md`; esto es el mapa de
-**que existe, que esta medido y que falta**, mas el problema de proceso que
+**que existe, que esta medido y que falta**, mas los problemas de proceso que
 ninguno de los dos archivos declaraba.
 
 ---
 
-## 1. Lo primero, porque cambia como se lee todo lo demas
+## 0. LO PRIMERO: el porton de Go esta ROJO en la punta de la cadena
 
-**Hay 7 ramas y CERO mergeadas.** `main` sigue en el commit `aa98aa0d`, que es el
-codigo del dia 1 tal como entro del adjunto. Todo lo que se midio y arreglo hoy
-vive en ramas que esperan tu merge.
+**Mergear la cadena de Go hoy pone `main` en rojo.** Medido con check runs por
+PR, no con el estado combinado:
 
-Consecuencia concreta: **el repo no tiene una sola verdad, tiene siete.** Y
-`respuestas/` esta partido: la 07 esta en una rama, la 08 en otra, la 09 en otra,
-y ninguna rama tiene la bitacora completa. El indice real de hoy es este archivo.
-
-| Rama | Que trae | Estado |
+| PR | Rama | `hipersec (go build + vet + test -race)` |
 | --- | --- | --- |
-| `main` | los 9 archivos del adjunto, sin tests | intacto desde el dia 1 |
-| `titan/hnsw-public-benchmark` | benchmark HNSW real (FAISS, Iris y Wine UCI) | verde, sin PR |
-| `titan/auditoria-de-la-auditoria` | auditoria de D-40..D-54 + `CONTEXTO` actualizado | verde, sin PR |
-| `titan/fix-acl-mqtt` | el fix del ACL de MQTT | **PR #1**, 9/9 verde |
-| `titan/test-go-race` | primer test Go, mide D-26 | **PR #2**, 13/13 verde |
-| `titan/fix-d26-race` | el fix de D-26 | **PR #3**, 16/16 verde |
-| `titan/bench-candado` | costo del candado | **PR #4**, 26/26 verde |
-| `titan/latencia-p99` | p99 de la espera | verde, **sin PR** |
+| #1 | `titan/fix-acl-mqtt` | success, 6/6 verde |
+| #2 | `titan/test-go-race` | success, 6/6 verde |
+| #3 | `titan/fix-d26-race` | success, 6/6 verde |
+| #4 | `titan/bench-candado` | success, 6/6 verde |
+| **#5** | `titan/latencia-p99` | **failure (52 s)**, los otros 5 verde |
 
-Las ramas estan **encadenadas**, no en paralelo: `latencia-p99` desciende de
-`bench-candado`, que desciende de `fix-d26-race`, que desciende de `test-go-race`.
-Asi que `titan/latencia-p99` es la punta y contiene todo el trabajo de Go.
+**La causa, y es un defecto mio:** el `ci.yml` de `main` corre
+`go test -race ./...` **sin `-short`**, y ahi entran los cuatro tests de tiempo
+de pared que **yo mismo** declare invalidos de medir bajo `-race`, con el factor
+**16,9x** medido y commiteado. Mis workflows de rama corren `-short -race` y a eso
+le puse el nombre de "suite de correctitud": medi con mi propio porton y nunca
+abri el compartido.
 
-**`titan/fix-acl-mqtt` y `titan/auditoria-de-la-auditoria` estan por fuera de esa
-cadena** y van a necesitar merge aparte.
+**El fix ya existe y esta verificado: PR #8** (`titan/porton-de-go-short`), con
+base en esta rama a proposito, o sea corriendo sobre el arbol que hoy falla.
+Rojo -> verde, un flag de diferencia, y los 4 tests pasan a un job propio sin
+`-race`.
 
----
+**Ojo: `-short` saca el guard del porton, NO lo arregla.** Si el guard es fragil
+bajo el detector sigue fragil. Issue #7 abierto.
+
+**Y un aviso de instrumento:** el estado combinado devuelve
+`total_count: 0, statuses: []` sobre 6 jobs verdes. Los jobs de Actions publican
+**check runs**, no commit statuses. En este repo, siempre check runs.
+
+Lo encontro **Tao** (super agente de ClickUp), no yo. Verificacion en
+`respuestas/2026-09-07-14-verificacion-de-la-auditoria-de-tao.md`.
+
+## 1. Las ramas: 8 ramas, CERO mergeadas, y hacen falta 3 merges
+
+`main` sigue en el commit `aa98aa0d`, que es el codigo del dia 1. Todo lo que se
+midio y arreglo hoy vive en ramas.
+
+**CORRECCION de una version anterior de este archivo:** decia que
+`titan/fix-acl-mqtt` y `titan/auditoria-de-la-auditoria` estaban "por fuera de la
+cadena y van a necesitar merge aparte". **Era falso.** `fix-acl-mqtt` se creo
+**desde** `auditoria-de-la-auditoria`, asi que la PR #1 ya arrastra los tres
+workflows de auditoria, `t_engine_audit.{cpp,out}`, la respuesta 08 y la
+reescritura del contexto. Me lo corrigio Tao con el diff en la mano.
+
+**Son 3 hilos y 3 merges, no 7.**
+
+| Hilo | Ramas, de abajo hacia arriba | PR |
+| --- | --- | --- |
+| **A · ACL + auditoria** | `auditoria-de-la-auditoria` -> `fix-acl-mqtt` | **#1** (base `main`) |
+| **B · Go (cadena de 4 + el fix)** | `test-go-race` -> `fix-d26-race` -> `bench-candado` -> `latencia-p99` <- `porton-de-go-short` | #2, #3, #4, #5, **#8** |
+| **C · benchmark HNSW** | `hnsw-public-benchmark` | **#6** (la abrio Tao; yo la habia dejado sin PR) |
+
+`titan/auditoria-de-la-auditoria` **no necesita PR propia.**
 
 ## 2. El arbol, general
 
@@ -51,7 +78,7 @@ kampe-ir/  (slug del repo todavia: correai)
 +-- verificacion/     los instrumentos de medicion y su evidencia
 +-- bench/            benchmarks de recuperacion vectorial
 +-- respuestas/       bitacora append-only (PARTIDA entre ramas)
-+-- .github/workflows/  4 workflows, todos commitean su propio resultado
++-- .github/workflows/  5 workflows; los de rama commitean su propio resultado
 ```
 
 ## 3. El arbol, particular (rama `titan/latencia-p99`, la punta)
@@ -70,7 +97,7 @@ dualbrain/engine.hpp             el motor: compila, y la varianza colapsa
 audit/custos_legis.py            HMAC ok, canonicalizacion colisionable
 audit/schema.sql                 5 tablas, ninguna creada en ningun Postgres
 fleet/fleet_manager.py  15.916 B  no ejecutado nunca
-mqtt/acl.conf                    el fix esta en OTRA rama
+mqtt/acl.conf                    el fix esta en OTRA rama (PR #1)
 
 verificacion/
 |-- t_testis.py         31.413 B  11 controles positivos, fallos=0
@@ -104,49 +131,54 @@ bench/hubness_recall.py          D-30, kNN exacto
 | 16 | p99 de la espera, patologico | **28.911 ns** (112x) | estable en 3 corridas |
 | 17 | Mahalanobis diagonal **no mejora** recall | empata o baja | HNSW real, Iris y Wine |
 | 18 | Testis: el diseno cierra | 11 controles, fallos=0 | `t_testis.py` |
+| 19 | **El porton de Go de `main` esta rojo** | failure en 52 s, PR #5 | check runs |
+| 20 | El `-short` lo pone verde | 36 s, mismo arbol | PR #8 |
 
 **Todos con evidencia cruda commiteada y control que puede dar rojo.**
 
 ## 5. Que FALTA, en orden de lo que rompe el producto
 
-1. **Mergear.** Siete ramas, cero merges. Cada dia que pasa el conflicto crece.
-2. **Limitar conexiones concurrentes por certificado.** Cierra TRES hallazgos de
+1. **Mergear el PR #8 primero.** Sin eso, mergear la cadena pone `main` en rojo.
+2. **Los 3 merges.** Ocho ramas, cero merges. El conflicto crece solo.
+3. **Limitar conexiones concurrentes por certificado.** Cierra TRES hallazgos de
    una vez: la contencion, el p99 de 28,9 us y la mezcla semantica de la EWMA.
    Es la unica pieza que tres mediciones distintas senalaron sola.
-3. **`engine.hpp` v4.4:** Q4.12 en vez de Q8.8, normalizar el token, sacar la
+4. **`engine.hpp` v4.4:** Q4.12 en vez de Q8.8, normalizar el token, sacar la
    palabra "spinlock" que promete un candado inexistente. Sin esto el motor se
    apaga solo y el OTA nunca se dispara.
-4. **Formato `centroids.bin` v2** unico para Fleet y motor (D-42): hoy Fleet
+5. **Formato `centroids.bin` v2** unico para Fleet y motor (D-42): hoy Fleet
    acepta un paquete que el motor **no puede cargar**.
-5. **`download_ota`:** guardar `sha256(delivery_token)` y comparar, o sacar el
+6. **`download_ota`:** guardar `sha256(delivery_token)` y comparar, o sacar el
    header. Un header exigido y no verificado es peor que no tenerlo.
-6. **Testis en Go.** Todo el modulo IR esta especificado y validado en Python, y
+7. **Testis en Go.** Todo el modulo IR esta especificado y validado en Python, y
    **no existe una linea de Go**. Es el diferencial del producto.
-7. **Nada toco Postgres.** Las 5 tablas de `schema.sql` no existen en ninguna
-   base.
-8. **No hay cliente mTLS**, asi que no hay una sola prueba punta a punta.
-9. **Cero clientes reales.** Ninguna de las 18 mediciones prueba que alguien
-   quiera esto.
+8. **Nada toco Postgres.** Las 5 tablas de `schema.sql` no existen en ninguna base.
+9. **No hay cliente mTLS**, asi que no hay una sola prueba punta a punta.
+10. **Cero clientes reales.** Ninguna de las 20 mediciones prueba que alguien
+    quiera esto.
 
 ## 6. Lo que espera decision tuya
 
-1. **Mergear las 7 ramas, y en que orden.** Yo no mergeo.
+1. **Mergear.** Orden: PR #8 -> la cadena de Go -> PR #1 -> PR #6. Yo no mergeo.
 2. **Renombrar el slug** `correai` -> `kampe-ir`. Solo lo podes hacer vos.
 3. **Que hace el gateway con la segunda conexion** del mismo certificado:
-   rechazarla o multiplexar. De esto dependen los puntos 2 y 3 de arriba.
+   rechazarla o multiplexar. De esto dependen los puntos 3 y 4 de arriba.
 4. **Que L2 tiene el A53 objetivo:** 256 KiB obliga a bajar a 768 centroides.
 5. **Cuanto vale T**, el intervalo de sellado de Testis.
 6. **Publico o privado**, y si KAMPE IR es proyecto o pieza de MUDH / AURA / SIAO.
 
 ## 7. El patron de mis propios errores, hoy
 
-**Cinco turnos, cinco defectos, y los cinco en el INSTRUMENTO, no en el sujeto:**
+**Seis turnos, seis defectos, y los seis en el INSTRUMENTO, no en el sujeto:**
 
 1. Un guard que paso **contando un `echo` mio** que mencionaba `DATA RACE`.
 2. Evidencia cruda que solo se imprimia en el camino de fallo (testigo unico).
 3. Un log que imprimia `1.000000`, exactamente el valor que el guard prohibia.
 4. Un guard que buscaba `Total:`, cadena que `pprof -top` **no emite**.
 5. Un guard de un lado solo, que casi publico **el piso del reloj** como el p99.
+6. **Medi con mi propio porton de rama (`-short -race`) y nunca abri el porton
+   compartido de `main`**, que corre sin `-short`. Los cinco primeros daban un
+   numero raro; este pone `main` en rojo el dia del merge. Lo encontro Tao.
 
 Y dos estructurales, repetidos cuatro veces: **un archivo compartido produce un
 guard que mide otra cosa**, y **una seccion sin guard falla en silencio** (la
@@ -154,4 +186,5 @@ dispersion entre corridas imprimio `NA` y el veredicto siguio en verde).
 
 La leccion operativa: en este proyecto el sujeto medido casi siempre resulto
 como la medicion decia. **Lo que falla es el aparato.** Cada instrumento nuevo
-necesita su propio control antes de que su numero valga.
+necesita su propio control antes de que su numero valga, **y el porton propio no
+es el porton compartido.**
