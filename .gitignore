@@ -1,0 +1,29 @@
+# binarios: prohibidos por clean-room, el CI compila desde fuente
+*.bin
+*.o
+*.so
+*.a
+*.exe
+*.apk
+*.aab
+*.elf
+*.img
+
+# entornos y cache
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+.env
+.env.*
+
+# artefactos de build
+build/
+dist/
+out/
+*.log
+
+# sistema
+.DS_Store
+Thumbs.db
