@@ -32,6 +32,12 @@
 // con su reporte crudo sin que el hallazgo se disfrace de "suite roja". Para el
 // caso en que la carrera NO se espera (D-26 ya arreglado) el reproductor corre
 // EN PROCESO a proposito: ahi si quiero que una carrera residual rompa el test.
+//
+// DEFECTO PROPIO DE REPORTE, corregido: la primera corrida post-fix imprimia
+// "Coherence{last=1.000000}" con %.6f, que es exactamente el valor inicial que
+// el guard prohibe. El guard estaba bien (last vale 0,9999999976 y el test no
+// fallo), pero la linea que existe para que un tercero lo verifique mostraba lo
+// contrario de lo que media. Ahora se imprime con %.17g y con el delta.
 
 package gateway
 
@@ -358,17 +364,27 @@ func TestD26_LosFiltrosSonSegurosEnConcurrencia(t *testing.T) {
 			agente.Huber.s, agente.Huber.mu, agente.Huber.v)
 	}
 
+	// c.last arranca en 1.0 exacto y converge a 1 - eps/(normF*normM), que con
+	// este contexto queda en 0,9999999976: distinto de 1.0 pero indistinguible
+	// con %.6f. Por eso se compara con == y se imprime el delta, no el valor
+	// redondeado: si el log mostrara 1.000000 a secas, nadie podria verificar
+	// este guard desde la evidencia.
+	delta := 1.0 - agente.Coherence.last
 	if agente.Coherence.last == 1.0 {
 		t.Errorf("el reproductor no movio c.last de CoherenceFilter (sigue en " +
-			"su valor inicial 1.0): un verde asi no prueba nada")
+			"su valor inicial 1.0 exacto): un verde asi no prueba nada")
 	}
 
 	esperadas := goroutinesDelReproductor * iteracionesPorGoroutine
 	t.Logf("D-26 CERRADO: %d llamadas concurrentes a cada filtro sobre el mismo "+
-		"*AgentState, sin reporte del detector. Estado final: Huber{s=%.6f "+
-		"mu=%.6f v=%.6f} Coherence{last=%.6f}",
-		esperadas, agente.Huber.s, agente.Huber.mu, agente.Huber.v,
-		agente.Coherence.last)
+		"*AgentState, sin reporte del detector.\n"+
+		"  Huber.s     = %.17g\n"+
+		"  Huber.mu    = %.17g\n"+
+		"  Huber.v     = %.17g\n"+
+		"  Coherence.last = %.17g   (1 - last = %.3g, distinto de 0 => se movio)",
+		esperadas,
+		agente.Huber.s, agente.Huber.mu, agente.Huber.v,
+		agente.Coherence.last, delta)
 }
 
 // TestD26_ElSubprocesoTampocoReporta repite la medicion con EL MISMO
