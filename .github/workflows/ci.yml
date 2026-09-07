@@ -1,5 +1,5 @@
-# CI de CORREAI. Instrumento ajeno: runner limpio de GitHub, baja el repo de
-# cero. Tres jobs separados a proposito, para que un rojo diga QUE es rojo.
+# CI de KAMPE IR. Instrumento ajeno: runner limpio de GitHub, baja el repo de
+# cero. Jobs separados a proposito, para que un rojo diga QUE es rojo.
 name: ci
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   go-gateway:
-    name: gateway (go build + vet + test -race)
+    name: hipersec (go build + vet + test -race)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
       - run: ./t_engine
 
   c-antireplay:
-    name: gateway anti-replay (aritmetica de validateTimestamp)
+    name: hipersec anti-replay (aritmetica de validateTimestamp)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,3 +47,27 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m compileall -q audit fleet
+
+  custos-legis:
+    name: custos legis (HMAC vs stdlib + colision de canonicalizacion)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python verificacion/t_custos.py
+      - run: python verificacion/t_fleet.py
+
+  testis:
+    name: testis (cadena de hash + Sello, 10 controles positivos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # `cryptography` solo habilita el control positivo de ed25519 (D-25).
+      # Sin ella el verificador corre igual y lo declara NO MEDIDO.
+      - run: pip install --quiet cryptography
+      - run: python verificacion/t_testis.py
