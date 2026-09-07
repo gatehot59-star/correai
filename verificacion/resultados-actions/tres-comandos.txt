@@ -1,0 +1,89 @@
+Maquina:  Actions ubuntu-latest (VM limpia, instrumento ajeno)
+Commit:   14fd6879e7998b8e20e0a2aaa3b9da21aa76effe
+Fecha:    2026-09-07T18:42:36Z
+runner:   Linux 6.17.0-1022-azure x86_64
+
+=== versiones ===
+go version go1.22.12 linux/amd64
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+mosquitto version 2.0.18
+
+
+=== COMANDO 1: go build ./... ===
+EXIT_go_build=0
+
+=== COMANDO 1b: go vet ./... ===
+EXIT_go_vet=0
+
+=== COMANDO 1c: gofmt -l . ===
+gateway/filters.go
+gateway/fsm.go
+gateway/gateway.go
+EXIT_gofmt=0
+
+=== COMANDO 2: g++ -std=c++17 -fsyntax-only dualbrain/engine.hpp ===
+dualbrain/engine.hpp:4:9: warning: #pragma once in main file
+    4 | #pragma once
+      |         ^~~~
+EXIT_gpp_syntax=0
+
+=== COMANDO 2b: instrumento de auditoria compilado y corrido ===
+EXIT_gpp_build=0
+== D-51: huella real reportada por el compilador ==
+sizeof(Engine_v4_3)    = 268288 bytes
+datos utiles (sin pad) = 266240 bytes
+L2 de 256 KiB          = 262144 bytes
+cabe en 256 KiB?       = NO
+kSigmaScale            = 0.00390625
+kMinSigmaSq            = 0.00010000
+kMinSigmaSq cuantizado = 0.025600 -> int16 0
+
+== D-41: colapso de varianza en dimension estable ==
+tras inject: sigma_crudo=256 kappa=1.00000000
+it=    1 sigma_crudo=   253 var_efectiva=0.98828125 kappa=0.98828125 dist=0.000000
+it=   10 sigma_crudo=   226 var_efectiva=0.88281250 kappa=0.88281250 dist=0.000000
+it=   50 sigma_crudo=   137 var_efectiva=0.53515625 kappa=0.53515625 dist=0.000000
+it=  100 sigma_crudo=    68 var_efectiva=0.26562500 kappa=0.26562500 dist=0.000000
+it=  300 sigma_crudo=     0 var_efectiva=0.00000000 kappa=0.00000000 dist=0.000000
+it=  600 sigma_crudo=     0 var_efectiva=0.00000000 kappa=0.00000000 dist=0.000000
+it= 1200 sigma_crudo=     0 var_efectiva=0.00000000 kappa=0.00000000 dist=0.000000
+it= 2000 sigma_crudo=     0 var_efectiva=0.00000000 kappa=0.00000000 dist=0.000000
+VEREDICTO D-41: COLAPSO A 0 (reproducido)
+
+== D-41b: el cero es estado ABSORBENTE, no piso ==
+escape teorico: kEwmaAlpha*sq >= kSigmaScale -> sq >= 0.390625
+amplitud  0.50 sq_max~  0.0625 sigma_final=     0 -> CERO (absorbente)
+amplitud  1.00 sq_max~  0.2500 sigma_final=     0 -> CERO (absorbente)
+amplitud  1.50 sq_max~  0.5625 sigma_final=     5 -> VIVA (control puede dar verde)
+amplitud  2.00 sq_max~  1.0000 sigma_final=    28 -> VIVA (control puede dar verde)
+amplitud  4.00 sq_max~  4.0000 sigma_final=   304 -> VIVA (control puede dar verde)
+amplitud  8.00 sq_max~ 16.0000 sigma_final=  1362 -> VIVA (control puede dar verde)
+
+== D-41c: amplificacion de la distancia ==
+perturbacion 0.01 con var colapsada aporta 1.0000
+con la varianza minima representable aporta 0.0256 (factor 39.1x)
+
+== D-49: process_token normaliza el token? ==
+dist(norma N)=0.000000 dist(norma 2N)=1.000000 -> la norma CAMBIA la distancia (D-49 confirmado)
+EXIT_gpp_run=0
+
+=== COMANDO 3: mosquitto -c contra mqtt/acl.conf ===
+listener 1883 127.0.0.1
+allow_anonymous false
+password_file /tmp/mosq_pw
+acl_file /home/runner/work/correai/correai/mqtt/acl.conf
+1788806568: mosquitto version 2.0.18 starting
+1788806568: Config loaded from /tmp/mosq.conf.
+1788806568: Warning: File /home/runner/work/correai/correai/mqtt/acl.conf has world readable permissions. Future versions will refuse to load this file.
+To fix this, use `chmod 0700 /home/runner/work/correai/correai/mqtt/acl.conf`.
+1788806568: Opening ipv4 listen socket on port 1883.
+1788806568: Error: Address already in use
+EXIT_mosquitto_pipeline=1
+
+=== COMANDO 3b: hash de los archivos medidos ===
+6ab3fdf8b0f369aeeb76c2a4c3fac89acd687b8775e19c305492d08e977f8333  go.mod
+f9cfc0580a2ddc23ccda6f675ebfa6f0bade054b86eb816ee03ed32e4a252dc1  gateway/gateway.go
+289eb0b11e82a8b42c5b41a8d947ef713adbb75607a0a05dfebe75e503c29383  gateway/filters.go
+127f9bccd1edbc2a34c6d4514df8cc0a85d6cd324fa372e67e0777410360f4c4  gateway/fsm.go
+7f0b0c4bd46b7210008626c04137a72f77466024337c204414afabad30f28f4e  dualbrain/engine.hpp
+e8370c8d604d7b0e14b0e7d81f8ff55f2009a85c26ad88a19218919d4e858ad4  mqtt/acl.conf
