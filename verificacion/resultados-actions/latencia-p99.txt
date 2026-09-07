@@ -1,0 +1,103 @@
+Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)
+Commit:  ae4f8da6cca1f73b62ea3633965fc425561c98ad
+Rama:    titan/latencia-p99
+Fecha:   2026-09-07T20:45:55Z
+runner:  Linux 6.17.0-1022-azure x86_64
+go version go1.22.12 linux/amd64
+nproc:   4
+cpu:     AMD EPYC 9V74 80-Core Processor
+mem:     15Gi
+sha256 latencia_test.go: 163fbb557df26f4c7360381518aa29a9cd49bb3d4a3eb2f55dec20da33934ee6
+sha256 filters.go:       2f277d71f51a0ab2ddb509f03521a4dca49e59282992fdea8e954a0afa94a335
+
+=== gofmt del archivo de este PR ===
+(vacio arriba = ya estaba formateado)
+
+=== go build ./... ===
+EXIT_build=0
+
+=== go vet ./... ===
+EXIT_vet=0
+
+=== DISTRIBUCIONES, corrida 1 (la que se cita) ===
+        PISO: par time.Now() (g=8)                     n=800000    media=    82.8  p50=    61  p90=     70  p99=      71  p99.9=       80  max=  11833488
+        PISO: par time.Now() (g=8)                     n=800000    media=    82.8  p50=    61  p90=     70  p99=      71  p99.9=       80  max=  11833488
+        ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    68.8  p50=    50  p90=     70  p99=      80  p99.9=      100  max=  10077796
+        ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=  1039.4  p50=   110  p90=    201  p99=   28442  p99.9=   125064  max=   1191419
+        PAQUETE: 1 goroutine, sin disputa              n=100000    media=    97.9  p50=   100  p90=    100  p99=     101  p99.9=      130  max=     68932
+        PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   237.6  p50=   130  p90=    140  p99=     150  p99.9=      180  max=  23689469
+        PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  1219.3  p50=   220  p90=    952  p99=   24887  p99.9=   119171  max=   1130515
+
+=== EL NUMERO PEDIDO, las tres corridas ===
+--- latencia-p99-corrida-1.txt ---
+=== RESPUESTA ===
+p99 de la ESPERA, caso real (1 candado por agente):     80 ns
+p99 de la ESPERA, caso patologico (1 candado, 8 gor.):  28442 ns
+p99.9 patologico: 125064 ns   max patologico: 1191419 ns
+p99 del PAQUETE completo, caso real:                    150 ns
+p99 del PAQUETE completo, caso patologico:              24887 ns
+piso del reloj (p99): 71 ns
+--- latencia-p99-corrida-2.txt ---
+=== RESPUESTA ===
+p99 de la ESPERA, caso real (1 candado por agente):     80 ns
+p99 de la ESPERA, caso patologico (1 candado, 8 gor.):  29303 ns
+p99.9 patologico: 122445 ns   max patologico: 803916 ns
+p99 del PAQUETE completo, caso real:                    230 ns
+p99 del PAQUETE completo, caso patologico:              25067 ns
+piso del reloj (p99): 71 ns
+--- latencia-p99-corrida-3.txt ---
+=== RESPUESTA ===
+p99 de la ESPERA, caso real (1 candado por agente):     71 ns
+p99 de la ESPERA, caso patologico (1 candado, 8 gor.):  25734 ns
+p99.9 patologico: 125877 ns   max patologico: 3035037 ns
+p99 del PAQUETE completo, caso real:                    160 ns
+p99 del PAQUETE completo, caso patologico:              25358 ns
+piso del reloj (p99): 71 ns
+
+=== GUARDS internos del test, por corrida ===
+        GUARD 1  p99 patologico / p99 del piso = 400.6x (minimo exigido 3.0x)
+    latencia_test.go:322: GUARD 2  p99 espera compartida / aislada = 355.5x
+        GUARD 1  p99 patologico / p99 del piso = 412.7x (minimo exigido 3.0x)
+    latencia_test.go:322: GUARD 2  p99 espera compartida / aislada = 366.3x
+        GUARD 1  p99 patologico / p99 del piso = 362.5x (minimo exigido 3.0x)
+    latencia_test.go:322: GUARD 2  p99 espera compartida / aislada = 362.5x
+
+=== CONTROL POSITIVO DE COLA ===
+        candado por agente (N agentes aislados)        n=800000    media=   266.0  p50=   140  p90=    171  p99=     220  p99.9=      261  max=  28001666
+        candado GLOBAL (N agentes aislados)            n=800000    media=  1355.2  p50=   190  p90=    511  p99=   27525  p99.9=   170762  max=   3319932
+    latencia_test.go:411: factor p99 global/porAgente = 125.1x   |   factor p99.9 = 654.3x
+
+=== VEREDICTO ===
+PASS  compila                                                  [latencia-p99.txt] aparece=SI esperado=SI
+PASS  go vet limpio                                            [latencia-p99.txt] aparece=SI esperado=SI
+PASS  corrida 1 termino en 0                                   [latencia-p99-corrida-1.txt] aparece=SI esperado=SI
+PASS  corrida 2 termino en 0                                   [latencia-p99-corrida-2.txt] aparece=SI esperado=SI
+PASS  corrida 3 termino en 0                                   [latencia-p99-corrida-3.txt] aparece=SI esperado=SI
+PASS  corrida 1 PASA                                           [latencia-p99-corrida-1.txt] aparece=SI esperado=SI
+PASS  corrida 2 PASA                                           [latencia-p99-corrida-2.txt] aparece=SI esperado=SI
+PASS  corrida 3 PASA                                           [latencia-p99-corrida-3.txt] aparece=SI esperado=SI
+PASS  el piso del reloj se midio                               [latencia-p99-corrida-1.txt] aparece=SI esperado=SI
+PASS  sujeto 1 (espera) presente                               [latencia-p99-corrida-1.txt] aparece=SI esperado=SI
+PASS  sujeto 2 (paquete) presente                              [latencia-p99-corrida-1.txt] aparece=SI esperado=SI
+PASS  el guard del piso corrio                                 [latencia-p99-corrida-1.txt] aparece=SI esperado=SI
+PASS  el guard de la cola corrio                               [latencia-p99-corrida-1.txt] aparece=SI esperado=SI
+PASS  la seccion RESPUESTA se emitio                           [latencia-p99-corrida-1.txt] aparece=SI esperado=SI
+PASS  ningun test en FAIL en la corrida 1                      [latencia-p99-corrida-1.txt] aparece=NO esperado=NO
+PASS  ningun test en FAIL en la corrida 2                      [latencia-p99-corrida-2.txt] aparece=NO esperado=NO
+PASS  ningun test en FAIL en la corrida 3                      [latencia-p99-corrida-3.txt] aparece=NO esperado=NO
+PASS  el control positivo de cola PASA                         [latencia-p99-control.txt] aparece=SI esperado=SI
+PASS  el control termino en 0                                  [latencia-p99-control.txt] aparece=SI esperado=SI
+PASS  el control reporto su factor                             [latencia-p99-control.txt] aparece=SI esperado=SI
+PASS  ningun FAIL en el control                                [latencia-p99-control.txt] aparece=NO esperado=NO
+PASS  la suite corta con -race sigue verde                     [latencia-p99-suite-corta.txt] aparece=SI esperado=SI
+PASS  los tests de tiempo se saltean con -short                [latencia-p99-suite-corta.txt] aparece=SI esperado=SI
+PASS  ningun FAIL en la suite corta                            [latencia-p99-suite-corta.txt] aparece=NO esperado=NO
+
+=== ESTABILIDAD ENTRE CORRIDAS ===
+Un p99 de una sola corrida en un runner compartido puede ser el
+vecino de VM. Estos son los tres p99 patologicos:
+p99_patologico_por_corrida = 28442 29303 25734
+min=25734 max=29303 DISPERSION=1.14x
+
+FALLAS_DE_VEREDICTO=0
+RESULTADO=VERDE

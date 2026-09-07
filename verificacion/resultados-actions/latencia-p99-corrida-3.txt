@@ -1,0 +1,34 @@
+=== corrida 3 de 3: go test -run TestLatenciaP99DeLaEspera -v -cpu=4 ===
+Sin -race (cuesta 16,9x, medido) y sin -bench (reporta promedios,
+no cuantiles). GOMAXPROCS=4.
+
+=== RUN   TestLatenciaP99DeLaEspera
+    latencia_test.go:254: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
+    latencia_test.go:260: 
+        === PISO DE RUIDO DEL INSTRUMENTO ===
+        PISO: par time.Now() (g=8)                     n=800000    media=    68.5  p50=    70  p90=     70  p99=      71  p99.9=       80  max=   1062089
+    latencia_test.go:276: 
+        === SUJETO 1: espera para ADQUIRIR el candado (ns) ===
+        PISO: par time.Now() (g=8)                     n=800000    media=    68.5  p50=    70  p90=     70  p99=      71  p99.9=       80  max=   1062089
+        ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    81.8  p50=    40  p90=     50  p99=      71  p99.9=       90  max=  16210396
+        ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=  1020.4  p50=   100  p90=    200  p99=   25734  p99.9=   125877  max=   3035037
+    latencia_test.go:297: 
+        === SUJETO 2: latencia del par Huber+Coherence por paquete (ns) ===
+        PAQUETE: 1 goroutine, sin disputa              n=100000    media=    98.2  p50=   100  p90=    101  p99=     120  p99.9=      150  max=     17766
+        PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   195.8  p50=   130  p90=    140  p99=     160  p99.9=      191  max=  25537968
+        PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  1221.5  p50=   220  p90=   1112  p99=   25358  p99.9=   111786  max=    987563
+    latencia_test.go:302: 
+        GUARD 1  p99 patologico / p99 del piso = 362.5x (minimo exigido 3.0x)
+    latencia_test.go:322: GUARD 2  p99 espera compartida / aislada = 362.5x
+    latencia_test.go:326: 
+        === RESPUESTA ===
+        p99 de la ESPERA, caso real (1 candado por agente):     71 ns
+        p99 de la ESPERA, caso patologico (1 candado, 8 gor.):  25734 ns
+        p99.9 patologico: 125877 ns   max patologico: 3035037 ns
+        p99 del PAQUETE completo, caso real:                    160 ns
+        p99 del PAQUETE completo, caso patologico:              25358 ns
+        piso del reloj (p99): 71 ns
+--- PASS: TestLatenciaP99DeLaEspera (0.50s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.500s
+EXIT_latencia=0
