@@ -1,0 +1,851 @@
+=== go test -race -v -count=1 ./gateway/... ===
+Los bloques del detector aparecen dentro del log de cada test,
+porque el test loguea SIEMPRE la salida cruda del subproceso.
+
+=== RUN   TestControlPositivo_DetectorArmado
+    race_test.go:181: EVIDENCIA CRUDA modo="armado" exit_err=exit status 66 bytes=2309 reportes=2
+        --- inicio salida del subproceso ---
+        ==================
+        WARNING: DATA RACE
+        Read at 0x000000825db8 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirCarreraSembrada.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:166 +0x91
+        
+        Previous write at 0x000000825db8 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirCarreraSembrada.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:166 +0xa9
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirCarreraSembrada()
+              /home/runner/work/correai/correai/gateway/race_test.go:163 +0x56
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:64 +0x71
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 9 (finished) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirCarreraSembrada()
+              /home/runner/work/correai/correai/gateway/race_test.go:163 +0x56
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:64 +0x71
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Write at 0x000000825db8 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirCarreraSembrada.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:166 +0xa9
+        
+        Previous write at 0x000000825db8 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirCarreraSembrada.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:166 +0xa9
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirCarreraSembrada()
+              /home/runner/work/correai/correai/gateway/race_test.go:163 +0x56
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:64 +0x71
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirCarreraSembrada()
+              /home/runner/work/correai/correai/gateway/race_test.go:163 +0x56
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:64 +0x71
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        Found 2 data race(s)
+        --- fin salida del subproceso ---
+    race_test.go:188: detector armado: 2 reporte(s) sobre la carrera sembrada de contadorSinProteccion
+--- PASS: TestControlPositivo_DetectorArmado (1.01s)
+=== RUN   TestD26_LosFiltrosCorrenSinSincronizacion
+    race_test.go:209: EVIDENCIA CRUDA modo="filtros" exit_err=exit status 66 bytes=36047 reportes=25
+        --- inicio salida del subproceso ---
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301c0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:66 +0x115
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301c0 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:66 +0x149
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Write at 0x00c0001301c0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:66 +0x149
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301c0 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:66 +0x149
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301c8 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:69 +0x17e
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301c8 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:76 +0x21c
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301d0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:80 +0x278
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301d0 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:81 +0x304
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Write at 0x00c0001301d8 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:80 +0x292
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301d8 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:80 +0x292
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c00015e010 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:130 +0x79
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e010 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:130 +0xc4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c00015e050 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:131 +0x12e
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e050 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:131 +0x184
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c00015e0a0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:147 +0x3e4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e0a0 by goroutine 7:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:148 +0x41c
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 7 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301c8 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:76 +0x1e8
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301c8 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:76 +0x21c
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Write at 0x00c0001301c8 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:76 +0x21c
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301c8 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:76 +0x21c
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301c8 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:79 +0x244
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301c8 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:76 +0x21c
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301d0 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:81 +0x2c4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301d0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:81 +0x304
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Write at 0x00c0001301d0 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:81 +0x304
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301d0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:81 +0x304
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301d0 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:84 +0x336
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301d0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:81 +0x304
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301d8 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:84 +0x350
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301d8 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:80 +0x292
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301c0 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:88 +0x370
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301c0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:66 +0x149
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c0001301d0 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:89 +0x3a8
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Previous write at 0x00c0001301d0 by goroutine 8:
+          github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:81 +0x304
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:124 +0x146
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 8 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Write at 0x00c00015e010 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:130 +0xc4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e010 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:130 +0xc4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Write at 0x00c00015e070 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:131 +0x184
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e070 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:131 +0x184
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Write at 0x00c00015e010 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:130 +0xc4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous read at 0x00c00015e010 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:136 +0x1f4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c00015e050 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:136 +0x224
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e050 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:131 +0x184
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c00015e010 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:137 +0x247
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e010 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:130 +0xc4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c00015e010 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:137 +0x284
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e010 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:130 +0xc4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c00015e050 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:138 +0x2a7
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e050 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:131 +0x184
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        ==================
+        WARNING: DATA RACE
+        Read at 0x00c00015e050 by goroutine 9:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:138 +0x2e4
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Previous write at 0x00c00015e050 by goroutine 10:
+          github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update()
+              /home/runner/work/correai/correai/gateway/filters.go:131 +0x184
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes.func1()
+              /home/runner/work/correai/correai/gateway/race_test.go:125 +0x1e9
+        
+        Goroutine 9 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        
+        Goroutine 10 (running) created at:
+          github.com/gatehot59-star/kampe-ir/gateway.reproducirFiltrosConcurrentes()
+              /home/runner/work/correai/correai/gateway/race_test.go:121 +0xe4
+          github.com/gatehot59-star/kampe-ir/gateway.TestMain()
+              /home/runner/work/correai/correai/gateway/race_test.go:58 +0xa4
+          main.main()
+              _testmain.go:61 +0x2d4
+        ==================
+        Found 25 data race(s)
+        --- fin salida del subproceso ---
+    race_test.go:222: D-26 MEDIDO: 25 reporte(s) del detector sobre los filtros del agente compartido
+--- PASS: TestD26_LosFiltrosCorrenSinSincronizacion (1.01s)
+=== RUN   TestControlNegativo_ElFSMNoReportaCarrera
+    race_test.go:233: EVIDENCIA CRUDA modo="fsm" exit_err=<nil> bytes=0 reportes=0
+        --- inicio salida del subproceso ---
+        --- fin salida del subproceso ---
+    race_test.go:240: control negativo OK: el FSM sincronizado no produce reporte
+--- PASS: TestControlNegativo_ElFSMNoReportaCarrera (1.01s)
+=== RUN   TestD47_ElHMACNoCubreContextNiCiphertext
+    race_test.go:312: D-47 MEDIDO: Context[0] paso de 0.5 a 999999 y la firma sigue valida
+    race_test.go:323: D-47 MEDIDO: el ciphertext se reemplazo entero y la firma sigue valida
+--- PASS: TestD47_ElHMACNoCubreContextNiCiphertext (0.00s)
+=== RUN   TestValidateTimestamp
+=== RUN   TestValidateTimestamp/identico
+=== RUN   TestValidateTimestamp/adelantado_dentro_de_la_ventana
+=== RUN   TestValidateTimestamp/adelantado_justo_en_el_borde
+=== RUN   TestValidateTimestamp/adelantado_un_ns_de_mas
+=== RUN   TestValidateTimestamp/atrasado_justo_en_el_borde
+=== RUN   TestValidateTimestamp/atrasado_un_ns_de_mas
+--- PASS: TestValidateTimestamp (0.00s)
+    --- PASS: TestValidateTimestamp/identico (0.00s)
+    --- PASS: TestValidateTimestamp/adelantado_dentro_de_la_ventana (0.00s)
+    --- PASS: TestValidateTimestamp/adelantado_justo_en_el_borde (0.00s)
+    --- PASS: TestValidateTimestamp/adelantado_un_ns_de_mas (0.00s)
+    --- PASS: TestValidateTimestamp/atrasado_justo_en_el_borde (0.00s)
+    --- PASS: TestValidateTimestamp/atrasado_un_ns_de_mas (0.00s)
+=== RUN   TestAgentFSM_BloqueaYVuelve
+--- PASS: TestAgentFSM_BloqueaYVuelve (0.00s)
+=== RUN   TestAgentFSM_RecordSuccessResetaElBackoff
+--- PASS: TestAgentFSM_RecordSuccessResetaElBackoff (0.00s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	4.034s
+EXIT_test_race=0
