@@ -1,0 +1,167 @@
+# Mide el ACL corregido con mosquitto real. Ocho casos, y el job FALLA si
+# alguno no da lo esperado: un instrumento que no puede dar rojo no mide nada.
+#
+# Dos decisiones del instrumento, aprendidas midiendo:
+#  1. `mosquitto_pub` devuelve exit 0 aunque el broker deniegue (medido en
+#     acl-enforcement-v2.txt: EXIT_B=0 con 'Denied PUBLISH'). Asi que el
+#     veredicto de cada publicacion se lee del LOG DEL BROKER, no del exit.
+#  2. En MQTT 3.1.1 mosquitto responde SUBACK 0 tanto si concede como si va a
+#     filtrar la entrega. Asi que la lectura se mide por ENTREGA REAL, no por
+#     SUBACK. Ese fue el defecto que invalido mi primer instrumento.
+#
+# Commitea su propio resultado: ningun agente puede leer el texto de un log
+# de Actions.
+name: acl-fix-medicion
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/fix-acl-mqtt
+    paths:
+      - 'mqtt/acl.conf'
+      - '.github/workflows/acl-fix-medicion.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar mosquitto
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mosquitto mosquitto-clients
+
+      - name: Medir el ACL corregido
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          OUT=verificacion/resultados-actions/acl-fix.txt
+          PORT=18832
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "runner:  $(uname -srm)"
+            mosquitto -h 2>&1 | head -1
+            echo "acl.conf sha256: $(sha256sum mqtt/acl.conf | cut -d' ' -f1)"
+            echo
+            echo "=== acl.conf medido (solo lineas efectivas) ==="
+            grep -vE '^\s*(#|$)' mqtt/acl.conf
+            echo
+            echo "=== arranque del broker ==="
+            sudo systemctl stop mosquitto 2>/dev/null
+            cp mqtt/acl.conf /tmp/acl.conf
+            chmod 0600 /tmp/acl.conf
+            mosquitto_passwd -b -c /tmp/pw probe secreto
+            mosquitto_passwd -b /tmp/pw fleet_server secreto
+            mosquitto_passwd -b /tmp/pw anonymous secreto
+            mosquitto_passwd -b /tmp/pw a_b_c secreto
+            chmod 0600 /tmp/pw
+            printf 'listener %s 127.0.0.1\nallow_anonymous false\npassword_file /tmp/pw\nacl_file /tmp/acl.conf\nlog_type all\n' "$PORT" > /tmp/mosq.conf
+            mosquitto -c /tmp/mosq.conf -v > /tmp/broker.log 2>&1 &
+            BPID=$!
+            sleep 3
+            if kill -0 $BPID 2>/dev/null; then BROKER=VIVO; else BROKER=MUERTO; fi
+            echo "broker: $BROKER"
+            head -6 /tmp/broker.log
+            echo
+
+            FAILS=0
+            PASSES=0
+            veredicto() {
+              if [ "$3" = "$4" ]; then
+                PASSES=$((PASSES+1))
+                printf '%-4s PASS  %-58s esperado=%-8s obtenido=%s\n' "$1" "$2" "$4" "$3"
+              else
+                FAILS=$((FAILS+1))
+                printf '%-4s FAIL  %-58s esperado=%-8s obtenido=%s\n' "$1" "$2" "$4" "$3"
+              fi
+            }
+            pub_estado() {
+              # $1 usuario, $2 topico. El exit de mosquitto_pub NO sirve:
+              # se lee la decision del log del broker.
+              mosquitto_pub -h 127.0.0.1 -p "$PORT" -u "$1" -P secreto -q 1 -t "$2" -m x >/dev/null 2>&1
+              sleep 0.4
+              if grep -q "Denied PUBLISH.*'$2'" /tmp/broker.log; then echo DENIED; else echo ALLOWED; fi
+            }
+            entrega() {
+              # $1 suscriptor, $2 topico de suscripcion, $3 topico de publicacion
+              rm -f /tmp/rx.txt
+              timeout 8 mosquitto_sub -h 127.0.0.1 -p "$PORT" -u "$1" -P secreto -t "$2" -C 1 > /tmp/rx.txt 2>&1 &
+              SPID=$!
+              sleep 2
+              mosquitto_pub -h 127.0.0.1 -p "$PORT" -u fleet_server -P secreto -q 1 -t "$3" -m ENTREGADO >/dev/null 2>&1
+              wait $SPID
+              if grep -q ENTREGADO /tmp/rx.txt; then echo RECIBIDO; else echo VACIO; fi
+            }
+
+            echo "=== VEREDICTO POR CASO ==="
+            veredicto T0 'el broker arranca con este ACL' "$BROKER" VIVO
+
+            # EL FIX: esto daba DENIED antes del cambio.
+            veredicto T1 'probe publica en su propio subarbol fleet/probe/t1' \
+                      "$(pub_estado probe fleet/probe/t1)" ALLOWED
+
+            # CONTROLES NEGATIVOS: el ACL tiene que seguir cerrando.
+            veredicto T2 'probe publica en el subarbol de OTRO fleet/otro/t2' \
+                      "$(pub_estado probe fleet/otro/t2)" DENIED
+            veredicto T3 'probe publica fuera del arbol fleet: libre/t3' \
+                      "$(pub_estado probe libre/t3)" DENIED
+
+            # CONTROL POSITIVO: si esto da DENIED, el instrumento esta roto.
+            veredicto T4 'fleet_server publica en fleet/t4 (control positivo)' \
+                      "$(pub_estado fleet_server fleet/t4)" ALLOWED
+
+            # N-04: el bloque anonymous concedia todo. Ya no existe.
+            veredicto T5 'usuario anonymous publica en libre/t5 (era rc0 antes)' \
+                      "$(pub_estado anonymous libre/t5)" DENIED
+
+            # ENTREGA REAL, que es la pregunta del producto.
+            veredicto T6 'OTA llega al nodo: probe recibe en fleet/probe/#' \
+                      "$(entrega probe 'fleet/probe/#' fleet/probe/ota)" RECIBIDO
+            veredicto T7 'aislamiento de lectura: probe NO recibe fleet/otro/#' \
+                      "$(entrega probe 'fleet/otro/#' fleet/otro/secreto)" VACIO
+
+            # D-45: la colision de nombres NO la arregla el ACL. Este caso
+            # documenta que sobrevive al fix, no que este cerrada.
+            veredicto T8 'a_b_c recibe fleet/a_b_c/# (D-45 sigue ABIERTO)' \
+                      "$(entrega a_b_c 'fleet/a_b_c/#' fleet/a_b_c/x)" RECIBIDO
+
+            echo
+            echo "PASSES=$PASSES"
+            echo "FAILS=$FAILS"
+            if [ "$FAILS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+            echo
+            echo "=== denegaciones registradas por el broker ==="
+            grep -i 'Denied' /tmp/broker.log
+            echo "conteo_denied=$(grep -ci 'Denied' /tmp/broker.log)"
+            echo
+            echo "=== log completo del broker ==="
+            cat /tmp/broker.log
+            kill $BPID 2>/dev/null
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: Commitear el resultado
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin titan/fix-acl-mqtt || true
+          git add verificacion/resultados-actions/acl-fix.txt
+          git commit -m 'evidencia: medicion del ACL corregido en VM limpia [skip ci]' || echo 'sin cambios'
+          git push origin HEAD:titan/fix-acl-mqtt
+
+      - name: Fallar el job si algun caso dio distinto de lo esperado
+        if: always()
+        run: |
+          grep -q 'RESULTADO=VERDE' verificacion/resultados-actions/acl-fix.txt || {
+            echo 'Hay casos en FAIL. El fix no queda declarado verde.'
+            grep -E '(FAIL|FAILS=|RESULTADO=)' verificacion/resultados-actions/acl-fix.txt
+            exit 1
+          }
+          grep -E 'PASSES=|FAILS=|RESULTADO=' verificacion/resultados-actions/acl-fix.txt
