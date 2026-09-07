@@ -2,6 +2,11 @@
 # control que hace que el verde valga: la MISMA suite corrida SIN -race tiene
 # que dar ROJO. Si pasara en los dos casos, el detector seria decorativo.
 #
+# Cada seccion escribe SU PROPIO archivo, y cada guard mira solo el suyo. En la
+# primera version un unico archivo mezclaba la corrida con -race y la corrida
+# sin -race, asi que el chequeo "ningun test en FAIL" leia el FAIL deliberado
+# del control y daba rojo falso.
+#
 # Commitea su propio resultado: ningun agente puede leer el texto de un log de
 # Actions, asi que un resultado no commiteado es invisible.
 name: go-test-race
@@ -29,61 +34,86 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Correr la suite con y sin detector
+      - name: Formato, build y vet
         if: always()
         run: |
           set +e
           mkdir -p verificacion/resultados-actions
-          OUT=verificacion/resultados-actions/go-test-race.txt
+          BASE=verificacion/resultados-actions/go-test-race.txt
           {
             echo "Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)"
             echo "Commit:  ${GITHUB_SHA}"
             echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "runner:  $(uname -srm)"
             go version
-            echo "go.mod module: $(head -20 go.mod | grep '^module')"
-            echo "sha256 del test: $(sha256sum gateway/race_test.go | cut -d' ' -f1)"
+            grep '^module' go.mod
             echo
-            echo "=== PASO 0: go build ./... ==="
+            echo "=== PASO 0: gofmt ==="
+            echo "--- archivos sin formatear antes ---"
+            gofmt -l gateway/
+            echo "--- diff que aplica gofmt a race_test.go ---"
+            gofmt -d gateway/race_test.go
+            gofmt -w gateway/race_test.go
+            echo "--- archivos sin formatear despues (solo los preexistentes) ---"
+            gofmt -l gateway/
+            echo "sha256 del test ya formateado: $(sha256sum gateway/race_test.go | cut -d' ' -f1)"
+            echo
+            echo "=== PASO 1: go build ./... ==="
             go build ./... 2>&1
             echo "EXIT_build=$?"
             echo
-            echo "=== PASO 1: go vet ./... ==="
+            echo "=== PASO 2: go vet ./... ==="
             go vet ./... 2>&1
             echo "EXIT_vet=$?"
+          } > "$BASE" 2>&1
+          cat "$BASE"
+
+      - name: Correr la suite CON el detector
+        if: always()
+        run: |
+          set +e
+          CONRACE=verificacion/resultados-actions/go-test-conrace.txt
+          {
+            echo "=== go test -race -v -count=1 ./gateway/... ==="
+            echo "Los bloques del detector aparecen dentro del log de cada test,"
+            echo "porque el test loguea SIEMPRE la salida cruda del subproceso."
             echo
-            echo "=== PASO 2: gofmt -l gateway/race_test.go ==="
-            gofmt -l gateway/race_test.go 2>&1
-            echo "(vacio = formateado)"
-            echo
-            echo "=== PASO 3: go test -race -v -count=1 ./gateway/... ==="
-            echo "(los bloques 'WARNING: DATA RACE' vienen de los subprocesos"
-            echo " reproductores; el proceso de test en si termina en 0)"
             go test -race -v -count=1 ./gateway/... 2>&1
             echo "EXIT_test_race=$?"
+          } > "$CONRACE" 2>&1
+          tail -40 "$CONRACE"
+
+      - name: Control por mutacion del FLAG, la misma suite SIN detector
+        if: always()
+        run: |
+          set +e
+          SINRACE=verificacion/resultados-actions/go-test-sinrace.txt
+          {
+            echo "=== go test -v -count=1 -run TestControlPositivo_DetectorArmado ./gateway/... ==="
+            echo "SIN -race. Tiene que dar ROJO: si pasara, el detector no seria"
+            echo "lo que produce el verde de la corrida anterior."
             echo
-            echo "=== PASO 4 (control por mutacion del FLAG): la misma suite SIN -race ==="
-            echo "Tiene que dar ROJO en TestControlPositivo_DetectorArmado."
-            echo "Si pasara, el detector no seria lo que produce el verde de arriba."
             go test -v -count=1 -run 'TestControlPositivo_DetectorArmado' ./gateway/... 2>&1
             echo "EXIT_test_sin_race=$?"
-          } > "$OUT" 2>&1
-          cat "$OUT"
+          } > "$SINRACE" 2>&1
+          cat "$SINRACE"
 
       - name: Veredicto
         if: always()
         run: |
           set +e
-          OUT=verificacion/resultados-actions/go-test-race.txt
+          BASE=verificacion/resultados-actions/go-test-race.txt
+          CONRACE=verificacion/resultados-actions/go-test-conrace.txt
+          SINRACE=verificacion/resultados-actions/go-test-sinrace.txt
           FALLAS=0
 
           esperar() {
-            # $1 descripcion, $2 patron, $3 SI|NO (debe aparecer o no)
-            if grep -q -- "$2" "$OUT"; then HAY=SI; else HAY=NO; fi
-            if [ "$HAY" = "$3" ]; then
-              printf 'PASS  %-62s aparece=%s esperado=%s\n' "$1" "$HAY" "$3"
+            # $1 descripcion, $2 archivo, $3 patron, $4 SI|NO
+            if grep -q -- "$3" "$2"; then HAY=SI; else HAY=NO; fi
+            if [ "$HAY" = "$4" ]; then
+              printf 'PASS  %-58s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
             else
-              printf 'FAIL  %-62s aparece=%s esperado=%s\n' "$1" "$HAY" "$3"
+              printf 'FAIL  %-58s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
               FALLAS=$((FALLAS+1))
             fi
           }
@@ -91,35 +121,46 @@ jobs:
           {
             echo
             echo "=== VEREDICTO ==="
-            esperar 'compila'                                  'EXIT_build=0'                                    SI
-            esperar 'go vet limpio'                            'EXIT_vet=0'                                      SI
-            esperar 'el detector estaba armado'                '--- PASS: TestControlPositivo_DetectorArmado'     SI
-            esperar 'D-26 reproduce con -race'                 '--- PASS: TestD26_LosFiltrosCorrenSinSincronizacion' SI
-            esperar 'el FSM sincronizado no reporta carrera'   '--- PASS: TestControlNegativo_ElFSMNoReportaCarrera' SI
-            esperar 'D-47 medido sobre la funcion real'        '--- PASS: TestD47_ElHMACNoCubreContextNiCiphertext'  SI
-            esperar 'validateTimestamp pasa'                   '--- PASS: TestValidateTimestamp'                  SI
-            esperar 'el detector reporto al menos una carrera' 'DATA RACE'                                        SI
-            esperar 'la suite con -race termino en 0'          'EXIT_test_race=0'                                 SI
-            esperar 'ningun test quedo en FAIL con -race'      '^--- FAIL'                                        NO
-            esperar 'SIN -race el control positivo cae'        'EXIT_test_sin_race=1'                             SI
+            esperar 'compila'                                  "$BASE"    'EXIT_build=0'                                        SI
+            esperar 'go vet limpio'                            "$BASE"    'EXIT_vet=0'                                          SI
+            esperar 'el detector estaba armado'                "$CONRACE" '--- PASS: TestControlPositivo_DetectorArmado'          SI
+            esperar 'D-26 reproduce con -race'                 "$CONRACE" '--- PASS: TestD26_LosFiltrosCorrenSinSincronizacion'   SI
+            esperar 'el FSM sincronizado no reporta carrera'   "$CONRACE" '--- PASS: TestControlNegativo_ElFSMNoReportaCarrera'  SI
+            esperar 'D-47 medido sobre la funcion real'        "$CONRACE" '--- PASS: TestD47_ElHMACNoCubreContextNiCiphertext'   SI
+            esperar 'validateTimestamp pasa'                   "$CONRACE" '--- PASS: TestValidateTimestamp'                      SI
+            esperar 'el detector emitio su marca completa'     "$CONRACE" 'WARNING: DATA RACE'                                   SI
+            esperar 'el reporte cita filters.go'               "$CONRACE" 'filters.go'                                           SI
+            esperar 'la suite con -race termino en 0'          "$CONRACE" 'EXIT_test_race=0'                                     SI
+            esperar 'ningun test en FAIL en la corrida -race'  "$CONRACE" '^--- FAIL'                                            NO
+            esperar 'SIN -race el control positivo cae'        "$SINRACE" 'EXIT_test_sin_race=1'                                 SI
+            esperar 'SIN -race el FAIL es el del detector'     "$SINRACE" '^--- FAIL: TestControlPositivo_DetectorArmado'         SI
             echo
             echo "FALLAS_DE_VEREDICTO=$FALLAS"
             if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
             echo
-            echo "conteo_DATA_RACE=$(grep -c 'DATA RACE' "$OUT")"
-            echo "conteo_PASS=$(grep -c '^--- PASS' "$OUT")"
-            echo "conteo_FAIL=$(grep -c '^--- FAIL' "$OUT")"
-          } >> "$OUT"
-          tail -25 "$OUT"
+            echo "reportes_del_detector_conrace=$(grep -c 'WARNING: DATA RACE' "$CONRACE")"
+            echo "reportes_del_detector_sinrace=$(grep -c 'WARNING: DATA RACE' "$SINRACE")"
+            echo "tests_PASS_conrace=$(grep -c '^--- PASS' "$CONRACE")"
+            echo "tests_FAIL_conrace=$(grep -c '^--- FAIL' "$CONRACE")"
+            echo
+            echo "Los tres archivos de esta medicion:"
+            echo "  go-test-race.txt     formato, build y vet"
+            echo "  go-test-conrace.txt  la suite con -race, con los reportes crudos"
+            echo "  go-test-sinrace.txt  el control por mutacion del flag"
+          } >> "$BASE"
+          tail -30 "$BASE"
 
-      - name: Commitear el resultado
+      - name: Commitear los resultados y el archivo formateado
         if: always()
         run: |
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git pull --rebase origin titan/test-go-race || true
-          git add verificacion/resultados-actions/go-test-race.txt
-          git commit -m 'evidencia: go test -race y su control por mutacion del flag [skip ci]' || echo 'sin cambios'
+          git add verificacion/resultados-actions/go-test-race.txt \
+                  verificacion/resultados-actions/go-test-conrace.txt \
+                  verificacion/resultados-actions/go-test-sinrace.txt \
+                  gateway/race_test.go
+          git commit -m 'evidencia: go test -race, control por mutacion del flag y gofmt aplicado [skip ci]' || echo 'sin cambios'
           git push origin HEAD:titan/test-go-race
 
       - name: Fallar si el veredicto no es verde
@@ -130,4 +171,4 @@ jobs:
             grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' verificacion/resultados-actions/go-test-race.txt
             exit 1
           }
-          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=|conteo_' verificacion/resultados-actions/go-test-race.txt
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=|reportes_del_detector|tests_' verificacion/resultados-actions/go-test-race.txt
