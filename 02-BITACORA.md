@@ -216,3 +216,88 @@ el `AgentState` aguanta el estado de cadena sin cambiar la granularidad de
 `agent.mu` (afirmado por lectura); si D-18 es explotable en el deployment real.
 
 **Archivo de esta respuesta:** `respuestas/2026-09-07-03-spec-ir-testis.md`.
+
+---
+
+## 2026-09-07 · E-005 · La auditoria del ADR: 6 hallazgos aceptados, 1 refutado, 2 nuevos, y el validador en verde
+
+**Quien pidio:** Abraham, con una auditoria del ADR-001 hecha contra la fuente y
+un validador propio ya ejecutado. Pedido concreto: **corregir el test D y
+agregar `Sello`** para dejar `verificacion/t_testis.py` listo para commitear.
+
+**Entregado:** el archivo esta commiteado, corre en 0 y tiene **10 controles
+positivos**, no 8. Dos salieron de hallazgos que aparecieron implementando el
+Sello.
+
+**Lo que la auditoria valido de E-004:** las 7 mediciones del ADR se
+recontaron una por una contra `gateway.go` y dieron todas iguales (0 logs, 9
+rechazos, 7 bloqueos, sin driver de DB, `0xFF` unico, D-19, D-01/D-02
+reproducido aritmeticamente, `numeric(20)`).
+
+**Aceptados sin discutir (7):**
+
+| ID | Hallazgo | Como quedo |
+| --- | --- | --- |
+| D-20 | la cadena resiste borrado del medio y **no de la cola** | reproducido: borrar los ultimos 10 sin ancla da **VERDE**. Cerrado con el Sello (CP-5, CP-6) |
+| D-21 | el descarte que consume `Seq` da **ROJO falso** | reproducido. Fix: el descarte no consume seq y el siguiente veredicto declara `DroppedSince` |
+| D-22 | cerrar el caso con "10 aceptados" es incomputable con muestreo 1/K | aceptado. Se cierra por `Streak`, y se agrega `RuleDecayed = 10` |
+| D-23 | `BackoffNs` "despues de aplicar" es falso en 5 de 9 sitios | verificado en la fuente: 5 con `writeReject` antes de `TriggerBlock`, 2 al revez, 2 sin bloqueo. Orden nuevo: `TriggerBlock` → `Emit` → `writeReject` |
+| D-24 | el caso 1 es un firehose | aceptado. Coalescer con `Repeat uint32` por ventana |
+| D-25 | HMAC simetrico no es no-repudio frente a terceros | reproducido: la cadena refabricada por el tenedor de la clave da **VERDE**. Fix: Sello con ed25519, control positivo ejecutado |
+| D-26 | data race: `lastSeen` es local a la conexion | verificado: `lastSeen := time.Now()` esta dentro de `handleConn` y no aparece en `AgentState` |
+
+Y se acepta la correccion metodologica: **el par del test D no colisionaba**, asi
+que ese control no probaba nada. Corregido con `("a|b","c")` vs `("a","b|c")`,
+que en naive dan los dos `a|b|c`.
+
+**Refutado (1) · D-27.** El auditor declaro que no leyo `audit/`.
+`audit/schema.sql` **define `uuid_generate_v7()` el mismo**, en plpgsql, linea 7.
+No lo importa de ninguna extension: la unica dependencia real es `pgcrypto` por
+`gen_random_bytes`, declarada en la linea 4. Verificado como invariante dentro
+del test.
+
+**Nuevos (2):**
+
+- **D-28.** El Sello cierra D-20 para lo sellado, y **no cubre lo emitido
+  despues del ultimo checkpoint**: con sello en seq 100 y cadena crecida a 120,
+  truncar a 105 da **VERDE**. La ventana de exposicion es exactamente **T**, o
+  sea que T no es tuning: es el parametro de riesgo que se le promete al
+  comprador y tiene que estar en el contrato.
+- **D-29.** Cierra el NO MEDIDO del auditor sobre `fsm.go`: los metodos publicos
+  del `AgentFSM` son `Allow`, `TriggerBlock`, `RecordSuccess`, `DecayBackoff`, y
+  ninguno devuelve nada; `backoff` y `successStreak` son privados sin getter.
+  **Testis no puede llenar `BackoffNs` ni `Streak`** sin agregarle un
+  `Snapshot()` al FSM.
+
+**Correccion mia sobre el mecanismo del Sello:** el ADR y la auditoria decian
+comparar `head != ancla`. Eso **da rojo en toda cadena viva**, porque cualquier
+agente que recibio un veredicto nuevo despues del checkpoint tiene otro head. La
+regla implementada es: el Sello fija un punto, la cadena puede crecer por
+encima, y no puede encogerse por debajo ni cambiar lo sellado. Medido: cadena
+crecida → VERDE; truncada por debajo → ROJO.
+
+**Agujero mio que nadie habia marcado:** el CI de E-002 corria `compileall`
+sobre `audit` y `fleet`, o sea que **los verificadores `t_custos.py` y
+`t_fleet.py` no los ejecutaba nadie**. Arreglado: dos jobs nuevos,
+`custos-legis` y `testis`.
+
+**Control de mutacion sobre mi propio instrumento, con hallazgo:** desactive el
+chequeo de contiguidad de `seq` y volvi a correr. `fallos=1`, `rc=1`: el sabotaje
+se detecta. **Pero CP-1 y CP-3 siguieron dando "rechazado"**, porque los agarra
+`prev_hash` de forma redundante. O sea que esos dos controles **no son
+diagnosticos** del chequeo de seq; el unico que depende exclusivamente de seq es
+distinguir un hueco declarado de un salto. Es defensa en profundidad, no un bug,
+pero "10 controles positivos" y "10 controles independientes" no son lo mismo.
+Quedo escrito en el encabezado del propio archivo.
+
+**Integridad:** `verificacion/t_testis.py`, 25.320 bytes, blob SHA `354d5bc7`,
+comparado contra el `git hash-object` local: **coincide byte por byte**.
+
+**NO MEDIDO:** el costo del `fsync` (hipotesis sin numero de los dos lados); nada
+corrio contra Postgres, `verdicts` y `anchors` no existen; cual es el T correcto;
+el gateway Go **sigue sin compilar** y el CI sin leerse; si el Sello se puede
+publicar fuera del alcance del DBA en el deployment real; y ninguna de las 5
+innovaciones esta implementada en Go.
+
+**Archivo de esta respuesta:**
+`respuestas/2026-09-07-04-testis-validador-ejecutado.md`.
