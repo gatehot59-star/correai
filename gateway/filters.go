@@ -22,7 +22,9 @@ const (
 // de Huber: EWMA, Winsorización a ±3σ y gatillo por derivada de varianza.
 //
 // FIX 1: f.s (EWMA de inercia) ahora se incorpora al umbral dinámico,
-//         dándole uso real en lugar de ser código muerto.
+//
+//	dándole uso real en lugar de ser código muerto.
+//
 // FIX 2: el caller ahora pasa bytes reales en lugar del valor fijo 1.0.
 //
 // FIX D-26: Update es ahora segura para uso concurrente.
