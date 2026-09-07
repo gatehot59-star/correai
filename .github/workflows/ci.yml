@@ -1,0 +1,49 @@
+# CI de CORREAI. Instrumento ajeno: runner limpio de GitHub, baja el repo de
+# cero. Tres jobs separados a proposito, para que un rojo diga QUE es rojo.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  go-gateway:
+    name: gateway (go build + vet + test -race)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go version
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  cpp-dualbrain:
+    name: dualbrain (verificador con invariantes y defectos medidos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: g++ --version
+      - run: g++ -std=c++17 -O2 -Wall -Wextra -Werror -o t_engine verificacion/t_engine.cpp
+      - run: ./t_engine
+
+  c-antireplay:
+    name: gateway anti-replay (aritmetica de validateTimestamp)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gcc -O0 -Wall -Wextra -Werror -o t_ts verificacion/t_ts.c
+      - run: ./t_ts
+
+  python-syntax:
+    name: audit + fleet (compileall, solo sintaxis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m compileall -q audit fleet
