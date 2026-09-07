@@ -9,7 +9,7 @@ on:
 
 jobs:
   go-gateway:
-    name: hipersec (go build + vet + test -race)
+    name: hipersec (go build + vet + test -race -short)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,8 +18,42 @@ jobs:
           go-version: '1.22'
       - run: go version
       - run: go build ./...
+      # vet incluye copylocks: desde el fix de D-26 los filtros tienen un
+      # sync.Mutex, y copiar uno por valor duplica el estado de sincronizacion
+      # en silencio. Este es el guard que lo impide.
       - run: go vet ./...
-      - run: go test -race ./...
+      # `-short` NO es cosmetico: es lo que hace que este portón mida
+      # correctitud. Sin el, `go test -race ./...` corre los cuatro tests que
+      # dependen del TIEMPO DE PARED (latencia_test.go:268 y :395,
+      # candado_bench_test.go:312 y :369) bajo el detector de carreras, que en
+      # este mismo repo se midio 16,9x mas lento
+      # (verificacion/resultados-actions/bench-candado-vs-race.txt). Un cuantil
+      # medido bajo -race no mide el candado: mide el detector. Es la misma
+      # separacion que ya usan go-bench-candado.yml y go-latencia-p99.yml,
+      # donde a `go test -short -race` se le llama "la suite de correctitud".
+      - run: go test -race -short ./...
+
+  go-tiempo-de-pared:
+    name: hipersec tiempo de pared (bench y cuantiles, SIN -race, a pedido)
+    runs-on: ubuntu-latest
+    # Solo por `workflow_dispatch`. Estos tests miden tiempo de pared en un
+    # runner compartido, asi que su resultado depende del vecino de VM: no
+    # sirven como portón por PR, y volverlos obligatorios seria convertir
+    # ruido de infraestructura en rojos de codigo. Se dejan corribles a pedido
+    # en vez de borrarlos, que es lo que los haria invisibles.
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go version
+      # Los cuatro que `-short` saltea, corridos explicitamente y sin -race.
+      # -count=1 desactiva el cache de tests: una medicion cacheada no es una
+      # medicion.
+      - run: |
+          go test -run 'TestControlDeContencion|TestCostoDelCandado|TestLatenciaP99DeLaEspera|TestControlPositivoDeCola' \
+                  -v -count=1 -cpu=4 -timeout 20m ./gateway/...
 
   cpp-dualbrain:
     name: dualbrain (verificador con invariantes y defectos medidos)
