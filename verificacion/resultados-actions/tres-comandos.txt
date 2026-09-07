@@ -1,6 +1,6 @@
 Maquina:  Actions ubuntu-latest (VM limpia, instrumento ajeno)
-Commit:   22f45cd10d52bdc32c88a7dad350d75e6908188c
-Fecha:    2026-09-07T18:51:40Z
+Commit:   789172af2bb3df72cf5c4eada4dd79279b9cb7d2
+Fecha:    2026-09-07T18:52:48Z
 runner:   Linux 6.17.0-1022-azure x86_64
 
 === versiones ===
@@ -72,12 +72,12 @@ listener 1883 127.0.0.1
 allow_anonymous false
 password_file /tmp/mosq_pw
 acl_file /home/runner/work/correai/correai/mqtt/acl.conf
-1788807111: mosquitto version 2.0.18 starting
-1788807111: Config loaded from /tmp/mosq.conf.
-1788807111: Warning: File /home/runner/work/correai/correai/mqtt/acl.conf has world readable permissions. Future versions will refuse to load this file.
+1788807178: mosquitto version 2.0.18 starting
+1788807178: Config loaded from /tmp/mosq.conf.
+1788807178: Warning: File /home/runner/work/correai/correai/mqtt/acl.conf has world readable permissions. Future versions will refuse to load this file.
 To fix this, use `chmod 0700 /home/runner/work/correai/correai/mqtt/acl.conf`.
-1788807111: Opening ipv4 listen socket on port 1883.
-1788807111: Error: Address already in use
+1788807178: Opening ipv4 listen socket on port 1883.
+1788807178: Error: Address already in use
 EXIT_mosquitto_pipeline=1
 
 === COMANDO 3b: hash de los archivos medidos ===
