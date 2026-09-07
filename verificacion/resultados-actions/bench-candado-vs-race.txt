@@ -1,24 +1,29 @@
 === el MISMO brazo, con y sin -race ===
 Si el factor es grande, un benchmark bajo -race no mide el
-candado: mide el detector. Esto justifica la decision en vez de
-pedir que se me crea.
+candado: mide el detector.
 
 --- SIN -race ---
 goos: linux
 goarch: amd64
 pkg: github.com/gatehot59-star/kampe-ir/gateway
-cpu: AMD EPYC 7763 64-Core Processor                
-BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	  100000	       126.7 ns/op	         7.895 Mop/s	         8.000 goroutines	       126.7 ns/op-real
+cpu: AMD EPYC 9V74 80-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	  100000	       145.5 ns/op	         6.873 Mop/s	         8.000 goroutines	       145.5 ns/op-real
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	0.018s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.020s
 EXIT_sinrace=0
 
 --- CON -race ---
 goos: linux
 goarch: amd64
 pkg: github.com/gatehot59-star/kampe-ir/gateway
-cpu: AMD EPYC 7763 64-Core Processor                
-BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	  100000	      2576 ns/op	         0.3882 Mop/s	         8.000 goroutines	      2576 ns/op-real
+cpu: AMD EPYC 9V74 80-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	  100000	      2452 ns/op	         0.4079 Mop/s	         8.000 goroutines	      2452 ns/op-real
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	1.271s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.258s
 EXIT_conrace=0
+
+--- factor calculado de los dos ns/op-real de arriba ---
+sin_race=145.5 con_race=2452 FACTOR_RACE=16.9
+
+--- factor recalculado sobre el archivo ya cerrado ---
+sin_race=145.5 con_race=2452 FACTOR_RACE=16.9

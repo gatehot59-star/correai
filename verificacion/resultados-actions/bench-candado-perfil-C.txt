@@ -1,0 +1,21 @@
+=== perfil de mutex: brazo C: N agentes aislados, 8 goroutines (EL CASO REAL) ===
+Type: delay del runtime. Contabiliza nanosegundos de BLOQUEO,
+no tiempo de pared. Instrumento independiente del cronometro.
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 9V74 80-Core Processor                
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=8-4         	  500000	        27.49 ns/op	        36.38 Mop/s	         8.000 goroutines	        27.49 ns/op-real
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.019s
+EXIT_bench=0
+
+--- go tool pprof -top ---
+File: gateway.test
+Type: delay
+Time: Sep 7, 2026 at 8:32pm (UTC)
+Showing nodes accounting for 322us, 100% of 322us total
+      flat  flat%   sum%        cum   cum%
+     322us   100%   100%      322us   100%  runtime._LostContendedRuntimeLock
+EXIT_pprof=0

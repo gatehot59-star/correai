@@ -1,29 +1,16 @@
 Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)
-Commit:  cd91ee5bbb76b8a02555d22829df248ecd25fca4
+Commit:  308358781a5622c4a8a2bf1f874368f3ecfc6f79
 Rama:    titan/bench-candado
-Fecha:   2026-09-07T20:25:44Z
+Fecha:   2026-09-07T20:32:20Z
 runner:  Linux 6.17.0-1022-azure x86_64
 go version go1.22.12 linux/amd64
 nproc:   4
-cpu:     AMD EPYC 7763 64-Core Processor
+cpu:     AMD EPYC 9V74 80-Core Processor
 mem:     15Gi
-sha256 candado_bench_test.go: 6869187e960b4c6ac33aaa9b9f7fe6a0a5e565a8c4b96566c8692baf3bdce5dc
+sha256 candado_bench_test.go: 404d6a31872f83538fb9139b97e97ab5d2f8883ef30aaf72adc5ef176a7db776
 sha256 filters.go:            2f277d71f51a0ab2ddb509f03521a4dca49e59282992fdea8e954a0afa94a335
 
 === gofmt de los archivos de este PR ===
-gateway/candado_bench_test.go
-diff gateway/candado_bench_test.go.orig gateway/candado_bench_test.go
---- gateway/candado_bench_test.go.orig
-+++ gateway/candado_bench_test.go
-@@ -253,7 +253,7 @@
- 
- // resultadoBrazo guarda lo medido por un brazo del control.
- type resultadoBrazo struct {
--	nombre string
-+	nombre  string
- 	nsPorOp float64
- 	mopsSeg float64
- }
 (vacio arriba = ya estaba formateado)
 
 === go build ./... ===
@@ -33,33 +20,51 @@ EXIT_build=0
 EXIT_vet=0
 
 === TABLA: ns/op-real por brazo (mediana de 3, GOMAXPROCS=4) ===
-BenchmarkCandado/A_1agente_candadoPorAgente/g=1                       67.06 ns/op-real     14.910 Mop/s
-BenchmarkCandado/A_1agente_candadoPorAgente/g=16                     161.60 ns/op-real      6.190 Mop/s
-BenchmarkCandado/A_1agente_candadoPorAgente/g=2                       86.21 ns/op-real     11.600 Mop/s
-BenchmarkCandado/A_1agente_candadoPorAgente/g=4                      111.40 ns/op-real      8.975 Mop/s
-BenchmarkCandado/A_1agente_candadoPorAgente/g=8                      131.40 ns/op-real      7.610 Mop/s
-BenchmarkCandado/B_1agente_sinCandado_RACY/g=1                        57.05 ns/op-real     17.530 Mop/s
-BenchmarkCandado/B_1agente_sinCandado_RACY/g=16                      158.50 ns/op-real      6.308 Mop/s
-BenchmarkCandado/B_1agente_sinCandado_RACY/g=2                       116.80 ns/op-real      8.564 Mop/s
-BenchmarkCandado/B_1agente_sinCandado_RACY/g=4                       158.30 ns/op-real      6.317 Mop/s
-BenchmarkCandado/B_1agente_sinCandado_RACY/g=8                       157.80 ns/op-real      6.336 Mop/s
-BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=1              67.55 ns/op-real     14.800 Mop/s
-BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=16             26.02 ns/op-real     38.440 Mop/s
-BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=2              55.72 ns/op-real     17.950 Mop/s
-BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=4              37.02 ns/op-real     27.010 Mop/s
-BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=8              24.00 ns/op-real     41.670 Mop/s
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1                 71.11 ns/op-real     14.060 Mop/s
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=16               150.10 ns/op-real      6.664 Mop/s
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=2                 89.97 ns/op-real     11.110 Mop/s
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=4                107.80 ns/op-real      9.275 Mop/s
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=8                120.40 ns/op-real      8.303 Mop/s
+BenchmarkCandado/A_1agente_candadoPorAgente/g=1                       71.68 ns/op-real     13.950 Mop/s
+BenchmarkCandado/A_1agente_candadoPorAgente/g=16                     188.70 ns/op-real      5.300 Mop/s
+BenchmarkCandado/A_1agente_candadoPorAgente/g=2                       81.07 ns/op-real     12.330 Mop/s
+BenchmarkCandado/A_1agente_candadoPorAgente/g=4                      122.10 ns/op-real      8.187 Mop/s
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8                      148.30 ns/op-real      6.743 Mop/s
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=1                        61.22 ns/op-real     16.330 Mop/s
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=16                      176.40 ns/op-real      5.669 Mop/s
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=2                       128.20 ns/op-real      7.798 Mop/s
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=4                       175.70 ns/op-real      5.691 Mop/s
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=8                       171.50 ns/op-real      5.832 Mop/s
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=1              74.83 ns/op-real     13.360 Mop/s
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=16             28.51 ns/op-real     35.080 Mop/s
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=2              60.14 ns/op-real     16.630 Mop/s
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=4              38.57 ns/op-real     25.930 Mop/s
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=8              34.51 ns/op-real     28.980 Mop/s
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1                 75.20 ns/op-real     13.300 Mop/s
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=16               159.50 ns/op-real      6.271 Mop/s
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=2                 95.09 ns/op-real     10.520 Mop/s
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=4                119.10 ns/op-real      8.395 Mop/s
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=8                131.70 ns/op-real      7.596 Mop/s
 
 === HMAC por paquete, el denominador ===
-BenchmarkVerifyPacketHMAC-4                                        	  200000	       614.3 ns/op
-BenchmarkVerifyPacketHMAC-4                                        	  200000	       650.7 ns/op
-BenchmarkVerifyPacketHMAC-4                                        	  200000	       632.4 ns/op
+BenchmarkVerifyPacketHMAC-4                                        	  200000	       629.1 ns/op
+BenchmarkVerifyPacketHMAC-4                                        	  200000	       621.1 ns/op
+BenchmarkVerifyPacketHMAC-4                                        	  200000	       632.5 ns/op
 
-=== nanosegundos de bloqueo contabilizados por el runtime ===
+=== bloqueo contabilizado por el runtime, por brazo ===
+bench-candado-perfil-A.txt         Showing nodes accounting for 77.72ms, 100% of 77.72ms total
+bench-candado-perfil-C.txt         Showing nodes accounting for 322us, 100% of 322us total
+bench-candado-perfil-D.txt         Showing nodes accounting for 163.21ms, 100% of 163.21ms total
+
+=== a quien se lo atribuye el runtime ===
+--- A ---
+   74.63ms 96.03% 96.03%    74.63ms 96.03%  sync.(*Mutex).Unlock
+         0     0%   100%    49.21ms 63.32%  github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update
+         0     0%   100%    25.42ms 32.71%  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update
+--- C ---
+  (ninguna atribucion a filtros ni a Mutex: el hallazgo)
+--- D ---
+  158.21ms 96.94% 96.94%   158.21ms 96.94%  sync.(*Mutex).Unlock
+         0     0%   100%    74.70ms 45.77%  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaCandadoGlobal).Update
+         0     0%   100%    83.51ms 51.17%  github.com/gatehot59-star/kampe-ir/gateway.(*huberCandadoGlobal).Update
+
+=== factor del detector de carreras ===
+sin_race=145.5 con_race=2452 FACTOR_RACE=16.9
 
 === VEREDICTO ===
 PASS  compila                                                    [bench-candado.txt] aparece=SI esperado=SI
@@ -71,9 +76,13 @@ PASS  brazo C presente (N agentes aislados)                      [bench-candado-
 PASS  brazo D presente (candado GLOBAL)                          [bench-candado-brazos.txt] aparece=SI esperado=SI
 PASS  el denominador HMAC se midio                               [bench-candado-brazos.txt] aparece=SI esperado=SI
 PASS  ningun benchmark quedo en FAIL                             [bench-candado-brazos.txt] aparece=NO esperado=NO
-PASS  el perfil de mutex del brazo A salio                       [bench-candado-mutexprofile.txt] aparece=SI esperado=SI
-PASS  el perfil de mutex del brazo D salio                       [bench-candado-mutexprofile.txt] aparece=SI esperado=SI
-FAIL  pprof leyo el perfil (tiene Total)                         [bench-candado-mutexprofile.txt] aparece=NO esperado=SI
+PASS  pprof leyo el perfil de A                                  [bench-candado-perfil-A.txt] aparece=SI esperado=SI
+PASS  pprof leyo el perfil de C                                  [bench-candado-perfil-C.txt] aparece=SI esperado=SI
+PASS  pprof leyo el perfil de D                                  [bench-candado-perfil-D.txt] aparece=SI esperado=SI
+PASS  A atribuye bloqueo a los filtros reales                    [bench-candado-perfil-A.txt] aparece=SI esperado=SI
+PASS  C NO atribuye bloqueo a ningun filtro                      [bench-candado-perfil-C.txt] aparece=NO esperado=NO
+PASS  C NO atribuye bloqueo a sync.Mutex                         [bench-candado-perfil-C.txt] aparece=NO esperado=NO
+PASS  D atribuye bloqueo al candado global                       [bench-candado-perfil-D.txt] aparece=SI esperado=SI
 PASS  el control de contencion PASA                              [bench-candado-controles.txt] aparece=SI esperado=SI
 PASS  el costo contra el HMAC se reporto                         [bench-candado-controles.txt] aparece=SI esperado=SI
 PASS  los controles terminaron en 0                              [bench-candado-controles.txt] aparece=SI esperado=SI
@@ -83,6 +92,7 @@ PASS  el brazo corrio con -race                                  [bench-candado-
 PASS  la suite corta con -race sigue verde                       [bench-candado-suite-corta.txt] aparece=SI esperado=SI
 PASS  los tests de tiempo se saltean con -short                  [bench-candado-suite-corta.txt] aparece=SI esperado=SI
 PASS  ningun test en FAIL en la suite corta                      [bench-candado-suite-corta.txt] aparece=NO esperado=NO
+PASS  -race cuesta al menos 5x                                   [bench-candado-vs-race.txt] factor=16.9 minimo=5
 
-FALLAS_DE_VEREDICTO=1
-RESULTADO=ROJO
+FALLAS_DE_VEREDICTO=0
+RESULTADO=VERDE
