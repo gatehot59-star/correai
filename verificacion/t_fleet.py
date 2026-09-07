@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verificador de fleet/fleet_manager.py sin fastapi, asyncpg ni broker.
+"""Verificador del Fleet Manager (KAMPE IR) sin fastapi, asyncpg ni broker.
 
 Mide tres cosas que no necesitan servidor: (1) si el delivery_token que el
 endpoint de descarga exige llega a existir en algun lado, (2) si el tamano

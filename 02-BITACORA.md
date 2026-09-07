@@ -1,7 +1,9 @@
-# 02-BITACORA.md · CORREAI
+# 02-BITACORA.md · KAMPE IR
 
 Append-only. Entradas nuevas al final. Nada se reescribe: si algo estaba mal, se agrega la correccion con su fecha.
 Una hipotesis muerta registrada vale mas que una hipotesis viva sin medir.
+
+El repo se llamo CORREAI entre E-001 y E-002. Esas entradas **no se editan**.
 
 ---
 
@@ -82,3 +84,64 @@ bajo `-race`, el YAML del workflow sin parser local, el SQL sin Postgres, cero
 pruebas de integracion mTLS.
 
 **Archivo de esta respuesta:** `respuestas/2026-09-07-01-deduccion-del-nombre.md`.
+
+---
+
+## 2026-09-07 · E-003 · Bautismo: KAMPE IR, y el nombre trae una contracara
+
+**Quien pidio:** Abraham. **Literal:** "Bautizado. KAMPE IR" y despues "KAMPE IR
+ES EL NUEVO NOMBRE DE COORREAI", con la jerarquia oficial de los cuatro
+subsistemas y sus roles.
+
+**Lo que resuelve:** el choque de nombres que quedo abierto en E-002. `go.mod`
+decia `correai` y el proto decia `hipersec`. Ahora **KAMPE IR es el ecosistema y
+HiperSec es el gateway**, asi que el `go_package = "hipersec/gateway/v1"` y los
+prefijos `hipersec:` son correctos por primera vez: nombran el componente.
+
+**Lo que se verifico del nombre (instrumento: fuentes primarias, no memoria):**
+Kampe (Kάμπη) es la carcelera de Tartaro, designada por Kronos para custodiar a
+los Ciclopes y Hecatonquiros. Apolodoro, *Biblioteca* 1.2.1: "mato a su
+carcelera Kampe y solto sus cadenas". Confirmado en Nonno (*Dionisiaca* 18.237),
+Diodoro 3.72 y el diccionario de Smith. **Existe en las fuentes unicamente como
+esa funcion**: no tiene mitologia propia fuera de la custodia. Para un producto
+de contencion, el nombre es exacto y no es decorativo.
+
+**La contracara, que va escrita y no escondida:**
+
+1. **Kampe pierde.** Zeus la mata para liberar a los prisioneros, y esa muerte
+   es el evento que habilita la victoria olimpica. Es la guardiana cuyo fallo es
+   el nudo de la trama.
+2. **La designa Kronos**, el regimen que cae.
+3. El nombre significa literalmente "torcida, curvada" (de *kampsos/kamptô*), y
+   el sustantivo comun κάμπη es **"larva, oruga, gusano de seda"**. En una
+   licencia B2B de alta seguridad, "la torcida" y "la oruga" son lecturas
+   disponibles.
+4. **"IR" ya tiene dueno semantico**: en el mercado es Incident Response, una
+   categoria de producto. Tal como esta construido, KAMPE IR hace prevencion,
+   contencion y no-repudio; **no hace** case management, forense ni triage. Lo
+   unico IR-adyacente es la alerta de deriva kappa por MQTT. Y fuera de
+   seguridad, "IR" es la abreviatura estandar de Investor Relations.
+
+**El hallazgo util del mito, que va a favor de la arquitectura:** despues de
+ganar, Zeus **no** repone una guardiana monstruosa unica: pone a los
+Hecatonquiros, ex prisioneros convertidos en guardianes. Guardia distribuida con
+interes alineado en lugar de un cuello de botella obediente. Eso describe mejor
+el FSM por agente de HiperSec que un gateway como punto unico, y sugiere que la
+ventaja arquitectonica del sistema esta en el `AgentState` por certificado, no
+en el perimetro.
+
+**Que se hizo:** `README.md` reescrito, `CONTEXTO-KAMPE-IR.md` creado,
+`CONTEXTO-CORREAI.md` borrado, `go.mod` apuntado a `kampe-ir`, y los encabezados
+de los 4 verificadores actualizados. **E-001 y E-002 no se tocaron:** la
+bitacora es append-only y la deduccion de "correa" queda como historia.
+
+**Lo que NO pude hacer:** renombrar el slug del repositorio. La API con la que
+trabajo expone crear, leer, escribir y borrar archivos, y **no** expone rename
+de repositorios. Lo hace Abraham en Settings → General → Repository name, y
+GitHub redirige los links viejos.
+
+**NO MEDIDO:** si el `go.mod` con un path que todavia no resuelve pasa el CI
+(no hay Go en el sandbox); y la marca, porque una busqueda de texto sin colision
+**no es** una busqueda de marca: no se consultaron USPTO, EUIPO ni INPI.
+
+**Archivo de esta respuesta:** `respuestas/2026-09-07-02-bautismo-kampe-ir.md`.

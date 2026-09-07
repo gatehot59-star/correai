@@ -1,4 +1,4 @@
-// Verificador del motor DualBrain v4.3 de CORREAI.
+// Verificador del motor DualBrain de KAMPE IR (antes CORREAI).
 // Mide dos cosas distintas y las reporta separadas:
 //   INVARIANTES  : lo que debe seguir siendo cierto. Si se rompe, rojo.
 //   DEFECTOS     : estado medido hoy. Si cambia, rojo, para forzar

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verificador de audit/custos_legis.py sin necesidad de asyncpg ni Postgres.
+"""Verificador de Custos Legis (KAMPE IR) sin necesidad de asyncpg ni Postgres.
 
 Extrae por AST las piezas puras del modulo (el HMAC pre-hasheado y la
 canonicalizacion) y las ejecuta tal como estan escritas en el archivo.

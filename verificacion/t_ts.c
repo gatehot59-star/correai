@@ -1,4 +1,4 @@
-/* Verificador del anti-replay del gateway de CORREAI.
+/* Verificador del anti-replay de HiperSec, el gateway de KAMPE IR.
    Reimplementacion LITERAL de validateTimestamp (gateway/gateway.go).
    Instrumento: C, no Go. Go define la conversion uint64->int64 como
    truncamiento a la misma representacion en dos complementos, identica a C99,
