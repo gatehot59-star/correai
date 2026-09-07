@@ -1,0 +1,13 @@
+=== TestControlPositivoDeCola_CandadoGlobal SOLO, con -race ===
+Si este es el que cae, aca esta su numero y su mensaje.
+
+=== RUN   TestControlPositivoDeCola_CandadoGlobal
+    latencia_test.go:446: 
+        === CONTROL POSITIVO DE COLA (ns) ===
+        candado por agente (N agentes aislados)        n=800000    media=   5058.5  p50=  2644  p90=   2924  p99=    4547  p99.9=    13380  max=  42466867
+        candado GLOBAL (N agentes aislados)            n=800000    media=  15991.1  p50=  1532  p90=   4737  p99=  548234  p99.9=  1321858  max=   5962291
+    latencia_test.go:454: factor p99 global/porAgente = 120.6x   |   factor p99.9 = 98.8x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (2.67s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	3.683s
+EXIT=0

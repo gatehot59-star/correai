@@ -1,0 +1,87 @@
+Maquina: Actions ubuntu-latest (VM limpia)
+Commit:  07b1629f4e4b912135fbc5f317569a45d4a00db1
+Fecha:   2026-09-07T22:56:08Z
+cpu:     AMD EPYC 9V74 80-Core Processor
+nproc:   4
+go version go1.22.12 linux/amd64
+
+=== go test -race ./...   (el comando literal de main, SIN -short) ===
+Esto es lo que dio failure en 52 s en el job 101865710233.
+
+==================
+WARNING: DATA RACE
+Write at 0x00000083ce80 by goroutine 55:
+  github.com/gatehot59-star/kampe-ir/gateway.trabajoSintetico()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:194 +0x265
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera.func1()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:217 +0x182
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera.gowrap1()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:221 +0x41
+
+Previous write at 0x00000083ce80 by goroutine 49:
+  github.com/gatehot59-star/kampe-ir/gateway.trabajoSintetico()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:194 +0x265
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera.func1()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:217 +0x182
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera.gowrap1()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:221 +0x41
+
+Goroutine 55 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:210 +0x27d
+  github.com/gatehot59-star/kampe-ir/gateway.TestLatenciaP99DeLaEspera()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:301 +0x6f0
+  testing.tRunner()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/testing.go:1689 +0x21e
+  testing.(*T).Run.gowrap1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/testing.go:1742 +0x44
+
+Goroutine 49 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:210 +0x27d
+  github.com/gatehot59-star/kampe-ir/gateway.TestLatenciaP99DeLaEspera()
+      /home/runner/work/correai/correai/gateway/latencia_test.go:301 +0x6f0
+  testing.tRunner()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/testing.go:1689 +0x21e
+  testing.(*T).Run.gowrap1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/testing.go:1742 +0x44
+==================
+--- FAIL: TestLatenciaP99DeLaEspera (5.48s)
+    latencia_test.go:276: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
+    latencia_test.go:282: 
+        === PISO DE RUIDO DEL INSTRUMENTO ===
+        PISO: par time.Now() (g=8)                     n=800000    media=     84.5  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=   7072390
+    latencia_test.go:287: MAX INUTILIZABLE: el max del propio piso es 7072390 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
+    latencia_test.go:328: 
+        === DISTRIBUCIONES (ns) ===
+    latencia_test.go:330: PISO: par time.Now() (g=8)                     n=800000    media=     84.5  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=   7072390
+    latencia_test.go:330: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=   2876.3  p50=   150  p90=    250  p99=     541  p99.9=   378779  max=  41029219
+    latencia_test.go:330: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   4272.6  p50=   280  p90=   1342  p99=    4567  p99.9=   886302  max=   6805119
+    latencia_test.go:330: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1442.8  p50=  1422  p90=   1462  p99=    1623  p99.9=     8622  max=     23766
+    latencia_test.go:330: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   4797.9  p50=  2524  p90=   2654  p99=    4366  p99.9=    12739  max=  60437282
+    latencia_test.go:330: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  15495.1  p50=  3585  p90=   4297  p99=   81101  p99.9=  2742592  max=  21583712
+    latencia_test.go:333: 
+        === CLASIFICACION CONTRA EL PISO ===
+    latencia_test.go:335: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (6.0x sobre el piso)
+    latencia_test.go:335: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (50.7x sobre el piso)
+    latencia_test.go:335: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (18.0x sobre el piso)
+    latencia_test.go:335: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (48.5x sobre el piso)
+    latencia_test.go:335: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (901.1x sobre el piso)
+    latencia_test.go:340: 
+        GUARD 1  p99 patologico / p99 del piso = 50.7x (minimo exigido 3.0x)
+    latencia_test.go:355: GUARD 2  p99 espera compartida / aislada = 8.4x
+    latencia_test.go:362: GUARD 3  el caso real contra el piso -> MEDIDO (6.0x sobre el piso)
+    latencia_test.go:365: 
+        === RESPUESTA ===
+        p99 ESPERA caso real (1 candado por agente):        541 ns   [MEDIDO (6.0x sobre el piso)]
+        p99 ESPERA caso patologico (1 candado, 8 gor):     4567 ns   [MEDIDO (50.7x sobre el piso)]
+        p99.9 patologico:                                886302 ns
+        p99 PAQUETE completo, caso real:                   4366 ns   [MEDIDO (48.5x sobre el piso)]
+        p99 PAQUETE completo, caso patologico:            81101 ns   [MEDIDO (901.1x sobre el piso)]
+        piso del reloj (p99):                                90 ns
+        max: NO SE REPORTA como cola del candado (el max del piso fue 7072390 ns)
+    testing.go:1398: race detected during execution of test
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	13.613s
+FAIL
+EXIT_igual_que_main=1

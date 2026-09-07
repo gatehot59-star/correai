@@ -1,0 +1,40 @@
+=== EL PISO DEL RELOJ EN LAS DOS CONDICIONES ===
+
+La pregunta no es solo QUE guard cae, es POR QUE. GUARD 1 exige
+que el p99 patologico supere al piso del reloj por 3x. Bajo -race
+los dos se inflan; si el piso se infla MAS, el factor se cae solo
+y el guard no es fragil: el detector le tapa la senal.
+
+--- CON -race ---
+        PISO: par time.Now() (g=8)                     n=800000    media=     89.6  p50=    70  p90=     80  p99=      90  p99.9=     1582  max=   9451785
+    latencia_test.go:330: PISO: par time.Now() (g=8)                     n=800000    media=     89.6  p50=    70  p90=     80  p99=      90  p99.9=     1582  max=   9451785
+    latencia_test.go:330: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=   3481.2  p50=   150  p90=    241  p99=     511  p99.9=   407512  max=  42329198
+    latencia_test.go:330: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   4237.2  p50=   280  p90=   2033  p99=    4247  p99.9=   955326  max=   4290057
+    latencia_test.go:335: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (5.7x sobre el piso)
+    latencia_test.go:335: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (47.2x sobre el piso)
+        GUARD 1  p99 patologico / p99 del piso = 47.2x (minimo exigido 3.0x)
+    latencia_test.go:355: GUARD 2  p99 espera compartida / aislada = 8.3x
+    latencia_test.go:362: GUARD 3  el caso real contra el piso -> MEDIDO (5.7x sobre el piso)
+
+--- SIN -race ---
+        PISO: par time.Now() (g=8)                     n=800000    media=     51.0  p50=    50  p90=     51  p99=      60  p99.9=       61  max=     53831
+    latencia_test.go:330: PISO: par time.Now() (g=8)                     n=800000    media=     51.0  p50=    50  p90=     51  p99=      60  p99.9=       61  max=     53831
+    latencia_test.go:330: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=     49.8  p50=    50  p90=     60  p99=      61  p99.9=       70  max=     84297
+    latencia_test.go:330: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=    779.5  p50=    40  p90=    151  p99=   20561  p99.9=    95544  max=    310136
+    latencia_test.go:335: CLASIF  ESPERA: 1 candado por goroutine (caso real)    NO MEDIDO: 1.02x sobre el piso, insuficiente (min 3.0x). Es COTA SUPERIOR: la espera no supera ~61 ns, pero su valor real esta tapado por el reloj
+    latencia_test.go:335: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (342.7x sobre el piso)
+        GUARD 1  p99 patologico / p99 del piso = 342.7x (minimo exigido 3.0x)
+    latencia_test.go:355: GUARD 2  p99 espera compartida / aislada = 337.1x
+    latencia_test.go:362: GUARD 3  el caso real contra el piso -> NO MEDIDO: 1.02x sobre el piso, insuficiente (min 3.0x). Es COTA SUPERIOR: la espera no supera ~61 ns, pero su valor real esta tapado por el reloj
+
+--- los dos factores de GUARD 1, uno al lado del otro ---
+con -race : GUARD 1  p99 patologico / p99 del piso = 47.2x (minimo exigido 3.0x)
+sin -race : GUARD 1  p99 patologico / p99 del piso = 342.7x (minimo exigido 3.0x)
+
+--- el mensaje EXACTO del Fatalf que corta, si hubo ---
+    latencia_test.go:282: 
+    latencia_test.go:328: 
+    latencia_test.go:333: 
+    latencia_test.go:340: 
+    latencia_test.go:365: 
+(vacio = el Fatalf no dejo linea propia; ver el archivo del paso 2)
