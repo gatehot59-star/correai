@@ -253,7 +253,7 @@ func BenchmarkVerifyPacketHMAC(b *testing.B) {
 
 // resultadoBrazo guarda lo medido por un brazo del control.
 type resultadoBrazo struct {
-	nombre string
+	nombre  string
 	nsPorOp float64
 	mopsSeg float64
 }

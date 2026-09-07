@@ -1,0 +1,74 @@
+=== go test -run '^$' -bench 'Candado|VerifyPacketHMAC' -benchtime=200000x -count=3 -cpu=4 ===
+Carga fija: 200.000 operaciones por brazo, 3 repeticiones, GOMAXPROCS=4.
+SIN -race a proposito (ver paso 4).
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=1-4         	  200000	        69.22 ns/op	        14.45 Mop/s	         1.000 goroutines	        69.22 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=1-4         	  200000	        67.06 ns/op	        14.91 Mop/s	         1.000 goroutines	        67.06 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=1-4         	  200000	        66.89 ns/op	        14.95 Mop/s	         1.000 goroutines	        66.89 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=1-4          	  200000	        56.66 ns/op	        17.65 Mop/s	         1.000 goroutines	        56.66 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=1-4          	  200000	        57.05 ns/op	        17.53 Mop/s	         1.000 goroutines	        57.05 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=1-4          	  200000	        59.82 ns/op	        16.72 Mop/s	         1.000 goroutines	        59.82 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=1-4         	  200000	        70.15 ns/op	        14.26 Mop/s	         1.000 goroutines	        70.15 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=1-4         	  200000	        67.55 ns/op	        14.80 Mop/s	         1.000 goroutines	        67.55 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=1-4         	  200000	        67.39 ns/op	        14.84 Mop/s	         1.000 goroutines	        67.39 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1-4            	  200000	        71.08 ns/op	        14.07 Mop/s	         1.000 goroutines	        71.08 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1-4            	  200000	        71.11 ns/op	        14.06 Mop/s	         1.000 goroutines	        71.11 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1-4            	  200000	        71.24 ns/op	        14.04 Mop/s	         1.000 goroutines	        71.24 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=2-4                  	  200000	        86.21 ns/op	        11.60 Mop/s	         2.000 goroutines	        86.21 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=2-4                  	  200000	        77.70 ns/op	        12.87 Mop/s	         2.000 goroutines	        77.70 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=2-4                  	  200000	        88.61 ns/op	        11.29 Mop/s	         2.000 goroutines	        88.60 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=2-4                   	  200000	       116.8 ns/op	         8.564 Mop/s	         2.000 goroutines	       116.8 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=2-4                   	  200000	       117.0 ns/op	         8.548 Mop/s	         2.000 goroutines	       117.0 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=2-4                   	  200000	       116.7 ns/op	         8.572 Mop/s	         2.000 goroutines	       116.7 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=2-4         	  200000	        55.72 ns/op	        17.95 Mop/s	         2.000 goroutines	        55.72 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=2-4         	  200000	        52.30 ns/op	        19.12 Mop/s	         2.000 goroutines	        52.29 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=2-4         	  200000	        56.23 ns/op	        17.78 Mop/s	         2.000 goroutines	        56.23 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=2-4            	  200000	        89.98 ns/op	        11.11 Mop/s	         2.000 goroutines	        89.97 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=2-4            	  200000	        90.89 ns/op	        11.00 Mop/s	         2.000 goroutines	        90.89 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=2-4            	  200000	        88.60 ns/op	        11.29 Mop/s	         2.000 goroutines	        88.60 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=4-4                  	  200000	       112.9 ns/op	         8.858 Mop/s	         4.000 goroutines	       112.9 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=4-4                  	  200000	       111.4 ns/op	         8.975 Mop/s	         4.000 goroutines	       111.4 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=4-4                  	  200000	       110.4 ns/op	         9.059 Mop/s	         4.000 goroutines	       110.4 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=4-4                   	  200000	       143.6 ns/op	         6.964 Mop/s	         4.000 goroutines	       143.6 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=4-4                   	  200000	       158.3 ns/op	         6.317 Mop/s	         4.000 goroutines	       158.3 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=4-4                   	  200000	       159.0 ns/op	         6.290 Mop/s	         4.000 goroutines	       159.0 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=4-4         	  200000	        39.96 ns/op	        25.03 Mop/s	         4.000 goroutines	        39.96 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=4-4         	  200000	        35.56 ns/op	        28.12 Mop/s	         4.000 goroutines	        35.56 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=4-4         	  200000	        37.02 ns/op	        27.01 Mop/s	         4.000 goroutines	        37.02 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=4-4            	  200000	       107.8 ns/op	         9.275 Mop/s	         4.000 goroutines	       107.8 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=4-4            	  200000	       109.6 ns/op	         9.122 Mop/s	         4.000 goroutines	       109.6 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=4-4            	  200000	       105.5 ns/op	         9.476 Mop/s	         4.000 goroutines	       105.5 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4                  	  200000	       131.4 ns/op	         7.610 Mop/s	         8.000 goroutines	       131.4 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4                  	  200000	       132.4 ns/op	         7.553 Mop/s	         8.000 goroutines	       132.4 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4                  	  200000	       131.1 ns/op	         7.629 Mop/s	         8.000 goroutines	       131.1 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=8-4                   	  200000	       150.8 ns/op	         6.630 Mop/s	         8.000 goroutines	       150.8 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=8-4                   	  200000	       157.9 ns/op	         6.336 Mop/s	         8.000 goroutines	       157.8 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=8-4                   	  200000	       158.5 ns/op	         6.310 Mop/s	         8.000 goroutines	       158.5 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=8-4         	  200000	        24.00 ns/op	        41.67 Mop/s	         8.000 goroutines	        24.00 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=8-4         	  200000	        23.94 ns/op	        41.77 Mop/s	         8.000 goroutines	        23.94 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=8-4         	  200000	        34.58 ns/op	        28.92 Mop/s	         8.000 goroutines	        34.57 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=8-4            	  200000	       119.7 ns/op	         8.355 Mop/s	         8.000 goroutines	       119.7 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=8-4            	  200000	       120.4 ns/op	         8.303 Mop/s	         8.000 goroutines	       120.4 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=8-4            	  200000	       121.8 ns/op	         8.210 Mop/s	         8.000 goroutines	       121.8 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=16-4                 	  200000	       163.1 ns/op	         6.133 Mop/s	        16.00 goroutines	       163.1 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=16-4                 	  200000	       161.6 ns/op	         6.190 Mop/s	        16.00 goroutines	       161.6 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=16-4                 	  200000	       157.2 ns/op	         6.361 Mop/s	        16.00 goroutines	       157.2 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=16-4                  	  200000	       158.2 ns/op	         6.323 Mop/s	        16.00 goroutines	       158.2 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=16-4                  	  200000	       159.0 ns/op	         6.289 Mop/s	        16.00 goroutines	       159.0 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=16-4                  	  200000	       158.5 ns/op	         6.308 Mop/s	        16.00 goroutines	       158.5 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=16-4        	  200000	        26.02 ns/op	        38.44 Mop/s	        16.00 goroutines	        26.02 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=16-4        	  200000	        30.36 ns/op	        32.94 Mop/s	        16.00 goroutines	        30.36 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=16-4        	  200000	        24.91 ns/op	        40.14 Mop/s	        16.00 goroutines	        24.91 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=16-4           	  200000	       152.8 ns/op	         6.545 Mop/s	        16.00 goroutines	       152.8 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=16-4           	  200000	       150.1 ns/op	         6.664 Mop/s	        16.00 goroutines	       150.1 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=16-4           	  200000	       146.3 ns/op	         6.838 Mop/s	        16.00 goroutines	       146.2 ns/op-real
+BenchmarkVerifyPacketHMAC-4                                        	  200000	       614.3 ns/op
+BenchmarkVerifyPacketHMAC-4                                        	  200000	       650.7 ns/op
+BenchmarkVerifyPacketHMAC-4                                        	  200000	       632.4 ns/op
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.603s
+EXIT_bench=0

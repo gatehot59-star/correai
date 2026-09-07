@@ -1,0 +1,19 @@
+=== go test -run 'TestControlDeContencion|TestCostoDelCandado' -v -cpu=4 ===
+El primero FALLA si el arnes no distingue un candado global de
+uno por agente: sin eso, ningun numero de contencion vale.
+
+=== RUN   TestControlDeContencion_ElArnesVeLaDiferencia
+    candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
+          candado por agente        33.52 ns/op    29.836 Mop/s
+          candado global           119.97 ns/op     8.335 Mop/s
+          factor global/porAgente = 3.58x (minimo exigido 1.20x)
+--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (0.06s)
+=== RUN   TestCostoDelCandado_ContraElHMAC
+    candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
+          con candado (serial)        66.74 ns/op
+          sin candado (serial)        57.36 ns/op
+          sobrecosto de 2 Lock/Unlock = 9.38 ns por paquete
+--- PASS: TestCostoDelCandado_ContraElHMAC (0.03s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.093s
+EXIT_controles=0
