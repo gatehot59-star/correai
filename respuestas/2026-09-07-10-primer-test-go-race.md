@@ -28,8 +28,10 @@ filters.go:66  69  76  79  80  81  84  88  89     <- HuberFilter.Update
 filters.go:130 131 136 137 138 147 148            <- CoherenceFilter.Update
 ```
 
-Y reparte los reportes asi: **28 en `(*HuberFilter).Update`** y **22 en
-`(*CoherenceFilter).Update`**. Un fragmento crudo:
+Las dos funciones aparecen en los stacks: **50 citas de frame en total** (28
+nombran `(*HuberFilter).Update` y 22 `(*CoherenceFilter).Update`), repartidas
+en los 27 reportes, porque cada reporte nombra la funcion al menos dos veces
+(el `Read` y el `Previous write`). Un fragmento crudo:
 
 ```
 WARNING: DATA RACE
@@ -83,7 +85,7 @@ nadie lea el resultado. Corriendo en un subproceso del **mismo binario
 instrumentado**, la carrera se mide, su reporte crudo queda en la salida, y el
 veredicto es una afirmacion verificable.
 
-## Dos defectos propios, los dos encontrados CORRIENDO
+## Cuatro defectos propios, los cuatro encontrados MIDIENDO
 
 **1. Mi guard paso leyendo mi propio comentario.** El chequeo "el detector
 reporto al menos una carrera" buscaba `DATA RACE`, y en la primera corrida dio
@@ -99,12 +101,17 @@ todo en verde quedaba un veredicto sin su medicion: el testigo unico que W-01
 prohibe. Corregido: cada test loguea **siempre** la salida cruda y cuenta los
 reportes. Los 27 de esta corrida vienen de ahi.
 
-**3. Un rojo falso, menor:** el chequeo "ningun test en FAIL" grepeaba el
-archivo entero, que incluia el FAIL deliberado del control sin `-race`. Ahora
-cada seccion escribe su propio archivo y cada guard mira el suyo.
+**3. Un rojo falso.** El chequeo "ningun test en FAIL" grepeaba el archivo
+entero, que incluia el FAIL deliberado del control sin `-race`. Ahora cada
+seccion escribe su propio archivo y cada guard mira el suyo.
 
-Los tres son la misma leccion: **el instrumento tambien hay que medirlo**, y
-los tres aparecieron en la corrida, no releyendo el codigo.
+**4. Conte frames y dije reportes.** La primera version de este archivo decia
+"reparte los reportes asi: 28 en Huber y 22 en Coherence". Son **citas de
+frame**, no reportes: 50 citas en 27 reportes. Medi una cosa y concluí sobre
+otra, en el mismo turno en que audito exactamente eso. Corregido arriba.
+
+Los cuatro son la misma leccion: **el instrumento tambien hay que medirlo**, y
+ninguno aparecio releyendo el codigo.
 
 ## Los dos tests de caracterizacion, declarados
 
