@@ -4,12 +4,12 @@ por agente: sin eso, este arnes mide promedios disfrazados de
 cuantiles y ningun p99 del archivo vale.
 
 === RUN   TestControlPositivoDeCola_CandadoGlobal
-    latencia_test.go:403: 
+    latencia_test.go:446: 
         === CONTROL POSITIVO DE COLA (ns) ===
-        candado por agente (N agentes aislados)        n=800000    media=   266.0  p50=   140  p90=    171  p99=     220  p99.9=      261  max=  28001666
-        candado GLOBAL (N agentes aislados)            n=800000    media=  1355.2  p50=   190  p90=    511  p99=   27525  p99.9=   170762  max=   3319932
-    latencia_test.go:411: factor p99 global/porAgente = 125.1x   |   factor p99.9 = 654.3x
---- PASS: TestControlPositivoDeCola_CandadoGlobal (0.27s)
+        candado por agente (N agentes aislados)        n=800000    media=    152.1  p50=    97  p90=    234  p99=     456  p99.9=      563  max=  10060507
+        candado GLOBAL (N agentes aislados)            n=800000    media=   1921.1  p50=   230  p90=   1626  p99=   42939  p99.9=   116205  max=   1396703
+    latencia_test.go:454: factor p99 global/porAgente = 94.2x   |   factor p99.9 = 206.4x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (0.33s)
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	0.274s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.332s
 EXIT_control=0

@@ -1,13 +1,13 @@
 Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)
-Commit:  ae4f8da6cca1f73b62ea3633965fc425561c98ad
+Commit:  b220430bd18361fdc193d94eb7c0105d6ebd7c5c
 Rama:    titan/latencia-p99
-Fecha:   2026-09-07T20:45:55Z
+Fecha:   2026-09-07T20:52:25Z
 runner:  Linux 6.17.0-1022-azure x86_64
 go version go1.22.12 linux/amd64
 nproc:   4
-cpu:     AMD EPYC 9V74 80-Core Processor
+cpu:     Intel(R) Xeon(R) 6973P-C
 mem:     15Gi
-sha256 latencia_test.go: 163fbb557df26f4c7360381518aa29a9cd49bb3d4a3eb2f55dec20da33934ee6
+sha256 latencia_test.go: 3a2eb6594065aa5471a0f507a98922073151b346b9314aa5a7e99f51c58f141a
 sha256 filters.go:       2f277d71f51a0ab2ddb509f03521a4dca49e59282992fdea8e954a0afa94a335
 
 === gofmt del archivo de este PR ===
@@ -20,52 +20,57 @@ EXIT_build=0
 EXIT_vet=0
 
 === DISTRIBUCIONES, corrida 1 (la que se cita) ===
-        PISO: par time.Now() (g=8)                     n=800000    media=    82.8  p50=    61  p90=     70  p99=      71  p99.9=       80  max=  11833488
-        PISO: par time.Now() (g=8)                     n=800000    media=    82.8  p50=    61  p90=     70  p99=      71  p99.9=       80  max=  11833488
-        ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    68.8  p50=    50  p90=     70  p99=      80  p99.9=      100  max=  10077796
-        ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=  1039.4  p50=   110  p90=    201  p99=   28442  p99.9=   125064  max=   1191419
-        PAQUETE: 1 goroutine, sin disputa              n=100000    media=    97.9  p50=   100  p90=    100  p99=     101  p99.9=      130  max=     68932
-        PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   237.6  p50=   130  p90=    140  p99=     150  p99.9=      180  max=  23689469
-        PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  1219.3  p50=   220  p90=    952  p99=   24887  p99.9=   119171  max=   1130515
+        PISO: par time.Now() (g=8)                     n=800000    media=     41.3  p50=    40  p90=     44  p99=      64  p99.9=       81  max=     17946
+    latencia_test.go:330: PISO: par time.Now() (g=8)                     n=800000    media=     41.3  p50=    40  p90=     44  p99=      64  p99.9=       81  max=     17946
+    latencia_test.go:330: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    105.4  p50=    98  p90=    118  p99=     258  p99.9=      320  max=  15814953
+    latencia_test.go:330: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   1184.3  p50=   101  p90=    845  p99=   28911  p99.9=    83572  max=    327843
+    latencia_test.go:330: PAQUETE: 1 goroutine, sin disputa              n=100000    media=     72.6  p50=    70  p90=     77  p99=      78  p99.9=      167  max=     11070
+    latencia_test.go:330: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=    111.3  p50=    91  p90=    118  p99=     192  p99.9=      318  max=  10060165
+    latencia_test.go:330: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=   1395.0  p50=   197  p90=   1352  p99=   25626  p99.9=   115966  max=   1534347
+    latencia_test.go:335: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (4.0x sobre el piso)
+    latencia_test.go:335: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (451.7x sobre el piso)
+    latencia_test.go:335: CLASIF  PAQUETE: 1 goroutine, sin disputa              NO MEDIDO: 1.22x sobre el piso, insuficiente (min 3.0x). Es COTA SUPERIOR: la espera no supera ~78 ns, pero su valor real esta tapado por el reloj
+    latencia_test.go:335: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (3.0x sobre el piso)
+    latencia_test.go:335: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (400.4x sobre el piso)
 
 === EL NUMERO PEDIDO, las tres corridas ===
 --- latencia-p99-corrida-1.txt ---
 === RESPUESTA ===
-p99 de la ESPERA, caso real (1 candado por agente):     80 ns
-p99 de la ESPERA, caso patologico (1 candado, 8 gor.):  28442 ns
-p99.9 patologico: 125064 ns   max patologico: 1191419 ns
-p99 del PAQUETE completo, caso real:                    150 ns
-p99 del PAQUETE completo, caso patologico:              24887 ns
-piso del reloj (p99): 71 ns
+p99 ESPERA caso real (1 candado por agente):        258 ns   [MEDIDO (4.0x sobre el piso)]
+p99 ESPERA caso patologico (1 candado, 8 gor):    28911 ns   [MEDIDO (451.7x sobre el piso)]
+p99.9 patologico:                                 83572 ns
+p99 PAQUETE completo, caso real:                    192 ns   [MEDIDO (3.0x sobre el piso)]
+p99 PAQUETE completo, caso patologico:            25626 ns   [MEDIDO (400.4x sobre el piso)]
+piso del reloj (p99):                                64 ns
 --- latencia-p99-corrida-2.txt ---
 === RESPUESTA ===
-p99 de la ESPERA, caso real (1 candado por agente):     80 ns
-p99 de la ESPERA, caso patologico (1 candado, 8 gor.):  29303 ns
-p99.9 patologico: 122445 ns   max patologico: 803916 ns
-p99 del PAQUETE completo, caso real:                    230 ns
-p99 del PAQUETE completo, caso patologico:              25067 ns
-piso del reloj (p99): 71 ns
+p99 ESPERA caso real (1 candado por agente):        203 ns   [MEDIDO (3.6x sobre el piso)]
+p99 ESPERA caso patologico (1 candado, 8 gor):    28767 ns   [MEDIDO (504.7x sobre el piso)]
+p99.9 patologico:                                 88249 ns
+p99 PAQUETE completo, caso real:                    434 ns   [MEDIDO (7.6x sobre el piso)]
+p99 PAQUETE completo, caso patologico:            27419 ns   [MEDIDO (481.0x sobre el piso)]
+piso del reloj (p99):                                57 ns
 --- latencia-p99-corrida-3.txt ---
 === RESPUESTA ===
-p99 de la ESPERA, caso real (1 candado por agente):     71 ns
-p99 de la ESPERA, caso patologico (1 candado, 8 gor.):  25734 ns
-p99.9 patologico: 125877 ns   max patologico: 3035037 ns
-p99 del PAQUETE completo, caso real:                    160 ns
-p99 del PAQUETE completo, caso patologico:              25358 ns
-piso del reloj (p99): 71 ns
+p99 ESPERA caso real (1 candado por agente):        248 ns   [MEDIDO (3.1x sobre el piso)]
+p99 ESPERA caso patologico (1 candado, 8 gor):    28036 ns   [MEDIDO (346.1x sobre el piso)]
+p99.9 patologico:                                 91217 ns
+p99 PAQUETE completo, caso real:                    160 ns   [NO MEDIDO: 1.98x sobre el piso, insuficiente (min 3.0x). Es COTA SUPERIOR: la espera no supera ~160 ns, pero su valor real esta tapado por el reloj]
+p99 PAQUETE completo, caso patologico:            26997 ns   [MEDIDO (333.3x sobre el piso)]
+piso del reloj (p99):                                81 ns
 
 === GUARDS internos del test, por corrida ===
-        GUARD 1  p99 patologico / p99 del piso = 400.6x (minimo exigido 3.0x)
-    latencia_test.go:322: GUARD 2  p99 espera compartida / aislada = 355.5x
-        GUARD 1  p99 patologico / p99 del piso = 412.7x (minimo exigido 3.0x)
-    latencia_test.go:322: GUARD 2  p99 espera compartida / aislada = 366.3x
-        GUARD 1  p99 patologico / p99 del piso = 362.5x (minimo exigido 3.0x)
-    latencia_test.go:322: GUARD 2  p99 espera compartida / aislada = 362.5x
+        GUARD 1  p99 patologico / p99 del piso = 451.7x (minimo exigido 3.0x)
+    latencia_test.go:355: GUARD 2  p99 espera compartida / aislada = 112.1x
+        GUARD 1  p99 patologico / p99 del piso = 504.7x (minimo exigido 3.0x)
+    latencia_test.go:355: GUARD 2  p99 espera compartida / aislada = 141.7x
+        GUARD 1  p99 patologico / p99 del piso = 346.1x (minimo exigido 3.0x)
+    latencia_test.go:355: GUARD 2  p99 espera compartida / aislada = 113.0x
 
 === CONTROL POSITIVO DE COLA ===
-        candado por agente (N agentes aislados)        n=800000    media=   266.0  p50=   140  p90=    171  p99=     220  p99.9=      261  max=  28001666
-        candado GLOBAL (N agentes aislados)            n=800000    media=  1355.2  p50=   190  p90=    511  p99=   27525  p99.9=   170762  max=   3319932
-    latencia_test.go:411: factor p99 global/porAgente = 125.1x   |   factor p99.9 = 654.3x
+        candado por agente (N agentes aislados)        n=800000    media=    152.1  p50=    97  p90=    234  p99=     456  p99.9=      563  max=  10060507
+        candado GLOBAL (N agentes aislados)            n=800000    media=   1921.1  p50=   230  p90=   1626  p99=   42939  p99.9=   116205  max=   1396703
+    latencia_test.go:454: factor p99 global/porAgente = 94.2x   |   factor p99.9 = 206.4x
 
 === VEREDICTO ===
 PASS  compila                                                  [latencia-p99.txt] aparece=SI esperado=SI
@@ -96,8 +101,8 @@ PASS  ningun FAIL en la suite corta                            [latencia-p99-sui
 === ESTABILIDAD ENTRE CORRIDAS ===
 Un p99 de una sola corrida en un runner compartido puede ser el
 vecino de VM. Estos son los tres p99 patologicos:
-p99_patologico_por_corrida = 28442 29303 25734
-min=25734 max=29303 DISPERSION=1.14x
+p99_patologico_por_corrida = 
+DISPERSION=NA (no se leyeron 3 valores)
 
 FALLAS_DE_VEREDICTO=0
 RESULTADO=VERDE
