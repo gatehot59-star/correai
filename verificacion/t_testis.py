@@ -8,22 +8,45 @@ Implementa y MIDE tres cosas:
   3. El SELLO: checkpoint firmado con raiz Merkle de los heads de todos los
      agentes. Sin el, borrar la COLA de la cadena verifica en VERDE (D-20).
 
-Reporta separado:
+Reporta CUATRO categorias separadas, y la diferencia entre las dos del medio
+importa mas de lo que parece:
+
   INVARIANTE      : lo que debe seguir siendo cierto. Si se rompe, rojo.
   CONTROL POSITIVO: un ataque que el validador TIENE que rechazar. Si pasa en
                     verde, el validador no sirve y el script sale 1.
-  DEFECTO         : estado medido hoy del codigo del repo.
+  DEFECTO         : se mide LEYENDO el repo. Si desaparece, rojo, y obliga a
+                    tocar la bitacora en el commit que lo arregla.
+  PROPIEDAD       : verdad sobre un diseno o sobre datos que construyo aca.
+                    NO puede detectar que alguien arreglo el codigo Go.
   NO MEDIDO       : declarado, no escondido.
+
+Por que existe PROPIEDAD (E-006): la version anterior llamaba "DEFECTO" a las
+seis, y el README prometia que un defecto arreglado pone el test en rojo. Para
+CUATRO de las seis eso era FALSO: D-20, D-21, D-25 y D-28 se calculan sobre
+cadenas que construyo yo, asi que arreglar el gateway no las mueve. El cargo lo
+levante primero contra el validador del auditor (sus E1/F1/G1 tienen el mismo
+problema, y su nota decia explicitamente lo contrario) y despues me lo tuve que
+aplicar. Solo D-26 y D-29 leen la fuente.
 
 Un validador de cadena que no puede dar rojo no es un validador.
 
-CONTROL DE MUTACION SOBRE ESTE MISMO ARCHIVO (2026-09-07): desactive el chequeo
-de contiguidad de seq y volvi a correr. Resultado: fallos=1, rc=1, o sea que el
-sabotaje se detecta. PERO CP-1 (borrar del medio) y CP-3 (reordenar) siguieron
-dando "rechazado", porque los agarra el chequeo de prev_hash de forma
-redundante. Consecuencia honesta: esos dos controles NO son diagnosticos del
-chequeo de seq. El unico que depende exclusivamente de seq es distinguir un
-hueco DECLARADO por descarte de un salto por manipulacion (bloque F).
+MATRIZ DE MUTACION SOBRE ESTE MISMO ARCHIVO (2026-09-07, E-006). Apague cada
+chequeo del validador de a uno y anote que control se cae:
+
+  apago seq                  rc=1   cae: la PROPIEDAD D-21 (nada mas)
+  apago prev_hash            rc=1   cae: CP-5
+  apago hash                 rc=1   cae: CP-2
+  apago firma del veredicto  rc=1   cae: CP-4
+  apago largo del Sello      rc=1   CRASH (IndexError, feo pero detectado)
+  apago firma del Sello      rc=1   cae: CP-8
+
+Lo que revelo: en la version anterior, apagar el chequeo de prev_hash daba
+**rc=0**. Ningun control lo tocaba, porque el de seq agarra el borrado y el
+reordenamiento primero. O sea que la CADENA DE HASH, que es el producto entero,
+estaba sin probar. CP-5 se agrego para aislarla: borrar el 50 y RENUMERAR el
+resto, que es lo que haria un atacante competente porque renumerar es un UPDATE.
+Y el chequeo de `largo del Sello` se detecta por excepcion, no por control: es
+deuda declarada, no cobertura.
 
 Corrido: 2026-09-07, CPython 3.12.13. Sin dependencias para el nucleo;
 `cryptography` solo para el control positivo de ed25519 (D-25), que se declara
@@ -41,6 +64,9 @@ import sys
 # Claves de prueba. En produccion: TESTIS_HMAC_KEY, distinta de
 # GATEWAY_HMAC_KEY, y el Sello firmado con ed25519 (clave privada que no sale
 # del gateway).
+#
+# Claves FIJAS a proposito: con `os.urandom` la evidencia no es recomputable y
+# un auditor no puede rehacer los hashes de una corrida commiteada.
 # ----------------------------------------------------------------------
 K_VERDICT = bytes(range(32))
 K_SELLO   = bytes(range(32, 64))
@@ -202,6 +228,7 @@ def _validar_contra_sello(vs, agent_id, sello):
 
     Esto es mas correcto que comparar head == ancla: comparar heads daria rojo
     en toda cadena viva que recibio un veredicto nuevo despues del checkpoint.
+    Hay un control para eso en el bloque D.
     """
     if not sello.firma_valida():
         return False, "SELLO adulterado (hash, raiz Merkle o firma)"
@@ -276,9 +303,24 @@ def control_positivo(nombre, resultado):
 
 
 def defecto(nombre, sigue):
+    """DEFECTO: se mide LEYENDO el repo. Si desaparece, rojo, y hay que tocar la
+    bitacora en el mismo commit que lo arregla. Solo vale la etiqueta si la
+    condicion sale de la fuente, no de datos que construyo yo."""
     global fallos
     print(f"  [{'presente' if sigue else 'CAMBIO'}] DEFECTO          {nombre}")
     if not sigue:
+        fallos += 1
+
+
+def propiedad(nombre, vale):
+    """PROPIEDAD: verdad sobre un diseno o sobre datos sinteticos que construyo
+    aca. NO puede detectar que alguien arreglo el codigo Go, porque no lo lee.
+    Etiqueta separada a proposito: llamar a esto 'defecto medido' era simular
+    rigor. Vino de una critica del auditor que primero le hice a el (H-5) y
+    despues me tuve que hacer a mi."""
+    global fallos
+    print(f"  [{'ok  ' if vale else 'ROJO'}] PROPIEDAD        {nombre}")
+    if not vale:
         fallos += 1
 
 
@@ -318,34 +360,54 @@ invariante("el Sello permite crecimiento posterior (no compara heads)", ok_c)
 
 # ======================================================================
 print("\n== CONTROLES POSITIVOS: cada uno TIENE que dar rojo ==")
-print("   (pediste 8; quedaron 10, dos de ellos por hallazgos nuevos)")
+print("   (pediste 8; quedaron 11: tres salieron de hallazgos nuevos)")
 
-# CP-1
 sin50 = base[:49] + base[50:]
 ok, motivo, _ = validar_cadena(sin50, A1)
 control_positivo("borrar el veredicto 50 (del medio)", (ok, motivo))
 
-# CP-2
 mut = construir(A1, 100)
 mut[49].context[3] = struct.unpack(">d", struct.pack(
     ">Q", struct.unpack(">Q", struct.pack(">d", mut[49].context[3]))[0] ^ 1))[0]
 ok, motivo, _ = validar_cadena(mut, A1)
 control_positivo("voltear 1 bit del Context del veredicto 50", (ok, motivo))
 
-# CP-3
 reord = construir(A1, 100)
 reord[49], reord[50] = reord[50], reord[49]
 ok, motivo, _ = validar_cadena(reord, A1)
 control_positivo("reordenar los veredictos 50 y 51", (ok, motivo))
 
-# CP-4
 falsa = construir(A1, 100)
 falsa[70].signature = hmac.new(b"clave-del-atacante" + b"\x00" * 14,
                                falsa[70].hash, hashlib.sha256).digest()
 ok, motivo, _ = validar_cadena(falsa, A1)
 control_positivo("refirmar el veredicto 71 con otra clave HMAC", (ok, motivo))
 
-# CP-5  <- D-20, el agujero que encontro la auditoria
+# CP-5 <- HALLAZGO DE LA MATRIZ DE MUTACION (E-006).
+# Apague el chequeo de prev_hash y el script siguio dando rc=0: NINGUN control
+# positivo lo tocaba, porque el de seq agarra el borrado y el reordenamiento
+# primero. O sea que la cadena de hash, que ES el producto, estaba sin probar.
+# El ataque que lo aisla es el que haria un atacante competente: borra el 50 y
+# RENUMERA el resto, asi que seq queda contiguo 1..99 y lo unico roto es el
+# eslabon. Renumerar es trivial: es un UPDATE.
+renum = []
+prev_falso = CERO32
+for j, v in enumerate([x for k, x in enumerate(base) if k != 49], start=1):
+    w = Verdict(seq=j, prev_hash=prev_falso, agent_id=v.agent_id,
+                observed_at=v.observed_at, rule=v.rule, packet_ts=v.packet_ts,
+                epoch=v.epoch, nonce=v.nonce, payload_len=v.payload_len,
+                context=v.context, backoff_ns=v.backoff_ns, streak=v.streak,
+                dropped_since=v.dropped_since)
+    # el atacante NO recalcula el eslabon: reusa el prev_hash que ya estaba.
+    w.prev_hash = v.prev_hash
+    w.sellar()
+    renum.append(w)
+    prev_falso = w.hash
+ok, motivo, _ = validar_cadena(renum, A1)
+control_positivo("borrar el 50 y RENUMERAR el resto: seq queda contiguo y solo "
+                 "se rompe el eslabon de hash", (ok, motivo))
+
+# truncamiento de cola <- D-20, el agujero que encontro la auditoria
 cola = construir(A1, 100)[:90]
 ok_sin, motivo_sin, _ = validar_cadena(cola, A1)
 print(f"  [ .. ] borrar los ULTIMOS 10 SIN Sello: "
@@ -354,21 +416,22 @@ sello_cola = sello_de({A1: construir(A1, 100), A2: construir(A2, 40)})
 ok, motivo, _ = validar_cadena(cola, A1, sello=sello_cola)
 control_positivo("borrar los ULTIMOS 10 (truncamiento de cola), con Sello",
                  (ok, motivo))
-defecto("D-20 sin Sello el truncamiento de cola verifica en VERDE", ok_sin)
+propiedad("D-20 sin Sello el truncamiento de cola verifica en VERDE "
+          "[sintetico: no detecta el arreglo]", ok_sin)
 
-# CP-6
+# cadena entera borrada
 ok, motivo, _ = validar_cadena([], A1, sello=sello_cola)
 control_positivo("borrar la cadena ENTERA del agente, con Sello", (ok, motivo))
 
-# CP-7
+# Sello adulterado
 sello_adulterado = sello_de({A1: construir(A1, 100), A2: construir(A2, 40)})
 sello_adulterado.merkle_root = bytes(
     b ^ 1 for b in sello_adulterado.merkle_root)
 ok, motivo, _ = validar_cadena(base, A1, sello=sello_adulterado)
 control_positivo("adulterar la raiz Merkle del Sello", (ok, motivo))
 
-# CP-8  <- test D corregido
-print("  [ .. ] CP-8: colision de canonicalizacion, al estilo D-06")
+# colision de canonicalizacion <- el test D del auditor, corregido
+print("  [ .. ] colision de canonicalizacion, al estilo D-06")
 
 
 def naive(campos):
@@ -383,25 +446,57 @@ print(f"         naive({par[0]}) = {n1!r}")
 print(f"         naive({par[1]}) = {n2!r}")
 print(f"         naive colisiona: {n1 == n2}   <-- TIENE que ser True, "
       f"si no el test no prueba nada")
-
-
-def ancho_fijo(campos, ancho=8):
-    if any(len(c) > ancho for c in campos):
-        raise ValueError("campo mas largo que su ancho")
-    return b"".join(c.encode().ljust(ancho, b"\x00") for c in campos)
-
-
-f1, f2 = ancho_fijo(par[0]), ancho_fijo(par[1])
-print(f"         ancho_fijo({par[0]}) = {f1!r}")
-print(f"         ancho_fijo({par[1]}) = {f2!r}")
-print(f"         ancho fijo colisiona: {f1 == f2}")
 control_positivo(
     "el canonico NAIVE colisiona con el par ('a|b','c') vs ('a','b|c') "
     "[control del propio test]",
     (n1 != n2, f"naive produce {n1!r} para los dos: colision confirmada"))
-invariante("el mismo par NO colisiona en ancho fijo", f1 != f2)
+
+# Mejora que le tomo al auditor: mi version anterior comparaba un helper
+# `ancho_fijo()` de juguete. Eso probaba mi helper, NO el canonico del
+# producto. Ahora el mismo desplazamiento de frontera va metido en dos campos
+# reales del Verdict (agent_id y prev_hash) y se compara canonico() de verdad.
+b1 = Verdict(seq=1, prev_hash=b"c".ljust(32, b"\x00"),
+             agent_id=b"a|b".ljust(32, b"\x00"), observed_at=1, rule=7).sellar()
+b2 = Verdict(seq=1, prev_hash=b"b|c".ljust(32, b"\x00"),
+             agent_id=b"a".ljust(32, b"\x00"), observed_at=1, rule=7).sellar()
+print(f"         canonico() real, frontera corrida entre agent_id y prev_hash:")
+print(f"           hash A = {b1.hash.hex()[:32]}...")
+print(f"           hash B = {b2.hash.hex()[:32]}...")
+print(f"         canonico() real colisiona: {b1.hash == b2.hash}")
+invariante("el canonico REAL de Verdict no colisiona al correr la frontera "
+           "entre dos campos contiguos", b1.hash != b2.hash)
 invariante("dos Verdict que difieren en un solo campo dan hash distinto",
            construir(A1, 1)[0].hash != construir(A2, 1)[0].hash)
+
+# Otra que le tomo: meter el valor de ataque ADENTRO de una cadena real, para
+# probar que el canonico sobrevive un uint64 al maximo.
+ataque = Verdict(seq=1, prev_hash=CERO32, agent_id=A1, observed_at=1, rule=5,
+                 packet_ts=2**64 - 1, epoch=1, nonce=1, payload_len=1,
+                 context=[0.0] * 8).sellar()
+ok_at, motivo_at, _ = validar_cadena([ataque], A1)
+print(f"   veredicto con packet_ts = 2^64-1 dentro de la cadena: "
+      f"{'VERDE' if ok_at else 'ROJO'}")
+invariante("el canonico serializa packet_ts = 2^64-1 sin desbordar "
+           "(por eso la columna va numeric(20), no bigint)", ok_at)
+
+# ======================================================================
+print("\n== D. la regla ingenua del ancla (head != ancla) da ROJO FALSO ==")
+# Guard de regresion. Si alguien "simplifica" _validar_contra_sello a comparar
+# heads, este bloque lo agarra: toda cadena viva entre dos checkpoints daria
+# manipulacion. Es el defecto que tenia la propuesta original del ancla.
+def validar_regla_ingenua(vs, sello, agent_id):
+    seq_sellada, head_sellado = sello.instantanea[agent_id]
+    return (vs[-1].hash == head_sellado) if vs else False
+
+
+print(f"   cadena de 100 contra su Sello, regla ingenua: "
+      f"{'VERDE' if validar_regla_ingenua(base, sello_base, A1) else 'ROJO'}")
+print(f"   MISMA cadena + 1 veredicto legitimo, regla ingenua: "
+      f"{'VERDE' if validar_regla_ingenua(crecida, sello_base, A1) else 'ROJO'}"
+      f"   <-- cadena SANA")
+invariante("la regla implementada NO se rompe con el crecimiento, y la ingenua "
+           "SI (por eso no se usa)",
+           ok_c and not validar_regla_ingenua(crecida, sello_base, A1))
 
 # ======================================================================
 print("\n== E. D-28: cuanto NO cubre el Sello (hallazgo nuevo) ==")
@@ -418,9 +513,9 @@ print(f"      {'VERDE' if ok_v else 'ROJO'} ({motivo_v})")
 print(f"   -> con Sello cada T, la ventana borrable son los veredictos "
       f"posteriores")
 print(f"      al ultimo Sello. Aca: 20 veredictos, borro 15, nadie se entera.")
-defecto("D-28 el Sello NO cubre lo emitido despues del ultimo checkpoint: la "
-        "ventana de exposicion es T, y T es el parametro de riesgo del "
-        "producto", ok_v)
+propiedad("D-28 el Sello NO cubre lo emitido despues del ultimo checkpoint: "
+          "la ventana de exposicion es T, y T es el parametro de riesgo del "
+          "producto [sintetico]", ok_v)
 por_debajo = larga[:99]
 ok_pd, motivo_pd, _ = validar_cadena(por_debajo, A1, sello=sello_en_100)
 control_positivo("truncar por DEBAJO del punto sellado (seq 99 < 100)",
@@ -439,8 +534,8 @@ print(f"   descarte SIN consumir seq + dropped_since: "
       f"{'VERDE' if ok_b else 'ROJO'}")
 print(f"      huecos declarados (seq, perdidos): {info_b['huecos_declarados']}")
 print(f"      veredictos perdidos, declarados: {info_b['perdidos']}")
-defecto("D-21 la politica de la spec 6.2 (descarte consume seq) da ROJO falso",
-        not ok_m)
+propiedad("D-21 la politica de la spec 6.2 (descarte consume seq) da ROJO falso "
+          "[sintetico: el constructor es mio]", not ok_m)
 invariante("con el fix, el hueco queda DECLARADO y la cadena en verde",
            ok_b and info_b["huecos_declarados"] == [(21, 2)])
 
@@ -450,8 +545,9 @@ refabricada = construir(A1, 100)          # cualquiera con K_VERDICT la rehace
 ok_r, motivo_r, _ = validar_cadena(refabricada, A1)
 print(f"   cadena REFABRICADA por el tenedor de la clave: "
       f"{'VERDE' if ok_r else 'ROJO'}")
-defecto("D-25 quien tiene TESTIS_HMAC_KEY refabrica la cadena entera y "
-        "verifica en verde: es tamper-evidence, no no-repudio", ok_r)
+propiedad("D-25 con TESTIS_HMAC_KEY se refabrica la cadena entera y verifica "
+          "en verde: tamper-evidence, no no-repudio [propiedad de HMAC, "
+          "no flipea nunca]", ok_r)
 
 try:
     from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -523,7 +619,7 @@ try:
     invariante("D-27 REFUTADO: el esquema define la funcion, no la importa de "
                "una extension", define_v7)
 
-    # D-29 nuevo: el FSM no expone su estado
+    # D-29: el FSM no expone su estado
     getters = re.findall(r"func \(f \*AgentFSM\) (\w+)", fsm)
     print(f"   metodos publicos del AgentFSM: {getters}")
     print(f"   campos que Testis necesita, y son privados: "
@@ -558,6 +654,9 @@ for i, t in enumerate([
     "Si el gateway Go compila. Sigue sin compilar y el CI sin leerse.",
     "Si el Sello publicado fuera del alcance del DBA es operativamente "
     "posible en el deployment real.",
+    "4 de los 6 hallazgos de este archivo son PROPIEDAD, no DEFECTO: no leen "
+    "el repo, asi que no pueden avisar cuando el Go se arregle. Lo que falta "
+    "para convertirlos es un cliente mTLS y un Postgres, no otro test.",
 ], 1):
     print(f"  {i}. {t}")
 
