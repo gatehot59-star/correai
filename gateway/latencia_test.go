@@ -10,9 +10,16 @@
 // EL PROBLEMA QUE DECIDE SI ESTE NUMERO VALE. Cronometrar una operacion de 10 ns
 // con un reloj que cuesta decenas de nanosegundos es medir el reloj, no la
 // operacion. Por eso lo PRIMERO que hace este archivo es medir el costo del par
-// time.Now() y publicarlo como PISO DE RUIDO, y hay un guard que falla si el p99
-// medido no lo supera por un margen. Sin ese paso, todo lo de abajo seria un
-// relato con forma de numero.
+// time.Now() y publicarlo como PISO DE RUIDO, y CADA distribucion se clasifica
+// automaticamente contra ese piso.
+//
+// DEFECTO PROPIO CORREGIDO, y era el que importaba: la primera version tenia un
+// guard de un lado solo. Comparaba contra el piso unicamente el caso patologico
+// (que lo supera 400x) y no el caso real, que dio p99=80 ns contra un piso de
+// 71 ns: 1,13x. Ese 80 no es una medicion, es el reloj, y el veredicto lo iba a
+// publicar como "p99 de la espera en el caso real". Un guard que solo puede
+// confirmar lo que ya creo no es un guard. Ahora la clasificacion es automatica
+// y la seccion RESPUESTA no puede imprimir un numero sin ella.
 //
 // DOS SUJETOS, porque no son la misma pregunta:
 //
@@ -23,13 +30,13 @@
 //     produccion con un reloj que cuesta mas que la seccion critica.
 //
 //  2. La LATENCIA COMPLETA del par de Update que handleConn hace por paquete.
-//     Ese es el numero que le importa al gateway, y ahi el reloj pesa mucho
-//     menos porque la operacion medida es ~10x mas grande.
+//     Ese es el numero que le importa al gateway, y ahi el reloj pesa menos
+//     porque la operacion medida es mas grande.
 //
-// TRES BRAZOS y su control positivo: 1 agente compartido (patologico), N agentes
-// aislados (el caso real), N agentes con UN candado global. Si el p99 del candado
-// global no resulta peor que el del candado por agente, este arnes no puede ver
-// cola y ninguno de sus numeros es confiable.
+// SOBRE EL MAX: es inutilizable y se declara asi. El max del PROPIO PISO DEL
+// RELOJ dio 11.833.488 ns. Un maximo de esa escala es preempcion del scheduler
+// y robo de CPU de la VM, no espera de candado. Publicar el max como cola del
+// candado seria un error de atribucion, no un dato conservador.
 //
 // Nada se asigna durante la medicion: las muestras van a slices preasignados por
 // goroutine, y los cuantiles se calculan despues.
@@ -45,6 +52,10 @@ import (
 	"time"
 )
 
+// margenSobreElPiso es cuantas veces tiene que superar al piso del reloj un
+// cuantil para que se lo pueda llamar medicion.
+const margenSobreElPiso = 3.0
+
 // distribucion son los cuantiles de una tanda de muestras en nanosegundos.
 type distribucion struct {
 	etiqueta string
@@ -58,8 +69,28 @@ type distribucion struct {
 }
 
 func (d distribucion) String() string {
-	return fmt.Sprintf("%-46s n=%-9d media=%8.1f  p50=%6d  p90=%7d  p99=%8d  p99.9=%9d  max=%10d",
+	return fmt.Sprintf("%-46s n=%-9d media=%9.1f  p50=%6d  p90=%7d  p99=%8d  p99.9=%9d  max=%10d",
 		d.etiqueta, d.n, d.media, d.p50, d.p90, d.p99, d.p999, d.max)
+}
+
+// veredictoContraElPiso clasifica el p99 de esta distribucion contra el piso del
+// instrumento. Es lo que impide reportar el reloj como si fuera el candado.
+func (d distribucion) veredictoContraElPiso(piso distribucion) string {
+	if piso.p99 <= 0 {
+		return "SIN PISO (el instrumento no tiene resolucion)"
+	}
+	factor := float64(d.p99) / float64(piso.p99)
+	switch {
+	case factor >= margenSobreElPiso:
+		return fmt.Sprintf("MEDIDO (%.1fx sobre el piso)", factor)
+	case d.p99 <= piso.p99:
+		return fmt.Sprintf("NO MEDIDO: p99 por DEBAJO del piso (%.2fx). "+
+			"Solo se puede afirmar que la espera es <= %d ns", factor, piso.p99)
+	default:
+		return fmt.Sprintf("NO MEDIDO: %.2fx sobre el piso, insuficiente (min %.1fx). "+
+			"Es COTA SUPERIOR: la espera no supera ~%d ns, pero su valor real "+
+			"esta tapado por el reloj", factor, margenSobreElPiso, d.p99)
+	}
 }
 
 // cuantiles ordena las muestras y extrae la distribucion. Recibe el slice por
@@ -104,12 +135,10 @@ func cuantiles(etiqueta string, muestras []int64) distribucion {
 // ---------------------------------------------------------------------------
 
 // pisoDelReloj mide el costo de un par time.Now() sin nada en el medio. Es el
-// suelo por debajo del cual este archivo NO PUEDE MEDIR NADA: si un p99 de mas
-// abajo esta en el mismo orden que este, ese p99 es del reloj.
+// suelo por debajo del cual este archivo NO PUEDE MEDIR NADA.
 //
 // Se mide con `goroutines` corriendo a la vez porque el costo del reloj tambien
-// se degrada bajo carga, y usarlo como piso medido en serie seria un piso
-// optimista.
+// se degrada bajo carga, y un piso medido en serie seria un piso optimista.
 func pisoDelReloj(goroutines, porGoroutine int) distribucion {
 	muestras := make([][]int64, goroutines)
 	for g := range muestras {
@@ -149,12 +178,13 @@ func aplanar(por [][]int64) []int64 {
 // SUJETO 1: la espera para adquirir el candado
 // ---------------------------------------------------------------------------
 
-// trabajoSinteticoNs aproxima la duracion de la seccion critica de
-// CoherenceFilter.Update, que es la que el perfil de mutex senalo como dos
-// tercios del bloqueo. No pretende ser identica: pretende que el candado se
-// mantenga tomado un rato comparable, que es lo que produce la cola.
+// sumidero evita que el compilador elimine el trabajo sintetico.
 var sumidero float64
 
+// trabajoSintetico aproxima la duracion de la seccion critica de
+// CoherenceFilter.Update, que el perfil de mutex senalo como dos tercios del
+// bloqueo. No pretende ser identica: pretende mantener el candado tomado un rato
+// comparable, que es lo que produce la cola.
 func trabajoSintetico(vec [ContextVectorSize]float64) {
 	var dot, normF float64
 	for i := 0; i < ContextVectorSize; i++ {
@@ -233,13 +263,6 @@ func medirLatenciaPorPaquete(etiqueta string, goroutines, porGoroutine int, agen
 
 // TestLatenciaP99DeLaEspera produce la distribucion completa y falla si el
 // instrumento no puede sostener sus propias afirmaciones.
-//
-// Los dos guards que lo hacen falsable:
-//
-//  1. El p99 del caso patologico tiene que superar el PISO DEL RELOJ por al
-//     menos 3x. Si no, lo medido es el reloj.
-//  2. El p99 del candado global tiene que ser peor que el del candado por
-//     agente. Si no, el arnes no ve cola.
 func TestLatenciaP99DeLaEspera(t *testing.T) {
 	if testing.Short() {
 		t.Skip("depende del tiempo de pared; se corre en el job de latencia")
@@ -248,7 +271,6 @@ func TestLatenciaP99DeLaEspera(t *testing.T) {
 	const (
 		goroutines   = 8
 		porGoroutine = 100000
-		margenPiso   = 3.0
 	)
 
 	t.Logf("GOMAXPROCS=%d NumCPU=%d muestras=%d (%d goroutines x %d)",
@@ -258,6 +280,13 @@ func TestLatenciaP99DeLaEspera(t *testing.T) {
 	// --- Piso de ruido, primero, porque decide si el resto significa algo ---
 	piso := pisoDelReloj(goroutines, porGoroutine)
 	t.Logf("\n=== PISO DE RUIDO DEL INSTRUMENTO ===\n%s", piso)
+	if piso.p99 <= 0 {
+		t.Fatalf("el piso del reloj dio p99=%d: el instrumento no tiene resolucion "+
+			"suficiente y ningun numero de este test vale", piso.p99)
+	}
+	t.Logf("MAX INUTILIZABLE: el max del propio piso es %d ns. Cualquier max de "+
+		"este archivo es preempcion del scheduler o robo de CPU de la VM, no "+
+		"espera de candado.", piso.max)
 
 	// --- Sujeto 1: la espera del candado ---
 	unCandado := []*sync.Mutex{{}}
@@ -272,9 +301,6 @@ func TestLatenciaP99DeLaEspera(t *testing.T) {
 	esperaAislada := medirEspera(
 		"ESPERA: 1 candado por goroutine (caso real)",
 		goroutines, porGoroutine, candadosAislados)
-
-	t.Logf("\n=== SUJETO 1: espera para ADQUIRIR el candado (ns) ===\n%s\n%s\n%s",
-		piso, esperaAislada, esperaCompartida)
 
 	// --- Sujeto 2: la latencia del par de Update, filtros reales ---
 	agenteUnico := []*AgentState{nuevoAgenteCompartido()}
@@ -294,21 +320,29 @@ func TestLatenciaP99DeLaEspera(t *testing.T) {
 		"PAQUETE: 1 goroutine, sin disputa",
 		1, porGoroutine, []*AgentState{nuevoAgenteCompartido()})
 
-	t.Logf("\n=== SUJETO 2: latencia del par Huber+Coherence por paquete (ns) ===\n%s\n%s\n%s",
-		latSerial, latAislada, latCompartida)
+	// --- Tabla con la clasificacion pegada a cada numero ---
+	todas := []distribucion{
+		piso, esperaAislada, esperaCompartida,
+		latSerial, latAislada, latCompartida,
+	}
+	t.Logf("\n=== DISTRIBUCIONES (ns) ===")
+	for _, d := range todas {
+		t.Logf("%s", d)
+	}
 
-	// --- GUARD 1: el piso del reloj no puede explicar lo medido ---
+	t.Logf("\n=== CLASIFICACION CONTRA EL PISO ===")
+	for _, d := range todas[1:] {
+		t.Logf("CLASIF  %-46s %s", d.etiqueta, d.veredictoContraElPiso(piso))
+	}
+
+	// --- GUARD 1: el piso no puede explicar el caso patologico ---
 	factorPiso := float64(esperaCompartida.p99) / float64(piso.p99)
 	t.Logf("\nGUARD 1  p99 patologico / p99 del piso = %.1fx (minimo exigido %.1fx)",
-		factorPiso, margenPiso)
-	if piso.p99 <= 0 {
-		t.Fatalf("el piso del reloj dio p99=%d: el instrumento no tiene resolucion "+
-			"suficiente y ningun numero de este test vale", piso.p99)
-	}
-	if factorPiso < margenPiso {
-		t.Fatalf("el p99 medido (%d ns) no supera el piso del reloj (%d ns) por %.1fx: "+
-			"lo que se esta midiendo puede ser el reloj",
-			esperaCompartida.p99, piso.p99, margenPiso)
+		factorPiso, margenSobreElPiso)
+	if factorPiso < margenSobreElPiso {
+		t.Fatalf("el p99 patologico (%d ns) no supera el piso del reloj (%d ns) por "+
+			"%.1fx: lo que se esta midiendo puede ser el reloj",
+			esperaCompartida.p99, piso.p99, margenSobreElPiso)
 	}
 
 	// --- GUARD 2: el arnes ve la cola cuando existe ---
@@ -318,21 +352,30 @@ func TestLatenciaP99DeLaEspera(t *testing.T) {
 			"cola, asi que sus numeros no son confiables",
 			esperaCompartida.p99, esperaAislada.p99)
 	}
-
 	t.Logf("GUARD 2  p99 espera compartida / aislada = %.1fx",
 		float64(esperaCompartida.p99)/float64(maxInt64(esperaAislada.p99, 1)))
 
-	// --- El numero que se pidio, aislado ---
+	// --- GUARD 3: el que faltaba. Impide vender el reloj como dato ---
+	// No hace fallar el test: el caso real ESTA en el piso y eso es un hecho del
+	// instrumento, no un error. Lo que hace es forzar la declaracion.
+	clasifReal := esperaAislada.veredictoContraElPiso(piso)
+	t.Logf("GUARD 3  el caso real contra el piso -> %s", clasifReal)
+
+	// --- El numero que se pidio, cada uno con su clasificacion ---
 	t.Logf("\n=== RESPUESTA ===\n"+
-		"p99 de la ESPERA, caso real (1 candado por agente):     %d ns\n"+
-		"p99 de la ESPERA, caso patologico (1 candado, 8 gor.):  %d ns\n"+
-		"p99.9 patologico: %d ns   max patologico: %d ns\n"+
-		"p99 del PAQUETE completo, caso real:                    %d ns\n"+
-		"p99 del PAQUETE completo, caso patologico:              %d ns\n"+
-		"piso del reloj (p99): %d ns",
-		esperaAislada.p99, esperaCompartida.p99,
-		esperaCompartida.p999, esperaCompartida.max,
-		latAislada.p99, latCompartida.p99, piso.p99)
+		"p99 ESPERA caso real (1 candado por agente):   %8d ns   [%s]\n"+
+		"p99 ESPERA caso patologico (1 candado, 8 gor): %8d ns   [%s]\n"+
+		"p99.9 patologico:                              %8d ns\n"+
+		"p99 PAQUETE completo, caso real:               %8d ns   [%s]\n"+
+		"p99 PAQUETE completo, caso patologico:         %8d ns   [%s]\n"+
+		"piso del reloj (p99):                          %8d ns\n"+
+		"max: NO SE REPORTA como cola del candado (el max del piso fue %d ns)",
+		esperaAislada.p99, clasifReal,
+		esperaCompartida.p99, esperaCompartida.veredictoContraElPiso(piso),
+		esperaCompartida.p999,
+		latAislada.p99, latAislada.veredictoContraElPiso(piso),
+		latCompartida.p99, latCompartida.veredictoContraElPiso(piso),
+		piso.p99, piso.max)
 }
 
 func maxInt64(a, b int64) int64 {
