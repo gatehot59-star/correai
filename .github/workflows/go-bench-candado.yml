@@ -1,0 +1,291 @@
+# Mide el costo del candado que cerro D-26. Seis mediciones, cinco archivos, y
+# guards que pueden dar rojo.
+#
+# DECISIONES DEL INSTRUMENTO, todas verificables en la salida:
+#
+#  1. Los benchmarks corren SIN -race. El detector instrumenta cada acceso a
+#     memoria, asi que un benchmark bajo -race no mide el candado: mide el
+#     detector. En vez de pedir que se me crea, el paso 4 corre el MISMO brazo
+#     en las dos condiciones y publica el factor.
+#
+#  2. Carga FIJA con -benchtime=Nx en lugar de tiempo fijo. Con tiempo fijo el
+#     framework le da distinta cantidad de iteraciones a cada brazo, y despues
+#     comparar sus ns/op es comparar dos experimentos distintos.
+#
+#  3. -cpu=4 explicito. Un ns/op de contencion sin decir cuantos cores habia no
+#     es recomputable.
+#
+#  4. El perfil de mutex es un SEGUNDO instrumento, independiente del
+#     cronometro: da nanosegundos de bloqueo contabilizados por el runtime. Si
+#     los dos coinciden en el orden de magnitud, el numero es solido; si no,
+#     hay que dudar de los dos.
+#
+# Commitea su propio resultado: ningun agente puede leer el texto de un log de
+# Actions.
+name: go-bench-candado
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/bench-candado
+    paths:
+      - 'gateway/**'
+      - 'go.mod'
+      - '.github/workflows/go-bench-candado.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Entorno, build y vet
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          BASE=verificacion/resultados-actions/bench-candado.txt
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Rama:    ${GITHUB_REF_NAME}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "runner:  $(uname -srm)"
+            go version
+            echo "nproc:   $(nproc)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            echo "mem:     $(free -h | awk 'NR==2{print $2}')"
+            echo "sha256 candado_bench_test.go: $(sha256sum gateway/candado_bench_test.go | cut -d' ' -f1)"
+            echo "sha256 filters.go:            $(sha256sum gateway/filters.go | cut -d' ' -f1)"
+            echo
+            echo "=== gofmt de los archivos de este PR ==="
+            gofmt -l gateway/candado_bench_test.go
+            gofmt -d gateway/candado_bench_test.go
+            gofmt -w gateway/candado_bench_test.go
+            echo "(vacio arriba = ya estaba formateado)"
+            echo
+            echo "=== go build ./... ==="
+            go build ./... 2>&1
+            echo "EXIT_build=$?"
+            echo
+            echo "=== go vet ./... ==="
+            go vet ./... 2>&1
+            echo "EXIT_vet=$?"
+          } > "$BASE" 2>&1
+          cat "$BASE"
+
+      - name: Los cuatro brazos, carga fija
+        if: always()
+        run: |
+          set +e
+          OUT=verificacion/resultados-actions/bench-candado-brazos.txt
+          {
+            echo "=== go test -run '^\$' -bench 'Candado|VerifyPacketHMAC' -benchtime=200000x -count=3 -cpu=4 ==="
+            echo "Carga fija: 200.000 operaciones por brazo, 3 repeticiones, GOMAXPROCS=4."
+            echo "SIN -race a proposito (ver paso 4)."
+            echo
+            go test -run '^$' -bench 'BenchmarkCandado|BenchmarkVerifyPacketHMAC' \
+                    -benchtime=200000x -count=3 -cpu=4 -timeout 20m ./gateway/... 2>&1
+            echo "EXIT_bench=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: Perfil de mutex, instrumento independiente del cronometro
+        if: always()
+        run: |
+          set +e
+          OUT=verificacion/resultados-actions/bench-candado-mutexprofile.txt
+          {
+            echo "=== perfil de mutex del runtime ==="
+            echo "Contabiliza nanosegundos de BLOQUEO reales, no tiempo de pared."
+            echo
+            echo "--- brazo A (1 agente compartido, 8 goroutines: el caso patologico) ---"
+            go test -run '^$' -bench 'Candado/A_1agente_candadoPorAgente/g=8$' \
+                    -benchtime=500000x -cpu=4 -mutexprofile=/tmp/mutex-A.out \
+                    -timeout 10m ./gateway/... 2>&1
+            echo "EXIT_A=$?"
+            echo
+            echo "--- top del perfil A ---"
+            go tool pprof -top -nodecount=12 /tmp/mutex-A.out 2>&1
+            echo
+            echo "--- brazo C (N agentes aislados, 8 goroutines: el caso real) ---"
+            go test -run '^$' -bench 'Candado/C_NagentesAislados_candadoPorAgente/g=8$' \
+                    -benchtime=500000x -cpu=4 -mutexprofile=/tmp/mutex-C.out \
+                    -timeout 10m ./gateway/... 2>&1
+            echo "EXIT_C=$?"
+            echo
+            echo "--- top del perfil C ---"
+            go tool pprof -top -nodecount=12 /tmp/mutex-C.out 2>&1
+            echo
+            echo "--- brazo D (N agentes, candado GLOBAL: control positivo) ---"
+            go test -run '^$' -bench 'Candado/D_NagentesAislados_candadoGLOBAL/g=8$' \
+                    -benchtime=500000x -cpu=4 -mutexprofile=/tmp/mutex-D.out \
+                    -timeout 10m ./gateway/... 2>&1
+            echo "EXIT_D=$?"
+            echo
+            echo "--- top del perfil D ---"
+            go tool pprof -top -nodecount=12 /tmp/mutex-D.out 2>&1
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: Los dos controles, como tests que pueden fallar
+        if: always()
+        run: |
+          set +e
+          OUT=verificacion/resultados-actions/bench-candado-controles.txt
+          {
+            echo "=== go test -run 'TestControlDeContencion|TestCostoDelCandado' -v -cpu=4 ==="
+            echo "El primero FALLA si el arnes no distingue un candado global de"
+            echo "uno por agente: sin eso, ningun numero de contencion vale."
+            echo
+            go test -run 'TestControlDeContencion|TestCostoDelCandado' -v -count=1 \
+                    -cpu=4 -timeout 10m ./gateway/... 2>&1
+            echo "EXIT_controles=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: Por que los benchmarks NO van con -race
+        if: always()
+        run: |
+          set +e
+          OUT=verificacion/resultados-actions/bench-candado-vs-race.txt
+          {
+            echo "=== el MISMO brazo, con y sin -race ==="
+            echo "Si el factor es grande, un benchmark bajo -race no mide el"
+            echo "candado: mide el detector. Esto justifica la decision en vez de"
+            echo "pedir que se me crea."
+            echo
+            echo "--- SIN -race ---"
+            go test -run '^$' -bench 'Candado/A_1agente_candadoPorAgente/g=8$' \
+                    -benchtime=100000x -cpu=4 -timeout 10m ./gateway/... 2>&1
+            echo "EXIT_sinrace=$?"
+            echo
+            echo "--- CON -race ---"
+            go test -race -run '^$' -bench 'Candado/A_1agente_candadoPorAgente/g=8$' \
+                    -benchtime=100000x -cpu=4 -timeout 15m ./gateway/... 2>&1
+            echo "EXIT_conrace=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: La suite de correctitud sigue verde y los tests de tiempo se saltean
+        if: always()
+        run: |
+          set +e
+          OUT=verificacion/resultados-actions/bench-candado-suite-corta.txt
+          {
+            echo "=== go test -short -race -v -count=1 ./gateway/... ==="
+            echo "Verifica dos cosas: que agregar este archivo no rompio la suite"
+            echo "de D-26, y que los tests que dependen del tiempo de pared se"
+            echo "SALTEAN con -short en vez de ensuciar el job de correctitud."
+            echo
+            go test -short -race -v -count=1 -timeout 15m ./gateway/... 2>&1
+            echo "EXIT_suite_corta=$?"
+          } > "$OUT" 2>&1
+          tail -60 "$OUT"
+
+      - name: Veredicto
+        if: always()
+        run: |
+          set +e
+          D=verificacion/resultados-actions
+          BASE=$D/bench-candado.txt
+          BRAZOS=$D/bench-candado-brazos.txt
+          PERFIL=$D/bench-candado-mutexprofile.txt
+          CTRL=$D/bench-candado-controles.txt
+          VSRACE=$D/bench-candado-vs-race.txt
+          CORTA=$D/bench-candado-suite-corta.txt
+          FALLAS=0
+
+          esperar() {
+            if grep -q -- "$3" "$2"; then HAY=SI; else HAY=NO; fi
+            if [ "$HAY" = "$4" ]; then
+              printf 'PASS  %-58s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
+            else
+              printf 'FAIL  %-58s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          {
+            echo
+            echo "=== TABLA: ns/op-real por brazo (mediana de 3, GOMAXPROCS=4) ==="
+            grep -E '^Benchmark' "$BRAZOS" | awk '
+              {
+                nombre=$1
+                sub(/-4$/, "", nombre)
+                for (i=1; i<=NF; i++) if ($i == "ns/op-real") ns[nombre]=ns[nombre] " " $(i-1)
+                for (i=1; i<=NF; i++) if ($i == "Mop/s")      mo[nombre]=mo[nombre] " " $(i-1)
+              }
+              END {
+                for (k in ns) {
+                  n=split(ns[k], a, " "); m=split(mo[k], b, " ")
+                  # mediana de 3 = el del medio tras ordenar
+                  for (i=1;i<=n;i++) for (j=i+1;j<=n;j++) if (a[j]+0<a[i]+0) { t=a[i]; a[i]=a[j]; a[j]=t }
+                  for (i=1;i<=m;i++) for (j=i+1;j<=m;j++) if (b[j]+0<b[i]+0) { t=b[i]; b[i]=b[j]; b[j]=t }
+                  med_ns = (n>0) ? a[int((n+1)/2)] : "NA"
+                  med_mo = (m>0) ? b[int((m+1)/2)] : "NA"
+                  printf "%-62s %12.2f ns/op-real %10.3f Mop/s\n", k, med_ns, med_mo
+                }
+              }' | sort
+            echo
+            echo "=== HMAC por paquete, el denominador ==="
+            grep -E '^BenchmarkVerifyPacketHMAC' "$BRAZOS"
+            echo
+            echo "=== nanosegundos de bloqueo contabilizados por el runtime ==="
+            grep -E 'Total:|Duration:' "$PERFIL"
+            echo
+            echo "=== VEREDICTO ==="
+            esperar 'compila'                                   "$BASE"   'EXIT_build=0'                                       SI
+            esperar 'go vet limpio'                             "$BASE"   'EXIT_vet=0'                                         SI
+            esperar 'los benchmarks corrieron en 0'             "$BRAZOS" 'EXIT_bench=0'                                       SI
+            esperar 'brazo A presente (1 agente, con candado)'  "$BRAZOS" 'A_1agente_candadoPorAgente'                         SI
+            esperar 'brazo B presente (sin candado, RACY)'      "$BRAZOS" 'B_1agente_sinCandado_RACY'                          SI
+            esperar 'brazo C presente (N agentes aislados)'     "$BRAZOS" 'C_NagentesAislados_candadoPorAgente'                SI
+            esperar 'brazo D presente (candado GLOBAL)'         "$BRAZOS" 'D_NagentesAislados_candadoGLOBAL'                   SI
+            esperar 'el denominador HMAC se midio'              "$BRAZOS" 'BenchmarkVerifyPacketHMAC'                          SI
+            esperar 'ningun benchmark quedo en FAIL'            "$BRAZOS" '^--- FAIL'                                          NO
+            esperar 'el perfil de mutex del brazo A salio'      "$PERFIL" 'EXIT_A=0'                                           SI
+            esperar 'el perfil de mutex del brazo D salio'      "$PERFIL" 'EXIT_D=0'                                           SI
+            esperar 'pprof leyo el perfil (tiene Total)'        "$PERFIL" 'Total:'                                             SI
+            esperar 'el control de contencion PASA'             "$CTRL"   '--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia' SI
+            esperar 'el costo contra el HMAC se reporto'        "$CTRL"   '--- PASS: TestCostoDelCandado_ContraElHMAC'          SI
+            esperar 'los controles terminaron en 0'             "$CTRL"   'EXIT_controles=0'                                   SI
+            esperar 'ningun control en FAIL'                    "$CTRL"   '^--- FAIL'                                          NO
+            esperar 'el brazo corrio sin -race'                 "$VSRACE" 'EXIT_sinrace=0'                                     SI
+            esperar 'el brazo corrio con -race'                 "$VSRACE" 'EXIT_conrace=0'                                     SI
+            esperar 'la suite corta con -race sigue verde'       "$CORTA"  'EXIT_suite_corta=0'                                 SI
+            esperar 'los tests de tiempo se saltean con -short'  "$CORTA"  'SKIP'                                               SI
+            esperar 'ningun test en FAIL en la suite corta'      "$CORTA"  '^--- FAIL'                                          NO
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+          } >> "$BASE"
+          tail -60 "$BASE"
+
+      - name: Commitear los resultados
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/bench-candado*.txt gateway/candado_bench_test.go
+          git commit -m 'evidencia: costo del candado bajo contencion, con perfil de mutex y control positivo [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          grep -q 'RESULTADO=VERDE' verificacion/resultados-actions/bench-candado.txt || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' verificacion/resultados-actions/bench-candado.txt
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=' verificacion/resultados-actions/bench-candado.txt
