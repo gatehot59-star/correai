@@ -3,10 +3,10 @@ Si este es el que cae, aca esta su numero y su mensaje.
 
 === RUN   TestCostoDelCandado_ContraElHMAC
     candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
-          con candado (serial)      1911.32 ns/op
-          sin candado (serial)       896.41 ns/op
-          sobrecosto de 2 Lock/Unlock = 1014.91 ns por paquete
---- PASS: TestCostoDelCandado_ContraElHMAC (0.62s)
+          con candado (serial)      1595.20 ns/op
+          sin candado (serial)       682.97 ns/op
+          sobrecosto de 2 Lock/Unlock = 912.22 ns por paquete
+--- PASS: TestCostoDelCandado_ContraElHMAC (0.50s)
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	1.628s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.508s
 EXIT=0

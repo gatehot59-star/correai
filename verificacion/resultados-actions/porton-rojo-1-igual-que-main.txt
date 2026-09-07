@@ -1,12 +1,12 @@
 Maquina: Actions ubuntu-latest (VM limpia)
-Commit:  b823658603208da582a56057e27d5c781aca27e3
-Fecha:   2026-09-07T23:03:13Z
-cpu:     AMD EPYC 7763 64-Core Processor
+Commit:  6ff2c943bc0bd7c3211e8c7f0fceb225e9b837b5
+Fecha:   2026-09-07T23:08:59Z
+cpu:     INTEL(R) XEON(R) PLATINUM 8573C
 nproc:   4
 go version go1.22.12 linux/amd64
 
 === go test -race ./...   (el comando literal de main, SIN -short) ===
 Esto es lo que dio failure en 52 s en el job 101865710233.
 
-ok  	github.com/gatehot59-star/kampe-ir/gateway	16.222s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	15.361s
 EXIT_igual_que_main=0
