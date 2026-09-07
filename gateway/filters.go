@@ -3,7 +3,10 @@
 
 package gateway
 
-import "math"
+import (
+	"math"
+	"sync"
+)
 
 const (
 	DefaultAlpha              = 0.20
@@ -21,13 +24,30 @@ const (
 // FIX 1: f.s (EWMA de inercia) ahora se incorpora al umbral dinámico,
 //         dándole uso real en lugar de ser código muerto.
 // FIX 2: el caller ahora pasa bytes reales en lugar del valor fijo 1.0.
+//
+// FIX D-26: Update es ahora segura para uso concurrente.
+//
+// El detector de carreras del runtime reportó 27 carreras citando 16 líneas de
+// este archivo, porque getOrCreateAgent entrega el MISMO *AgentState a toda
+// conexión que presente el mismo certificado, y handleConn llama a Update
+// fuera de agent.mu. El candado vive acá, en el tipo, y no en el call site:
+// el puntero es compartido por construcción, así que la seguridad tiene que
+// ser una propiedad del filtro y no una regla que cada llamador futuro deba
+// recordar.
+//
+// El campo se llama mtx y NO mu porque mu ya existe en este struct y es la
+// media Winsorizada, no un mutex.
+//
+// LÍMITE DECLARADO: esto elimina la carrera de datos, no la mezcla semántica.
+// Dos conexiones del mismo agente siguen alimentando una sola EWMA.
 type HuberFilter struct {
-	alpha  float64
-	sigma  float64
-	s      float64 // S_t, EWMA de inercia — ahora usado en threshold
-	mu     float64 // media Winsorizada
-	v      float64 // varianza de Huber
-	lastV  float64 // varianza previa para derivada
+	mtx   sync.Mutex
+	alpha float64
+	sigma float64
+	s     float64 // S_t, EWMA de inercia — ahora usado en threshold
+	mu    float64 // media Winsorizada (NO es un mutex)
+	v     float64 // varianza de Huber
+	lastV float64 // varianza previa para derivada
 }
 
 func NewHuberFilter(alpha, sigma float64) *HuberFilter {
@@ -50,7 +70,15 @@ func NewHuberFilter(alpha, sigma float64) *HuberFilter {
 //
 // FIX: el umbral dinámico ahora incorpora f.s (inercia del sistema) para
 // distinguir ráfagas legítimas sostenidas de picos anómalos.
+//
+// FIX D-26: toma f.mtx durante toda la actualización. Cada llamada es atómica;
+// la SECUENCIA de llamadas no lo es, y eso es deliberado: el llamador no
+// necesita una decisión conjunta con CoherenceFilter para ser seguro en
+// memoria.
 func (f *HuberFilter) Update(x float64, dt float64) bool {
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
+
 	if f.alpha <= 0 || f.alpha > 1 {
 		f.alpha = DefaultAlpha
 	}
@@ -93,7 +121,11 @@ func (f *HuberFilter) Update(x float64, dt float64) bool {
 
 // CoherenceFilter implementa el factor de coherencia de estado mediante
 // similitud coseno entre un filtro rápido y uno medio.
+//
+// FIX D-26: Update es ahora segura para uso concurrente. Mismo motivo y mismo
+// límite declarado que en HuberFilter.
 type CoherenceFilter struct {
+	mtx         sync.Mutex
 	fastAlpha   float64
 	mediumAlpha float64
 	fast        [ContextVectorSize]float64
@@ -125,7 +157,14 @@ func NewCoherenceFilter(fastAlpha, mediumAlpha, threshold float64) *CoherenceFil
 
 // Update recibe el vector de contexto y devuelve true si la coherencia
 // cae drásticamente, indicando desalineamiento anómalo.
+//
+// FIX D-26: toma c.mtx durante toda la actualización. Los dos arreglos EWMA y
+// c.last se leían y escribían sin protección; eran 22 de las citas del
+// detector.
 func (c *CoherenceFilter) Update(vec [ContextVectorSize]float64) bool {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
 	for i := range vec {
 		c.fast[i] = (1-c.fastAlpha)*c.fast[i] + c.fastAlpha*vec[i]
 		c.medium[i] = (1-c.mediumAlpha)*c.medium[i] + c.mediumAlpha*vec[i]
