@@ -1,31 +1,37 @@
 // Copyright (c) 2026 Jorge Abraham Mendieta.
 // Computational Substrate Theory. Todos los derechos reservados.
 
-// Primer test Go del repositorio. Su objetivo es cerrar un NO MEDIDO concreto:
-// D-26, la carrera de datos de los filtros. `go vet ./...` sale limpio y NO
-// puede ver esta clase de defecto, asi que el instrumento correcto es el
-// detector de carreras del runtime.
+// Suite de concurrencia del gateway. Nacio para MEDIR D-26 (la carrera de
+// datos de los filtros) porque `go vet ./...` sale limpio y no puede ver esa
+// clase de defecto. Hoy mide que D-26 esta CERRADO.
 //
-// POR QUE SUBPROCESOS: si el reproductor corriera dentro de este mismo proceso,
-// el detector marcaria el test como fallido y el binario terminaria en 66. El
-// hallazgo real ("la carrera existe") quedaria disfrazado de "la suite esta
-// roja". Corriendolo en un subproceso del MISMO binario instrumentado, la
-// carrera se mide, su reporte crudo queda en la salida, y el veredicto es una
-// afirmacion verificable en vez de un accidente.
+// HISTORIA, para que nadie tenga que reconstruirla:
+//   - Version anterior: TestD26_LosFiltrosCorrenSinSincronizacion afirmaba el
+//     defecto y exigia un reporte del detector. Dio 27 reportes citando 16
+//     lineas de filters.go. Su comentario decia que al arreglarse tenia que
+//     dar rojo. Se cumplio.
+//   - Version actual: ese test se invirtio. Ahora exige CERO reportes, y hay
+//     dos controles nuevos, porque un verde de ausencia es el mas facil de
+//     falsear: alcanza con que el reproductor deje de tocar el estado
+//     compartido para que "no hay carrera" sea verdad por el motivo equivocado.
 //
-// TRES CONTROLES, porque un test que no puede dar rojo no mide nada:
-//   1. TestControlPositivo_DetectorArmado: siembra una carrera trivial. Si el
-//      binario se compilo SIN -race, este test da ROJO. O sea que la suite no
-//      puede pasar en verde con el detector apagado.
-//   2. TestControlNegativo_ElFSMNoReportaCarrera: el AgentFSM si toma su mutex.
+// LOS CUATRO CONTROLES:
+//   1. TestControlPositivo_DetectorArmado: carrera sembrada. Si el binario se
+//      compilo SIN -race, da ROJO. La suite no puede pasar con el detector
+//      apagado.
+//   2. TestControlMutacion_ElPatronDetectaFaltaDeMutex: el mismo patron de
+//      concurrencia sobre gemelos SIN mutex de los dos filtros. Prueba que el
+//      patron sigue siendo capaz de detectar una carrera.
+//   3. TestControlNegativo_ElFSMNoReportaCarrera: el FSM si toma su mutex.
 //      Distingue "el detector reporta todo" de "reporta lo que hay".
-//   3. Dentro del test de HMAC, cambiar el nonce debe invalidar la firma.
+//   4. Dentro del test de HMAC, cambiar el nonce debe invalidar la firma.
 //
-// DEFECTO PROPIO CORREGIDO (encontrado corriendo, no releyendo): en la primera
-// version la salida del subproceso -- el reporte del detector, o sea LA
-// EVIDENCIA -- solo se imprimia en el camino de fallo. Con todo en verde
-// quedaba un veredicto sin su medicion, que es el testigo unico que W-01
-// prohibe. Ahora se loguea siempre.
+// POR QUE ALGUNOS REPRODUCTORES CORREN EN SUBPROCESO: un reporte del detector
+// hace terminar el binario en 66. Para los casos en que la carrera SE ESPERA,
+// el subproceso del mismo binario instrumentado deja medir la carrera y quedarse
+// con su reporte crudo sin que el hallazgo se disfrace de "suite roja". Para el
+// caso en que la carrera NO se espera (D-26 ya arreglado) el reproductor corre
+// EN PROCESO a proposito: ahi si quiero que una carrera residual rompa el test.
 
 package gateway
 
@@ -34,6 +40,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"math"
 	"os"
 	"os/exec"
 	"strings"
@@ -52,10 +59,20 @@ const envModo = "KAMPE_MODO_CARRERA"
 // Ese error ya se cometio una vez en el guard del workflow.
 const marcaReporte = "WARNING: DATA RACE"
 
+// Parametros del reproductor. Los mismos para el codigo real y para los
+// gemelos sin mutex: si fueran distintos, la comparacion no valdria.
+const (
+	goroutinesDelReproductor = 4
+	iteracionesPorGoroutine  = 500
+)
+
 func TestMain(m *testing.M) {
 	switch os.Getenv(envModo) {
 	case "filtros":
-		reproducirFiltrosConcurrentes()
+		reproducirFiltrosConcurrentes(nuevoAgenteCompartido())
+		os.Exit(0)
+	case "filtros-sin-mutex":
+		reproducirFiltrosSinMutex()
 		os.Exit(0)
 	case "fsm":
 		reproducirFSMConcurrente()
@@ -104,25 +121,128 @@ func nuevoAgenteCompartido() *AgentState {
 	}
 }
 
-// reproducirFiltrosConcurrentes copia EXACTAMENTE las dos llamadas que
-// handleConn hace sobre el agente compartido, y las hace desde donde las hace:
-// FUERA de agent.mu, que solo envuelve el chequeo de lastTimestampNs.
-func reproducirFiltrosConcurrentes() {
-	agente := nuevoAgenteCompartido()
-
+func contextoDePrueba() [ContextVectorSize]float64 {
 	var contexto [ContextVectorSize]float64
 	for i := range contexto {
 		contexto[i] = 0.1 * float64(i+1)
 	}
+	return contexto
+}
+
+// reproducirFiltrosConcurrentes copia EXACTAMENTE las dos llamadas que
+// handleConn hace sobre el agente compartido, y las hace desde donde las hace:
+// FUERA de agent.mu, que solo envuelve el chequeo de lastTimestampNs.
+func reproducirFiltrosConcurrentes(agente *AgentState) {
+	contexto := contextoDePrueba()
 
 	var wg sync.WaitGroup
-	for c := 0; c < 4; c++ {
+	for c := 0; c < goroutinesDelReproductor; c++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for i := 0; i < 500; i++ {
+			for i := 0; i < iteracionesPorGoroutine; i++ {
 				agente.Huber.Update(float64(i%17)+0.5, 0.01)
 				agente.Coherence.Update(contexto)
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+// ---------------------------------------------------------------------------
+// GEMELOS SIN MUTEX: el control por mutacion del CODIGO
+// ---------------------------------------------------------------------------
+
+// huberSinMutex reproduce la aritmetica y las mutaciones de HuberFilter tal
+// como estaban ANTES del fix de D-26, sin candado. No es codigo de produccion:
+// existe para probar que el reproductor sigue siendo capaz de detectar una
+// carrera en este patron. Si este gemelo no reporta nada, el verde del fix es
+// del instrumento y no del fix.
+type huberSinMutex struct {
+	alpha float64
+	sigma float64
+	s     float64
+	mu    float64
+	v     float64
+	lastV float64
+}
+
+func (f *huberSinMutex) Update(x float64, dt float64) bool {
+	if dt <= 1e-9 {
+		dt = 1e-9
+	}
+
+	f.s = (1-f.alpha)*f.s + f.alpha*x
+
+	delta := x - f.mu
+	clamp := 3 * f.sigma
+	if delta > clamp {
+		delta = clamp
+	} else if delta < -clamp {
+		delta = -clamp
+	}
+	f.mu = f.mu + f.alpha*delta
+
+	residual := x - f.mu
+	f.lastV = f.v
+	f.v = (1-f.alpha)*f.v + f.alpha*residual*residual
+
+	derivative := (f.v - f.lastV) / dt
+	threshold := 0.05 * math.Sqrt(f.v+DefaultEpsilon) * (1.0 + math.Log1p(f.s))
+
+	return derivative > threshold || derivative < -threshold
+}
+
+// coherenciaSinMutex es el gemelo sin candado de CoherenceFilter.
+type coherenciaSinMutex struct {
+	fastAlpha   float64
+	mediumAlpha float64
+	fast        [ContextVectorSize]float64
+	medium      [ContextVectorSize]float64
+	threshold   float64
+	last        float64
+}
+
+func (c *coherenciaSinMutex) Update(vec [ContextVectorSize]float64) bool {
+	for i := range vec {
+		c.fast[i] = (1-c.fastAlpha)*c.fast[i] + c.fastAlpha*vec[i]
+		c.medium[i] = (1-c.mediumAlpha)*c.medium[i] + c.mediumAlpha*vec[i]
+	}
+
+	var dot, normF, normM float64
+	for i := 0; i < ContextVectorSize; i++ {
+		dot += c.fast[i] * c.medium[i]
+		normF += c.fast[i] * c.fast[i]
+		normM += c.medium[i] * c.medium[i]
+	}
+
+	coh := (dot * dot) / (normF*normM + DefaultEpsilon)
+	anomalous := coh < c.threshold || coh < c.last*0.5
+	c.last = coh
+
+	return anomalous
+}
+
+// reproducirFiltrosSinMutex usa EL MISMO patron y los mismos parametros que
+// reproducirFiltrosConcurrentes, cambiando solo el tipo de los filtros.
+func reproducirFiltrosSinMutex() {
+	huber := &huberSinMutex{alpha: DefaultAlpha, sigma: DefaultSigma}
+	coherencia := &coherenciaSinMutex{
+		fastAlpha:   DefaultFastAlpha,
+		mediumAlpha: DefaultMediumAlpha,
+		threshold:   DefaultCoherenceThreshold,
+		last:        1.0,
+	}
+	contexto := contextoDePrueba()
+
+	var wg sync.WaitGroup
+	for c := 0; c < goroutinesDelReproductor; c++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < iteracionesPorGoroutine; i++ {
+				huber.Update(float64(i%17)+0.5, 0.01)
+				coherencia.Update(contexto)
 			}
 		}()
 	}
@@ -135,11 +255,11 @@ func reproducirFSMConcurrente() {
 	fsm := NewAgentFSM(100 * time.Millisecond)
 
 	var wg sync.WaitGroup
-	for c := 0; c < 4; c++ {
+	for c := 0; c < goroutinesDelReproductor; c++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for i := 0; i < 500; i++ {
+			for i := 0; i < iteracionesPorGoroutine; i++ {
 				fsm.Allow(time.Now())
 				fsm.RecordSuccess()
 				if i%100 == 0 {
@@ -158,7 +278,7 @@ var contadorSinProteccion int
 
 func reproducirCarreraSembrada() {
 	var wg sync.WaitGroup
-	for c := 0; c < 4; c++ {
+	for c := 0; c < goroutinesDelReproductor; c++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -171,7 +291,7 @@ func reproducirCarreraSembrada() {
 }
 
 // ---------------------------------------------------------------------------
-// CONTROL POSITIVO DEL INSTRUMENTO
+// CONTROL 1: el detector esta armado
 // ---------------------------------------------------------------------------
 
 // TestControlPositivo_DetectorArmado da ROJO si el binario se compilo sin
@@ -190,41 +310,84 @@ func TestControlPositivo_DetectorArmado(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// D-26: EL HALLAZGO
+// CONTROL 2: el patron sigue siendo capaz de encontrar la carrera
 // ---------------------------------------------------------------------------
 
-// TestD26_LosFiltrosCorrenSinSincronizacion mide la carrera real.
-//
-// handleConn llama agent.Huber.Update y agent.Coherence.Update sin tomar
-// agent.mu, y getOrCreateAgent devuelve el mismo *AgentState a toda conexion
-// que presente el mismo certificado. Ni HuberFilter ni CoherenceFilter tienen
-// una sola primitiva de sincronizacion: mutan f.s, f.mu, f.v, f.lastV,
-// c.fast[], c.medium[] y c.last en cada llamada.
-//
-// ESTE ES UN TEST DE CARACTERIZACION: afirma el defecto tal como esta hoy.
-// Cuando D-26 se arregle, este test DEBE dar rojo. Ese rojo es el recordatorio
-// de borrarlo y mover D-26 a cerrado en el contexto vivo, no un test que se
-// rompio.
-func TestD26_LosFiltrosCorrenSinSincronizacion(t *testing.T) {
-	salida := correrEnSubproceso(t, "filtros")
+// TestControlMutacion_ElPatronDetectaFaltaDeMutex corre el mismo patron de
+// concurrencia sobre los gemelos SIN mutex. Es la mutacion del codigo: si el
+// unico cambio entre reportar y no reportar es el candado, entonces el candado
+// es lo que arreglo D-26.
+func TestControlMutacion_ElPatronDetectaFaltaDeMutex(t *testing.T) {
+	salida := correrEnSubproceso(t, "filtros-sin-mutex")
 
 	if !strings.Contains(salida, marcaReporte) {
-		t.Fatalf("D-26 no reproduce. Si los filtros se sincronizaron, borrar este " +
-			"test y cerrar D-26; si no, el reproductor dejo de golpear el mismo " +
-			"AgentState.")
+		t.Fatalf("el patron del reproductor ya no detecta una carrera ni sobre " +
+			"filtros SIN mutex. El verde de D-26 no significa nada hasta que " +
+			"esto vuelva a dar reporte.")
 	}
 
-	if !strings.Contains(salida, "filters.go") {
-		t.Errorf("hay carrera, pero el reporte no cita filters.go: el sujeto " +
-			"medido puede no ser el que digo")
-	}
-
-	t.Logf("D-26 MEDIDO: %d reporte(s) del detector sobre los filtros del agente compartido",
-		strings.Count(salida, marcaReporte))
+	t.Logf("CONTROL MUTACION OK: %d reporte(s) sobre los gemelos sin mutex, "+
+		"con el mismo patron (%d goroutines x %d iteraciones) que da CERO sobre "+
+		"los filtros reales",
+		strings.Count(salida, marcaReporte),
+		goroutinesDelReproductor, iteracionesPorGoroutine)
 }
 
 // ---------------------------------------------------------------------------
-// CONTROL NEGATIVO
+// D-26: LA REGRESION
+// ---------------------------------------------------------------------------
+
+// TestD26_LosFiltrosSonSegurosEnConcurrencia corre el reproductor EN PROCESO,
+// no en subproceso, y eso es deliberado: con -race, cualquier carrera residual
+// hace fallar este test directamente en vez de quedar como un reporte que
+// alguien tiene que acordarse de contar.
+//
+// Ademas verifica que el estado interno SE MOVIO. Sin esa parte, el verde
+// podria venir de un reproductor que dejo de tocar el estado compartido, que es
+// la forma mas facil de falsear un verde de ausencia.
+func TestD26_LosFiltrosSonSegurosEnConcurrencia(t *testing.T) {
+	agente := nuevoAgenteCompartido()
+
+	reproducirFiltrosConcurrentes(agente)
+
+	// El reproductor tiene que haber dejado marca en los tres campos EWMA de
+	// Huber y en el ultimo coseno de Coherence.
+	if agente.Huber.s == 0 || agente.Huber.mu == 0 || agente.Huber.v == 0 {
+		t.Errorf("el reproductor no movio el estado de HuberFilter "+
+			"(s=%v mu=%v v=%v): un verde asi no prueba nada",
+			agente.Huber.s, agente.Huber.mu, agente.Huber.v)
+	}
+
+	if agente.Coherence.last == 1.0 {
+		t.Errorf("el reproductor no movio c.last de CoherenceFilter (sigue en " +
+			"su valor inicial 1.0): un verde asi no prueba nada")
+	}
+
+	esperadas := goroutinesDelReproductor * iteracionesPorGoroutine
+	t.Logf("D-26 CERRADO: %d llamadas concurrentes a cada filtro sobre el mismo "+
+		"*AgentState, sin reporte del detector. Estado final: Huber{s=%.6f "+
+		"mu=%.6f v=%.6f} Coherence{last=%.6f}",
+		esperadas, agente.Huber.s, agente.Huber.mu, agente.Huber.v,
+		agente.Coherence.last)
+}
+
+// TestD26_ElSubprocesoTampocoReporta repite la medicion con EL MISMO
+// instrumento del turno anterior (subproceso + conteo de reportes) para que el
+// antes y el despues sean comparables sin interpretacion: ese modo daba 27
+// reportes y ahora debe dar 0.
+func TestD26_ElSubprocesoTampocoReporta(t *testing.T) {
+	salida := correrEnSubproceso(t, "filtros")
+
+	if n := strings.Count(salida, marcaReporte); n != 0 {
+		t.Fatalf("D-26 sigue vivo: %d reporte(s) del detector en el mismo modo "+
+			"que antes del fix", n)
+	}
+
+	t.Logf("mismo instrumento que el turno anterior: 0 reportes (antes: 27)")
+}
+
+// ---------------------------------------------------------------------------
+// CONTROL 3: el detector no reporta lo que si esta protegido
 // ---------------------------------------------------------------------------
 
 // TestControlNegativo_ElFSMNoReportaCarrera distingue "el detector reporta
@@ -261,7 +424,7 @@ func firmarCabecera(clave []byte, pkt *PerimeterPacket) []byte {
 // TestD47_ElHMACNoCubreContextNiCiphertext llama a la funcion del repo, no a
 // hmac.Equal por separado: la conclusion es sobre el llamador.
 //
-// Tambien de caracterizacion: cuando el HMAC se extienda a context y
+// Sigue siendo de caracterizacion: cuando el HMAC se extienda a context y
 // ciphertext, los dos ultimos bloques dan rojo, y eso es la senal de cerrar
 // D-47.
 func TestD47_ElHMACNoCubreContextNiCiphertext(t *testing.T) {
@@ -394,4 +557,24 @@ func TestAgentFSM_RecordSuccessResetaElBackoff(t *testing.T) {
 		t.Error("tras el decay el backoff deberia ser 100ms (50 inicial x2), " +
 			"no los 800ms acumulados")
 	}
+}
+
+// TestFiltrosNoSeCopianPorValor documenta por que este paquete no puede volver
+// a pasar filtros por valor: ahora contienen un sync.Mutex, y copiar un candado
+// duplica el estado de sincronizacion en silencio. `go vet` detecta esa clase
+// de copia (copylocks), asi que el guard real es el vet del CI; este test solo
+// deja la razon escrita donde se lee.
+func TestFiltrosNoSeCopianPorValor(t *testing.T) {
+	huber := NewHuberFilter(DefaultAlpha, DefaultSigma)
+	coherencia := NewCoherenceFilter(DefaultFastAlpha, DefaultMediumAlpha, DefaultCoherenceThreshold)
+
+	if huber == nil || coherencia == nil {
+		t.Fatal("los constructores deben devolver punteros usables")
+	}
+
+	huber.Update(1.0, 0.01)
+	coherencia.Update(contextoDePrueba())
+
+	t.Logf("los filtros se usan siempre por puntero; go vet (copylocks) es el " +
+		"guard que impide la copia por valor")
 }
