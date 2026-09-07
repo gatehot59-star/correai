@@ -1,0 +1,87 @@
+Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)
+Commit:  d84c4fc19c077ae1dc161e3d69e64a40a8cb4248
+Fecha:   2026-09-07T19:50:53Z
+runner:  Linux 6.17.0-1022-azure x86_64
+go version go1.22.12 linux/amd64
+go.mod module: module github.com/gatehot59-star/kampe-ir
+sha256 del test: bce0cc97c743d169a889bb886fafbd00fb131fee4864d1962a7370a7a9aa5201
+
+=== PASO 0: go build ./... ===
+EXIT_build=0
+
+=== PASO 1: go vet ./... ===
+EXIT_vet=0
+
+=== PASO 2: gofmt -l gateway/race_test.go ===
+gateway/race_test.go
+(vacio = formateado)
+
+=== PASO 3: go test -race -v -count=1 ./gateway/... ===
+(los bloques 'WARNING: DATA RACE' vienen de los subprocesos
+ reproductores; el proceso de test en si termina en 0)
+=== RUN   TestControlPositivo_DetectorArmado
+    race_test.go:169: detector armado: reporto la carrera sembrada de contadorSinProteccion
+--- PASS: TestControlPositivo_DetectorArmado (1.01s)
+=== RUN   TestD26_LosFiltrosCorrenSinSincronizacion
+    race_test.go:202: D-26 MEDIDO: el detector reporta carrera en los filtros del agente compartido
+--- PASS: TestD26_LosFiltrosCorrenSinSincronizacion (1.01s)
+=== RUN   TestControlNegativo_ElFSMNoReportaCarrera
+    race_test.go:219: control negativo OK: el FSM sincronizado no produce reporte
+--- PASS: TestControlNegativo_ElFSMNoReportaCarrera (1.01s)
+=== RUN   TestD47_ElHMACNoCubreContextNiCiphertext
+    race_test.go:291: D-47 MEDIDO: Context[0] paso de 0.5 a 999999 y la firma sigue valida
+    race_test.go:302: D-47 MEDIDO: el ciphertext se reemplazo entero y la firma sigue valida
+--- PASS: TestD47_ElHMACNoCubreContextNiCiphertext (0.00s)
+=== RUN   TestValidateTimestamp
+=== RUN   TestValidateTimestamp/identico
+=== RUN   TestValidateTimestamp/adelantado_dentro_de_la_ventana
+=== RUN   TestValidateTimestamp/adelantado_justo_en_el_borde
+=== RUN   TestValidateTimestamp/adelantado_un_ns_de_mas
+=== RUN   TestValidateTimestamp/atrasado_justo_en_el_borde
+=== RUN   TestValidateTimestamp/atrasado_un_ns_de_mas
+--- PASS: TestValidateTimestamp (0.00s)
+    --- PASS: TestValidateTimestamp/identico (0.00s)
+    --- PASS: TestValidateTimestamp/adelantado_dentro_de_la_ventana (0.00s)
+    --- PASS: TestValidateTimestamp/adelantado_justo_en_el_borde (0.00s)
+    --- PASS: TestValidateTimestamp/adelantado_un_ns_de_mas (0.00s)
+    --- PASS: TestValidateTimestamp/atrasado_justo_en_el_borde (0.00s)
+    --- PASS: TestValidateTimestamp/atrasado_un_ns_de_mas (0.00s)
+=== RUN   TestAgentFSM_BloqueaYVuelve
+--- PASS: TestAgentFSM_BloqueaYVuelve (0.00s)
+=== RUN   TestAgentFSM_RecordSuccessResetaElBackoff
+--- PASS: TestAgentFSM_RecordSuccessResetaElBackoff (0.00s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	4.042s
+EXIT_test_race=0
+
+=== PASO 4 (control por mutacion del FLAG): la misma suite SIN -race ===
+Tiene que dar ROJO en TestControlPositivo_DetectorArmado.
+Si pasara, el detector no seria lo que produce el verde de arriba.
+=== RUN   TestControlPositivo_DetectorArmado
+    race_test.go:164: el detector de carreras NO esta activo: la carrera sembrada no fue reportada. Este archivo solo mide algo con `go test -race`.
+        --- salida del subproceso ---
+--- FAIL: TestControlPositivo_DetectorArmado (0.00s)
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	0.005s
+FAIL
+EXIT_test_sin_race=1
+
+=== VEREDICTO ===
+PASS  compila                                                        aparece=SI esperado=SI
+PASS  go vet limpio                                                  aparece=SI esperado=SI
+PASS  el detector estaba armado                                      aparece=SI esperado=SI
+PASS  D-26 reproduce con -race                                       aparece=SI esperado=SI
+PASS  el FSM sincronizado no reporta carrera                         aparece=SI esperado=SI
+PASS  D-47 medido sobre la funcion real                              aparece=SI esperado=SI
+PASS  validateTimestamp pasa                                         aparece=SI esperado=SI
+PASS  el detector reporto al menos una carrera                       aparece=SI esperado=SI
+PASS  la suite con -race termino en 0                                aparece=SI esperado=SI
+FAIL  ningun test quedo en FAIL con -race                            aparece=SI esperado=NO
+PASS  SIN -race el control positivo cae                              aparece=SI esperado=SI
+
+FALLAS_DE_VEREDICTO=1
+RESULTADO=ROJO
+
+conteo_DATA_RACE=1
+conteo_PASS=7
+conteo_FAIL=1
