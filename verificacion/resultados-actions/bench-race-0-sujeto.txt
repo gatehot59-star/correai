@@ -1,8 +1,8 @@
 Maquina: Actions ubuntu-latest (VM limpia)
-Commit:  7a5c4ac78704133f8cab7a610d4ca3b28645096e
+Commit:  976567ddd3aab8c1b7facdad94a2da70770cc840
 Rama:    titan/benchmarks-bajo-race
-Fecha:   2026-09-08T04:19:17Z
-cpu:     AMD EPYC 9V74 80-Core Processor
+Fecha:   2026-09-08T04:36:07Z
+cpu:     AMD EPYC 7763 64-Core Processor
 nproc:   4
 go version go1.22.12 linux/amd64
 
@@ -11,16 +11,19 @@ go version go1.22.12 linux/amd64
 ./gateway/candado_bench_test.go:220:func BenchmarkVerifyPacketHMAC(b *testing.B) {
 BENCHMARKS_DECLARADOS=2
 
-=== los sub-brazos de BenchmarkCandado, del fuente ===
+=== DERIVAR el esperado: niveles de concurrencia del fuente ===
+161:	for _, g := range []int{1, 2, 4, 8, 16} {
+NIVELES_DE_CONCURRENCIA=5
+(cada brazo corre un sub-benchmark por nivel. Este numero sale del
+ archivo porque ponerlo de memoria ya me dio 3 FAIL sobre datos
+ perfectos.)
+
+=== los sub-brazos, del fuente ===
 166:		b.Run(fmt.Sprintf("A_1agente_candadoPorAgente/g=%d", goroutines), func(b *testing.B) {
 175:		b.Run(fmt.Sprintf("B_1agente_sinCandado_RACY/g=%d", goroutines), func(b *testing.B) {
 185:		b.Run(fmt.Sprintf("C_NagentesAislados_candadoPorAgente/g=%d", goroutines), func(b *testing.B) {
 197:		b.Run(fmt.Sprintf("D_NagentesAislados_candadoGLOBAL/g=%d", goroutines), func(b *testing.B) {
 
 === control: go test SIN -bench ejecuta los cuerpos? ===
-Si aparece 'BenchmarkCandado' con un conteo de iteraciones, los
-ejecuta. Si no aparece nada, solo los compila, que es el hueco.
-testing: warning: no tests to run
-PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	1.008s [no tests to run]
-EXIT_control_sin_bench=0
+BENCH_EJECUTADOS_SIN_FLAG=0
+(0 = los compila y no los corre: ese era el hueco)

@@ -3,24 +3,22 @@ regex : BenchmarkCandado/A_1agente_candadoPorAgente
 espera: CERO carreras: los filtros reales tienen su mutex
 
 go test -race -run '^$' -bench 'BenchmarkCandado/A_1agente_candadoPorAgente' -benchtime=20000x -cpu=4
-(carga chica a proposito: bajo -race cada acceso se instrumenta,
- asi que 20.000 iteraciones alcanzan para ejercitar el patron sin
- que el job tarde media hora. Aca NO se miden tiempos: se busca
- si el detector observa una carrera.)
+(carga chica a proposito: bajo -race cada acceso se instrumenta.
+ Aca NO se miden tiempos, se busca si el detector ve una carrera.)
 
 goos: linux
 goarch: amd64
 pkg: github.com/gatehot59-star/kampe-ir/gateway
-cpu: AMD EPYC 9V74 80-Core Processor                
-BenchmarkCandado/A_1agente_candadoPorAgente/g=1-4         	   20000	      1871 ns/op	         0.5346 Mop/s	         1.000 goroutines	      1871 ns/op-real
-BenchmarkCandado/A_1agente_candadoPorAgente/g=2-4         	   20000	      2269 ns/op	         0.4408 Mop/s	         2.000 goroutines	      2269 ns/op-real
-BenchmarkCandado/A_1agente_candadoPorAgente/g=4-4         	   20000	      2355 ns/op	         0.4246 Mop/s	         4.000 goroutines	      2355 ns/op-real
-BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	   20000	      2387 ns/op	         0.4189 Mop/s	         8.000 goroutines	      2387 ns/op-real
-BenchmarkCandado/A_1agente_candadoPorAgente/g=16-4        	   20000	      2416 ns/op	         0.4139 Mop/s	        16.00 goroutines	      2416 ns/op-real
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=1-4         	   20000	      1981 ns/op	         0.5049 Mop/s	         1.000 goroutines	      1981 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=2-4         	   20000	      2555 ns/op	         0.3913 Mop/s	         2.000 goroutines	      2555 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=4-4         	   20000	      2593 ns/op	         0.3857 Mop/s	         4.000 goroutines	      2592 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	   20000	      2606 ns/op	         0.3838 Mop/s	         8.000 goroutines	      2606 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=16-4        	   20000	      2596 ns/op	         0.3852 Mop/s	        16.00 goroutines	      2596 ns/op-real
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	1.243s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.265s
 EXIT_brazo=0
 REPORTES_DETECTOR=0
 CITA_FILTERS_GO=0
 CITA_BENCH_TEST=0
-BENCH_CORRIO=5
+SUBBENCH_CORRIDOS=5
