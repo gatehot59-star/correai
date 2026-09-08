@@ -105,9 +105,9 @@ func TestE2E_01_ElArnesYElPrimerPaquete(t *testing.T) {
 			"o hay estado que se corrompe entre paquetes", nombreDeRespuesta(resp2))
 	}
 
-	t.Logf("E1 ARNES VALIDADO: dos paquetes validos en la misma conexion, los dos "+
-		"ACK. El codificador coincide con decodePerimeterPacket campo por campo, "+
-		"handleConn hace loop, y verifyPacketHMAC acepta mi firma. Todos los "+
+	t.Logf("E1 ARNES VALIDADO: dos paquetes validos en la misma conexion, los dos " +
+		"ACK. El codificador coincide con decodePerimeterPacket campo por campo, " +
+		"handleConn hace loop, y verifyPacketHMAC acepta mi firma. Todos los " +
 		"rechazos de este archivo son atribuibles a su causa declarada.")
 }
 
@@ -161,8 +161,8 @@ func TestE2E_04_AgentIDQueNoCoincide(t *testing.T) {
 	}
 	t.Logf("E4 MEDIDO: AgentID del paquete (%x) != derivado del cert (%x) -> %s",
 		otro.agentID[:8], ag.agentID[:8], nombreDeRespuesta(resp))
-	t.Logf("E4 CONSECUENCIA: para forjar un paquete a nombre de un agente hay que "+
-		"presentar SU certificado. Eso acota D-46 a auto-DoS o a credencial robada, "+
+	t.Logf("E4 CONSECUENCIA: para forjar un paquete a nombre de un agente hay que " +
+		"presentar SU certificado. Eso acota D-46 a auto-DoS o a credencial robada, " +
 		"y ahora esta medido en el camino real, no deducido de leer el codigo.")
 }
 
@@ -595,9 +595,9 @@ func TestE2E_09_DosConexionesDelMismoCertificado(t *testing.T) {
 			"ni un ACK (ack=%d rechazo=%d cerradas=%d)", ackAisl, rechAisl, cerradasAisl)
 	}
 
-	t.Logf("E9 D-26 MEDIDO EN EL CALLSITE REAL: los filtros se ejercitaron desde dos "+
-		"conexiones TLS concurrentes sobre el mismo *AgentState, atravesando "+
-		"handleConn. Bajo -race, cero reportes = el mutex de filters.go cubre el "+
+	t.Logf("E9 D-26 MEDIDO EN EL CALLSITE REAL: los filtros se ejercitaron desde dos " +
+		"conexiones TLS concurrentes sobre el mismo *AgentState, atravesando " +
+		"handleConn. Bajo -race, cero reportes = el mutex de filters.go cubre el " +
 		"camino real, no solo el proxy.")
 
 	if rechComp+cerradasComp > rechAisl+cerradasAisl {

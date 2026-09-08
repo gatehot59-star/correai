@@ -1,5 +1,5 @@
-Veredicto de la corrida 7579f2c66f29d63dfa489b29f5b836588341f9e6
-Fecha: 2026-09-08T10:44:09Z
+Veredicto de la corrida d7e5245dbd3b4bde15df99d6ad6880caf9e89f01
+Fecha: 2026-09-08T10:49:20Z
 
 === EL HUECO QUE SE CIERRA ===
 Hasta este commit ningun test toco el camino de red del gateway.
@@ -36,14 +36,14 @@ PASS  CERO workflows rotos (R5)                              obtenido=0      esp
 PASS  compila                                                obtenido=0      esperado=0
 PASS  go vet limpio                                          obtenido=0      esperado=0
 FAIL  EL CONTROL DEL CODIFICADOR (hay un ACK)                obtenido=0      esperado>=1
-FAIL  pasaron los N tests E2E declarados                     obtenido=5      esperado=10
-FAIL  ningun test E2E en FAIL                                obtenido=5      esperado=0
-FAIL  la corrida E2E salio en 0                              obtenido=1      esperado=0
+FAIL  pasaron los N tests E2E declarados                     obtenido=6      esperado=10
+PASS  ningun test E2E en FAIL                                obtenido=0      esperado=0
+PASS  la corrida E2E salio en 0                              obtenido=0      esperado=0
 PASS  CERO carreras en el camino real                        obtenido=0      esperado=0
 PASS  CERO carreras en 3 repeticiones                        obtenido=0      esperado=0
-FAIL  ningun FAIL en 3 repeticiones                          obtenido=15     esperado=0
-FAIL  la repeticion salio en 0                               obtenido=1      esperado=0
-FAIL  el porton de main sigue verde                          obtenido=1      esperado=0
+PASS  ningun FAIL en 3 repeticiones                          obtenido=0      esperado=0
+PASS  la repeticion salio en 0                               obtenido=0      esperado=0
+PASS  el porton de main sigue verde                          obtenido=0      esperado=0
 PASS  CERO carreras en el porton de main                     obtenido=0      esperado=0
 FAIL  HUBER el primer paquete se bloquea                     obtenido=0      esperado>=1
 FAIL  HUBER la frontera esta medida                          obtenido=0      esperado>=1
@@ -57,7 +57,7 @@ PASS  la mutacion comento los 4 candados                     obtenido=4      esp
 FAIL  MUTACION el arnes SI ve la carrera                     obtenido=0      esperado>=1
 FAIL  MUTACION y la atribuye a filters.go                    obtenido=0      esperado>=1
 
-FALLAS_DE_VEREDICTO=16
+FALLAS_DE_VEREDICTO=11
 RESULTADO=ROJO
 
 LECTURA: el cero de carreras vale porque la mutacion (sacarle los
