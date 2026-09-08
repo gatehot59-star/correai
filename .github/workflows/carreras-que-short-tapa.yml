@@ -14,9 +14,25 @@
 #
 # Y la distincion que evita el conteo ingenuo: hay reportes ESPERADOS, de las
 # carreras sembradas a proposito (el control del detector y los gemelos sin
-# mutex), y esos corren en SUBPROCESO para no marcar el test padre. Asi que el
-# guard NO cuenta 'WARNING: DATA RACE': busca `race detected during execution of
-# test` y `--- FAIL`, que es lo que produce una carrera EN PROCESO.
+# mutex), y esos corren en SUBPROCESO para no marcar el test padre. Asi que no se
+# cuenta 'WARNING: DATA RACE': se cuenta `race detected during execution of
+# test`, que es lo que produce una carrera EN PROCESO.
+#
+# ============================================================================
+# LA REGLA DE LOS GUARDS, aprendida tres veces a los golpes en este repo:
+#
+#   UN GUARD NO PUEDE BUSCAR UNA PALABRA. TIENE QUE LEER UN NUMERO CALCULADO.
+#
+# Las tres veces:
+#   1. un guard grepeo 'DATA RACE' y conto MI PROPIO echo -> verde falso
+#   2. un guard grepeo 'Total:', cadena que `pprof -top` NO emite -> rojo falso
+#   3. un guard grepeo 't.Parallel()' y conto MI PROPIO encabezado -> rojo falso
+#      sobre un barrido que era 9/9 limpio
+#
+# Un grep de presencia no distingue el instrumento de la prosa que lo describe.
+# Por eso cada paso de aca emite CONTADORES explicitos y el veredicto compara
+# numeros: T_PARALLEL_HITS, RACES_EN_PROCESO_*, TESTS_EN_FAIL_*, MUTACION_*.
+# ============================================================================
 #
 # Cada paso a su archivo. Sexta vez que lo hago asi: un archivo compartido ya me
 # produjo cuatro guards que median otra cosa.
@@ -58,42 +74,49 @@ jobs:
             echo
             echo "=== TODOS los archivos de test del repo ==="
             find . -name '*_test.go' -not -path './.git/*' | sort
+            echo "ARCHIVOS_DE_TEST=$(find . -name '*_test.go' -not -path './.git/*' | wc -l)"
             echo
-            echo "=== TODA aparicion de testing.Short() con su linea ==="
+            echo "=== toda aparicion del skip por -short, con su linea ==="
             grep -rn 'testing\.Short()' --include='*_test.go' . | sort
             echo
-            echo "=== el TEST que envuelve cada skip (funcion anterior a la linea) ==="
+            echo "=== el TEST que envuelve cada skip ==="
             for f in $(grep -rl 'testing\.Short()' --include='*_test.go' .); do
               awk -v F="$f" '
                 /^func (Test|Benchmark)[A-Za-z0-9_]*\(/ { split($2, a, "("); ultimo=a[1]; lineafunc=NR }
-                /testing\.Short\(\)/ { printf "%-28s linea %-5d  -> %s (declarado en %d)\n", F, NR, ultimo, lineafunc }
+                /testing\.Short\(\)/ { printf "%-30s linea %-5d  -> %s (declarado en %d)\n", F, NR, ultimo, lineafunc }
               ' "$f"
             done
             echo
-            echo "=== los tests que -short SALTEA, uno por linea ==="
+            echo "=== los tests que -short SALTEA ==="
             for f in $(grep -rl 'testing\.Short()' --include='*_test.go' .); do
               awk '/^func (Test|Benchmark)[A-Za-z0-9_]*\(/ { split($2, a, "("); ultimo=a[1] }
                    /testing\.Short\(\)/ { print ultimo }' "$f"
-            done | sort -u | tee /tmp/salteados.txt
+            done | sort -u > /tmp/salteados.txt
+            cat /tmp/salteados.txt
             echo "CANTIDAD_SALTEADOS=$(wc -l < /tmp/salteados.txt)"
             echo
-            echo "=== control: los saltean DE VERDAD? (go test -short -v, contar SKIP) ==="
-            go test -short -race -v -count=1 -timeout 15m ./... 2>&1 | grep -E '^(=== RUN|--- SKIP|--- PASS|--- FAIL|ok|FAIL)' | grep -E 'SKIP' | sort
-            echo "(cada test de /tmp/salteados.txt tiene que aparecer aca arriba)"
+            echo "=== control del sujeto: los saltea DE VERDAD? ==="
+            go test -short -race -v -count=1 -timeout 15m ./... 2>&1 | grep -E '^ *--- SKIP' | sort > /tmp/skips.txt
+            cat /tmp/skips.txt
+            echo "SKIPS_OBSERVADOS=$(wc -l < /tmp/skips.txt)"
+            echo "(SKIPS_OBSERVADOS tiene que igualar CANTIDAD_SALTEADOS)"
           } > "$OUT" 2>&1
           cat "$OUT"
 
-      - name: 2 - enumerar todo var de paquete y quien lo escribe
+      - name: 2 - enumerar la superficie de estado compartido
         if: always()
         run: |
           set +e
           OUT=verificacion/resultados-actions/carreras-2-vars-de-paquete.txt
+          # Los contadores se calculan SOBRE EL FUENTE y se emiten aparte, para
+          # que ningun guard tenga que grepear prosa. Ese fue el defecto 3.
+          HITS_PAR=$(grep -rn 'Parallel()' --include='*_test.go' . | wc -l)
           {
             echo "=== POR QUE ESTE PASO ==="
             echo "El bug de hace dos horas era exactamente esto: un var de paquete"
-            echo "(sumidero float64) escrito por 8 goroutines. Asi que la lente no es"
-            echo "solo correr el detector: es enumerar la SUPERFICIE de estado"
-            echo "compartido y clasificar cada pieza."
+            echo "escrito por 8 goroutines. Asi que la lente no es solo correr el"
+            echo "detector: es enumerar la SUPERFICIE de estado compartido y"
+            echo "clasificar cada pieza a mano."
             echo
             echo "=== vars de paquete en los TESTS ==="
             grep -rn '^var ' --include='*_test.go' . | sort
@@ -101,26 +124,24 @@ jobs:
             echo "=== vars de paquete en PRODUCCION ==="
             grep -rn '^var ' --include='*.go' . | grep -v '_test.go' | sort
             echo
-            echo "=== bloques var( ) de paquete, que el grep de arriba no ve ==="
-            grep -rn '^var (' --include='*.go' . | sort
-            echo "(vacio = no hay bloques var agrupados)"
+            echo "=== contenido del bloque var() de produccion ==="
+            sed -n '/^var (/,/^)/p' gateway/gateway.go
             echo
-            echo "=== escrituras a esos identificadores desde dentro de un go func ==="
-            echo "--- sumideros ---"
-            grep -rn 'sumideros' --include='*.go' . | sort
-            echo "--- contadorSinProteccion ---"
-            grep -rn 'contadorSinProteccion' --include='*.go' . | sort
-            echo "--- candadoGlobal ---"
-            grep -rn 'candadoGlobal' --include='*.go' . | sort
+            echo "=== quien toca cada identificador compartido ==="
+            for ident in sumideros contadorSinProteccion candadoGlobal; do
+              echo "--- $ident ---"
+              grep -rn "$ident" --include='*.go' . | sort
+            done
             echo
-            echo "=== hay t.Parallel() en algun lado? ==="
-            grep -rn 't\.Parallel()' --include='*_test.go' . | sort
-            echo "(vacio = los tests corren secuenciales, asi que un var de paquete"
-            echo " compartido ENTRE tests no puede correr en paralelo con otro test)"
+            echo "=== tests en paralelo (el fuente, no esta prosa) ==="
+            grep -rn 'Parallel()' --include='*_test.go' . | sort
+            echo "T_PARALLEL_HITS=$HITS_PAR"
+            echo "(0 = los tests corren secuenciales, asi que un var de paquete"
+            echo " compartido ENTRE tests no puede correr contra otro test)"
           } > "$OUT" 2>&1
           cat "$OUT"
 
-      - name: 3 - los salteados por -short, SOLOS, bajo -race y repetidos
+      - name: 3 - los salteados, SOLOS, bajo -race y repetidos 5 veces
         if: always()
         run: |
           set +e
@@ -129,28 +150,36 @@ jobs:
           {
             echo "=== go test -race -count=5 -cpu=4 -run '^($PATRON)\$' ==="
             echo "Cinco repeticiones a proposito: el detector reporta lo que OBSERVA,"
-            echo "asi que mas corridas = mas chances de observar un interleaving malo."
-            echo "Los tests SALTEADOS son justo los que nunca vieron el detector."
+            echo "asi que mas corridas = mas chances de ver un interleaving malo."
+            echo "Estos cuatro tests son justo los que nunca habian visto el detector."
             echo
             go test -race -v -count=5 -cpu=4 -timeout 30m -run "^($PATRON)\$" ./... 2>&1
             echo "EXIT_salteados=$?"
           } > "$OUT" 2>&1
-          echo "--- resumen ---"
-          grep -E '^(--- PASS|--- FAIL|ok|FAIL|EXIT_)' "$OUT" | sort | uniq -c
-          echo "reportes en proceso (race detected): $(grep -c 'race detected during execution of test' $OUT)"
+          # contadores calculados, para que el veredicto lea numeros
+          {
+            echo "RACES_EN_PROCESO_SALTEADOS=$(grep -c 'race detected during execution of test' "$OUT")"
+            echo "TESTS_EN_FAIL_SALTEADOS=$(grep -cE '^ *--- FAIL' "$OUT")"
+            echo "TESTS_EN_PASS_SALTEADOS=$(grep -cE '^ *--- PASS' "$OUT")"
+          } >> "$OUT"
+          tail -6 "$OUT"
 
-      - name: 4 - la suite COMPLETA, el comando de main, repetido
+      - name: 4 - la suite COMPLETA, el comando de main, repetido 3 veces
         if: always()
         run: |
           set +e
           OUT=verificacion/resultados-actions/carreras-4-suite-completa.txt
           {
             echo "=== go test -race -count=3 -cpu=4 ./...   (sin -short, como main) ==="
-            echo "Incluye TODO: los salteados, los que no, y los benchmarks como tests."
+            echo "Incluye TODO: los salteados, los que no, y los benchmarks compilados."
             echo
             go test -race -count=3 -cpu=4 -timeout 30m ./... 2>&1
             echo "EXIT_suite=$?"
           } > "$OUT" 2>&1
+          {
+            echo "RACES_EN_PROCESO_SUITE=$(grep -c 'race detected during execution of test' "$OUT")"
+            echo "TESTS_EN_FAIL_SUITE=$(grep -cE '^ *--- FAIL' "$OUT")"
+          } >> "$OUT"
           cat "$OUT"
 
       - name: 5 - MUTACION DEL PROPIO FIX (lo que hace que el verde valga)
@@ -158,87 +187,116 @@ jobs:
         run: |
           set +e
           OUT=verificacion/resultados-actions/carreras-5-mutacion.txt
+          LOG=/tmp/mutacion.log
           {
             echo "=== CONTROL POR MUTACION ==="
             echo "Se copia el paquete a /tmp y se REVIERTE el fix de hace dos horas:"
             echo "  sumideros[ranura&63].valor   ->   sumideros[0].valor"
-            echo "o sea, las 8 goroutines escribiendo la MISMA ranura, que es el bug"
-            echo "exacto que puso rojo el porton. La suite TIENE que dar ROJO."
-            echo "Si no lo agarra, este arnes no ve carreras en proceso y ningun verde"
-            echo "de los pasos 3 y 4 significa nada."
+            echo "o sea las 8 goroutines escribiendo la MISMA ranura, que es el bug"
+            echo "exacto que puso rojo el porton. La suite TIENE que dar rojo."
+            echo "Si no lo agarra, este arnes no ve carreras en proceso y ningun"
+            echo "verde de los pasos 3 y 4 significa nada."
             echo
             rm -rf /tmp/mut && mkdir -p /tmp/mut
             cp -r . /tmp/mut/repo
-            cd /tmp/mut/repo
-            rm -rf .git
+            cd /tmp/mut/repo && rm -rf .git
             echo "--- la linea ANTES de mutar ---"
             grep -n 'sumideros\[' gateway/latencia_test.go
             sed -i 's/sumideros\[ranura&63\]/sumideros[0]/' gateway/latencia_test.go
             echo "--- la linea DESPUES de mutar ---"
             grep -n 'sumideros\[' gateway/latencia_test.go
+            echo "MUTACION_APLICADA=$(grep -c 'sumideros\[0\]' gateway/latencia_test.go)"
             echo
-            echo "--- go test -race -count=1 -cpu=4 -run TestLatenciaP99DeLaEspera ---"
-            go test -race -v -count=1 -cpu=4 -timeout 15m -run '^TestLatenciaP99DeLaEspera$' ./gateway/... 2>&1 | tail -60
+            echo "--- go test -race -run TestLatenciaP99DeLaEspera sobre la copia ---"
+            go test -race -v -count=1 -cpu=4 -timeout 15m -run '^TestLatenciaP99DeLaEspera$' ./gateway/... > "$LOG" 2>&1
             echo "EXIT_mutado=$?"
+            tail -40 "$LOG"
           } > "$OUT" 2>&1
-          grep -E 'sumideros\[|race detected|^--- PASS|^--- FAIL|^FAIL|^ok|EXIT_mutado' "$OUT"
+          {
+            echo "MUTACION_DETECTADA=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "MUTACION_HIZO_CAER=$(grep -cE '^ *--- FAIL: TestLatenciaP99DeLaEspera' "$LOG")"
+          } >> "$OUT"
+          tail -8 "$OUT"
 
-      - name: 6 - veredicto
+      - name: 6 - veredicto (compara NUMEROS, no palabras)
         if: always()
         run: |
           set +e
           D=verificacion/resultados-actions
           S1=$D/carreras-1-sujeto.txt
+          S2=$D/carreras-2-vars-de-paquete.txt
           S3=$D/carreras-3-salteados-con-race.txt
           S4=$D/carreras-4-suite-completa.txt
           S5=$D/carreras-5-mutacion.txt
           OUT=$D/carreras-6-veredicto.txt
           FALLAS=0
 
-          esperar() {
-            if grep -q -- "$3" "$2"; then HAY=SI; else HAY=NO; fi
-            if [ "$HAY" = "$4" ]; then
-              printf 'PASS  %-56s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
+          # leer(archivo, CLAVE) -> el valor del contador, o NA si no esta.
+          # Lee CLAVE=valor al principio de linea: no puede confundirse con prosa.
+          leer() {
+            V=$(grep -oE "^$2=[0-9]+" "$1" | tail -1 | cut -d= -f2)
+            [ -n "$V" ] && echo "$V" || echo NA
+          }
+
+          # comparar(descripcion, valor_obtenido, valor_esperado)
+          comparar() {
+            if [ "$2" = "$3" ]; then
+              printf 'PASS  %-54s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
             else
-              printf 'FAIL  %-56s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
+              printf 'FAIL  %-54s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
               FALLAS=$((FALLAS+1))
             fi
           }
 
+          SALTEADOS=$(leer "$S1" CANTIDAD_SALTEADOS)
+          SKIPS=$(leer "$S1" SKIPS_OBSERVADOS)
+          PAR=$(leer "$S2" T_PARALLEL_HITS)
+          R3=$(leer "$S3" RACES_EN_PROCESO_SALTEADOS)
+          F3=$(leer "$S3" TESTS_EN_FAIL_SALTEADOS)
+          P3=$(leer "$S3" TESTS_EN_PASS_SALTEADOS)
+          R4=$(leer "$S4" RACES_EN_PROCESO_SUITE)
+          F4=$(leer "$S4" TESTS_EN_FAIL_SUITE)
+          MD=$(leer "$S5" MUTACION_DETECTADA)
+          MC=$(leer "$S5" MUTACION_HIZO_CAER)
+          E3=$(grep -oE 'EXIT_salteados=[0-9]+' "$S3" | tail -1 | cut -d= -f2)
+          E4=$(grep -oE 'EXIT_suite=[0-9]+' "$S4" | tail -1 | cut -d= -f2)
+
           {
             echo
             echo "=== EL SUJETO, medido ==="
-            grep 'CANTIDAD_SALTEADOS=' "$S1"
-            echo "tests que -short saltea:"
+            echo "tests que -short saltea: $SALTEADOS   |   SKIP observados: $SKIPS"
             sed -n '/los tests que -short SALTEA/,/CANTIDAD_SALTEADOS/p' "$S1" | grep -E '^(Test|Benchmark)'
             echo
-            echo "=== CARRERAS EN PROCESO encontradas ==="
-            echo "salteados repetidos x5 : $(grep -c 'race detected during execution of test' $S3)"
-            echo "suite completa x3      : $(grep -c 'race detected during execution of test' $S4)"
-            echo "tests en FAIL (x5)     : $(grep -c '^--- FAIL' $S3)"
-            echo "suite exit             : $(grep -o 'EXIT_suite=[0-9]*' $S4)"
-            echo "salteados exit         : $(grep -o 'EXIT_salteados=[0-9]*' $S3)"
+            echo "=== CARRERAS EN PROCESO ENCONTRADAS ==="
+            echo "en los 4 salteados, x5 repeticiones : $R3"
+            echo "en la suite completa, x3            : $R4"
+            echo "tests que quedaron en FAIL          : $F3 (salteados) / $F4 (suite)"
+            echo "tests en PASS en los salteados      : $P3   (4 tests x 5 corridas = 20)"
             echo
-            echo "=== LA MUTACION (el control que hace que el verde valga) ==="
-            grep -E 'race detected|^--- FAIL|^--- PASS' "$S5" | head -5
+            echo "=== LA MUTACION, el control que hace que el verde valga ==="
+            echo "carreras detectadas al revertir el fix : $MD"
+            echo "el test cayo                          : $MC"
             echo
-            echo "=== VEREDICTO ==="
-            esperar 'el sujeto se enumero'                     "$S1" 'CANTIDAD_SALTEADOS='                             SI
-            esperar 'los salteados corrieron 5 veces'          "$S3" 'EXIT_salteados=0'                                SI
-            esperar 'CERO carreras en proceso en los salteados' "$S3" 'race detected during execution of test'          NO
-            esperar 'ningun salteado en FAIL'                  "$S3" '^--- FAIL'                                       NO
-            esperar 'la suite completa x3 sale en 0'           "$S4" 'EXIT_suite=0'                                    SI
-            esperar 'CERO carreras en proceso en la suite'      "$S4" 'race detected during execution of test'          NO
-            esperar 'la MUTACION fue detectada'                "$S5" 'race detected during execution of test'          SI
-            esperar 'la MUTACION hizo caer el test'            "$S5" '^--- FAIL: TestLatenciaP99DeLaEspera'            SI
-            esperar 'no hay t.Parallel() que complique'        "$D/carreras-2-vars-de-paquete.txt" 't\.Parallel()'      NO
+            echo "=== VEREDICTO (numeros calculados, no palabras) ==="
+            comparar 'el sujeto se enumero y son 4'                "$SALTEADOS" 4
+            comparar 'los 4 se saltean de verdad con -short'       "$SKIPS"     "$SALTEADOS"
+            comparar 'no hay t.Parallel() en el fuente'            "$PAR"       0
+            comparar 'CERO carreras en proceso en los salteados'   "$R3"        0
+            comparar 'CERO carreras en proceso en la suite'        "$R4"        0
+            comparar 'ningun salteado en FAIL'                     "$F3"        0
+            comparar 'ningun test de la suite en FAIL'             "$F4"        0
+            comparar 'los 20 PASS de los salteados estan'          "$P3"        20
+            comparar 'los salteados salieron en 0'                 "$E3"        0
+            comparar 'la suite completa salio en 0'                "$E4"        0
+            comparar 'la MUTACION fue detectada'                   "$MD"        1
+            comparar 'la MUTACION hizo caer el test'               "$MC"        1
             echo
             echo "FALLAS_DE_VEREDICTO=$FALLAS"
             if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
             echo
             echo "LECTURA OBLIGATORIA: verde aca significa NO OBSERVADA EN 8 CORRIDAS"
             echo "(5 de los salteados + 3 de la suite completa), no 'no existe'. El"
-            echo "detector de Go reporta lo que ve; la mutacion prueba que este arnes"
+            echo "detector de Go reporta lo que ve. La mutacion prueba que este arnes"
             echo "SI ve una carrera cuando la hay, y eso es lo maximo que se puede"
             echo "afirmar sin analisis estatico."
           } >> "$OUT"
@@ -262,4 +320,4 @@ jobs:
             grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' verificacion/resultados-actions/carreras-6-veredicto.txt
             exit 1
           }
-          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=|CANTIDAD_SALTEADOS=' verificacion/resultados-actions/carreras-6-veredicto.txt
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=' verificacion/resultados-actions/carreras-6-veredicto.txt
