@@ -1,12 +1,12 @@
 Maquina: Actions ubuntu-latest (VM limpia)
-Commit:  4e643cc18a451986175dcb410c68e10fb82cdcbd
+Commit:  feac28bd2ef7d913cb55367c8a6c2fdd5304293d
 Rama:    titan/cliente-mtls-e2e
-Fecha:   2026-09-08T10:23:12Z
-cpu:     AMD EPYC 7763 64-Core Processor
+Fecha:   2026-09-08T10:32:13Z
+cpu:     Intel(R) Xeon(R) 6973P-C
 nproc:   4
 go version go1.22.12 linux/amd64
-sha256 cliente_mtls_test.go:   f8734ec19c6d8b8743d9c6e00f88ae8a3d80298e9b1306265a4cc4aff177baf3
-sha256 handleconn_e2e_test.go: f3797bb2a1cd8a9e98e1fef074b8035d2d8be1738b768095a911db506294671b
+sha256 cliente_mtls_test.go:   c75d5cd3426aeb901abd816685be691e6c2d933e11917957a9aa5503196f959a
+sha256 handleconn_e2e_test.go: bf90c82e1660849bb30055bf48bd1caf8b192111c923133bdc76209236de4bd7
 sha256 gateway.go (sin tocar): f9cfc0580a2ddc23ccda6f675ebfa6f0bade054b86eb816ee03ed32e4a252dc1
 
 === R5: todos los workflows parsean? ===
@@ -33,7 +33,6 @@ WORKFLOWS_ROTOS=0
 TESTS_E2E_DECLARADOS=9
 
 === gofmt de los dos archivos nuevos ===
-gateway/handleconn_e2e_test.go
 (vacio arriba = ya estaban formateados)
 
 === go build ./... ===
