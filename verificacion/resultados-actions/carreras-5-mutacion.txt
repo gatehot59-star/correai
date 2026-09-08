@@ -1,0 +1,75 @@
+=== CONTROL POR MUTACION ===
+Se copia el paquete a /tmp y se REVIERTE el fix de hace dos horas:
+  sumideros[ranura&63].valor   ->   sumideros[0].valor
+o sea, las 8 goroutines escribiendo la MISMA ranura, que es el bug
+exacto que puso rojo el porton. La suite TIENE que dar ROJO.
+Si no lo agarra, este arnes no ve carreras en proceso y ningun verde
+de los pasos 3 y 4 significa nada.
+
+--- la linea ANTES de mutar ---
+237:	sumideros[ranura&63].valor = dot / (normF + DefaultEpsilon)
+--- la linea DESPUES de mutar ---
+237:	sumideros[0].valor = dot / (normF + DefaultEpsilon)
+
+--- go test -race -count=1 -cpu=4 -run TestLatenciaP99DeLaEspera ---
+  github.com/gatehot59-star/kampe-ir/gateway.trabajoSintetico()
+      /tmp/mut/repo/gateway/latencia_test.go:237 +0x265
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera.func1()
+      /tmp/mut/repo/gateway/latencia_test.go:260 +0x182
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera.gowrap1()
+      /tmp/mut/repo/gateway/latencia_test.go:264 +0x41
+
+Goroutine 32 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera()
+      /tmp/mut/repo/gateway/latencia_test.go:253 +0x27d
+  github.com/gatehot59-star/kampe-ir/gateway.TestLatenciaP99DeLaEspera()
+      /tmp/mut/repo/gateway/latencia_test.go:344 +0x6f0
+  testing.tRunner()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/testing.go:1689 +0x21e
+  testing.(*T).Run.gowrap1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/testing.go:1742 +0x44
+
+Goroutine 34 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirEspera()
+      /tmp/mut/repo/gateway/latencia_test.go:253 +0x27d
+  github.com/gatehot59-star/kampe-ir/gateway.TestLatenciaP99DeLaEspera()
+      /tmp/mut/repo/gateway/latencia_test.go:344 +0x6f0
+  testing.tRunner()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/testing.go:1689 +0x21e
+  testing.(*T).Run.gowrap1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/testing.go:1742 +0x44
+==================
+    latencia_test.go:371: 
+        === DISTRIBUCIONES (ns) ===
+    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=     77.7  p50=    70  p90=     80  p99=      90  p99.9=     1572  max=    236510
+    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=   3383.6  p50=   150  p90=    241  p99=     500  p99.9=   437346  max=  41337081
+    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   4178.4  p50=   280  p90=   2033  p99=    4227  p99.9=   939970  max=   4025051
+    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1462.3  p50=  1392  p90=   1462  p99=    2604  p99.9=     8753  max=     17786
+    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   4693.8  p50=  2523  p90=   2704  p99=    4326  p99.9=    12488  max=  50361983
+    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  15336.6  p50=  3605  p90=   4346  p99=   78196  p99.9=  2706030  max=   9811445
+    latencia_test.go:376: 
+        === CLASIFICACION CONTRA EL PISO ===
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (5.6x sobre el piso)
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (47.0x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (28.9x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (48.1x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (868.8x sobre el piso)
+    latencia_test.go:383: 
+        GUARD 1  p99 patologico / p99 del piso = 47.0x (minimo exigido 3.0x)
+    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 8.5x
+    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (5.6x sobre el piso)
+    latencia_test.go:408: 
+        === RESPUESTA ===
+        p99 ESPERA caso real (1 candado por agente):        500 ns   [MEDIDO (5.6x sobre el piso)]
+        p99 ESPERA caso patologico (1 candado, 8 gor):     4227 ns   [MEDIDO (47.0x sobre el piso)]
+        p99.9 patologico:                                939970 ns
+        p99 PAQUETE completo, caso real:                   4326 ns   [MEDIDO (48.1x sobre el piso)]
+        p99 PAQUETE completo, caso patologico:            78196 ns   [MEDIDO (868.8x sobre el piso)]
+        piso del reloj (p99):                                90 ns
+        max: NO SE REPORTA como cola del candado (el max del piso fue 236510 ns)
+    testing.go:1398: race detected during execution of test
+--- FAIL: TestLatenciaP99DeLaEspera (5.87s)
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	5.879s
+FAIL
+EXIT_mutado=0

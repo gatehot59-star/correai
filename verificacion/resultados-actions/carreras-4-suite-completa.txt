@@ -1,0 +1,5 @@
+=== go test -race -count=3 -cpu=4 ./...   (sin -short, como main) ===
+Incluye TODO: los salteados, los que no, y los benchmarks como tests.
+
+ok  	github.com/gatehot59-star/kampe-ir/gateway	36.781s
+EXIT_suite=0

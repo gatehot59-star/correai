@@ -1,0 +1,39 @@
+
+=== EL SUJETO, medido ===
+CANTIDAD_SALTEADOS=4
+tests que -short saltea:
+TestControlDeContencion_ElArnesVeLaDiferencia
+TestControlPositivoDeCola_CandadoGlobal
+TestCostoDelCandado_ContraElHMAC
+TestLatenciaP99DeLaEspera
+
+=== CARRERAS EN PROCESO encontradas ===
+salteados repetidos x5 : 0
+suite completa x3      : 0
+tests en FAIL (x5)     : 0
+suite exit             : EXIT_suite=0
+salteados exit         : EXIT_salteados=0
+
+=== LA MUTACION (el control que hace que el verde valga) ===
+    testing.go:1398: race detected during execution of test
+--- FAIL: TestLatenciaP99DeLaEspera (5.87s)
+
+=== VEREDICTO ===
+PASS  el sujeto se enumero                                     [carreras-1-sujeto.txt] aparece=SI esperado=SI
+PASS  los salteados corrieron 5 veces                          [carreras-3-salteados-con-race.txt] aparece=SI esperado=SI
+PASS  CERO carreras en proceso en los salteados                [carreras-3-salteados-con-race.txt] aparece=NO esperado=NO
+PASS  ningun salteado en FAIL                                  [carreras-3-salteados-con-race.txt] aparece=NO esperado=NO
+PASS  la suite completa x3 sale en 0                           [carreras-4-suite-completa.txt] aparece=SI esperado=SI
+PASS  CERO carreras en proceso en la suite                     [carreras-4-suite-completa.txt] aparece=NO esperado=NO
+PASS  la MUTACION fue detectada                                [carreras-5-mutacion.txt] aparece=SI esperado=SI
+PASS  la MUTACION hizo caer el test                            [carreras-5-mutacion.txt] aparece=SI esperado=SI
+FAIL  no hay t.Parallel() que complique                        [carreras-2-vars-de-paquete.txt] aparece=SI esperado=NO
+
+FALLAS_DE_VEREDICTO=1
+RESULTADO=ROJO
+
+LECTURA OBLIGATORIA: verde aca significa NO OBSERVADA EN 8 CORRIDAS
+(5 de los salteados + 3 de la suite completa), no 'no existe'. El
+detector de Go reporta lo que ve; la mutacion prueba que este arnes
+SI ve una carrera cuando la hay, y eso es lo maximo que se puede
+afirmar sin analisis estatico.
