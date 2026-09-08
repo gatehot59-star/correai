@@ -16,6 +16,9 @@
 #   R3. El veredicto se TRUNCA, no se acumula.
 #   R4. El VALOR ESPERADO tambien es una medicion: se deriva del fuente.
 #   R5. Un workflow que no parsea es INVISIBLE: se valida antes de correr nada.
+#       Y el nombre de un paso NO puede tener ": " adentro, porque YAML lo lee
+#       como un mapping anidado. Eso rompio la primera version de este archivo y
+#       el guard de R5 lo agarro antes de gastar un ciclo de CI.
 name: handleconn-e2e
 
 on:
@@ -163,7 +166,7 @@ jobs:
           } >> "$OUT"
           cat "$OUT"
 
-      - name: 4 - control por mutacion: sin el mutex, el camino real reporta?
+      - name: 4 - control por mutacion, sacandole el mutex a los filtros reales
         if: always()
         run: |
           set +e
@@ -200,7 +203,6 @@ jobs:
           {
             echo "MUTACION_REPORTO=$(grep -c 'race detected during execution of test' "$LOG")"
             echo "MUTACION_CITA_FILTERS=$(grep -c 'gateway/filters.go' "$LOG")"
-            echo "MUTACION_CITA_HANDLECONN=$(grep -c 'gateway.(\*Gateway).handleConn' "$LOG")"
           } >> "$OUT"
           tail -12 "$OUT"
 
@@ -287,7 +289,7 @@ jobs:
             echo "en 3 repeticiones         : $RRACES"
             echo "en el porton de main      : $PRACES"
             echo
-            echo "=== LA MUTACION (sin el mutex, el arnes ve la carrera?) ==="
+            echo "=== LA MUTACION, sin el mutex el arnes ve la carrera? ==="
             echo "candados comentados en la copia : $MCAND"
             echo "carreras reportadas             : $MREP"
             echo "lineas citando filters.go       : $MFIL"
