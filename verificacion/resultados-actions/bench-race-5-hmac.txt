@@ -1,0 +1,15 @@
+=== BenchmarkVerifyPacketHMAC bajo -race ===
+Es serial (un solo goroutine), asi que no deberia reportar nada.
+Sirve de contraste: si ESTE reportara, el problema no seria de
+concurrencia de los filtros sino del gateway.
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 9V74 80-Core Processor                
+BenchmarkVerifyPacketHMAC-4   	   20000	      7764 ns/op
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.167s
+EXIT_hmac=0
+REPORTES_DETECTOR=0
+BENCH_CORRIO=1

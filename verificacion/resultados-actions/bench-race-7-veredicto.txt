@@ -1,0 +1,47 @@
+Veredicto de la corrida 7a5c4ac78704133f8cab7a610d4ca3b28645096e
+Fecha: 2026-09-08T04:19:36Z
+
+=== EL HUECO QUE SE CIERRA ===
+go test SIN -bench compila los benchmarks pero no los ejecuta.
+Estos 4 brazos lanzan 8 goroutines cada uno sobre filtros
+compartidos, y nunca habian visto el detector completo.
+BENCHMARKS_DECLARADOS=2
+
+=== REPORTES DEL DETECTOR, POR BRAZO ===
+A  1 agente, candado por agente                corrio=5    reportes=0     cita filters.go=0
+B  1 agente, SIN candado (RACY)                corrio=2    reportes=26    (CONTROL POSITIVO)
+C  N agentes aislados (caso real)              corrio=5    reportes=0     cita filters.go=0
+D  N agentes, candado GLOBAL                   corrio=5    reportes=0     cita filters.go=0
+HMAC (serial, de contraste)                    corrio=1    reportes=0    
+
+=== POR QUE CONTAR EN BLOQUE ENGANA ===
+todos los benchmarks juntos -> reportes=24
+  de esos, citando huberSinMutex (el brazo RACY) : 24
+  citando filters.go (los filtros REALES)        : 0
+Un lector que solo mire el 24 concluye que hay un defecto.
+El desglose muestra que TODO viene del control deliberado.
+
+=== VEREDICTO (por brazo, numeros calculados) ===
+FAIL  brazo A corrio                                       obtenido=5      esperado=1
+PASS  brazo A: CERO carreras                               obtenido=0      esperado=0
+PASS  brazo A: no cita filters.go                          obtenido=0      esperado=0
+PASS  brazo B: el CONTROL POSITIVO reporta                 obtenido=26     esperado>=1
+FAIL  brazo C corrio                                       obtenido=5      esperado=1
+PASS  brazo C: CERO carreras                               obtenido=0      esperado=0
+PASS  brazo C: no cita filters.go                          obtenido=0      esperado=0
+FAIL  brazo D corrio                                       obtenido=5      esperado=1
+PASS  brazo D: CERO carreras                               obtenido=0      esperado=0
+PASS  brazo D: no cita filters.go                          obtenido=0      esperado=0
+PASS  HMAC corrio                                          obtenido=1      esperado=1
+PASS  HMAC: CERO carreras                                  obtenido=0      esperado=0
+PASS  en bloque, los filtros REALES limpios                obtenido=0      esperado=0
+PASS  en bloque, el RACY si aparece                        obtenido=24     esperado>=1
+
+FALLAS_DE_VEREDICTO=3
+RESULTADO=ROJO
+
+LECTURA: el brazo B es un control positivo que YA VIVE EN EL ARBOL,
+asi que este barrido no necesito mutar nada. Si B dejara de
+reportar, el arnes estaria ciego y los ceros de A, C, D y HMAC no
+significarian nada. Y verde sigue siendo NO OBSERVADA, no 'no
+existe': el detector reporta lo que ve.

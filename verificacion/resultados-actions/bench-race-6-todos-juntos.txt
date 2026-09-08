@@ -1,0 +1,91 @@
+=== go test -race -bench . -benchtime=10000x ===
+Este numero SIRVE PARA UNA SOLA COSA: mostrar que contar en bloque
+es enganoso, porque el brazo B (RACY, deliberado) contamina el total.
+El veredicto NO usa este conteo: usa el de cada brazo por separado.
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 9V74 80-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=1-4         	   10000	      1846 ns/op	         0.5418 Mop/s	         1.000 goroutines	      1846 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=1-4          	   10000	       956.4 ns/op	         1.046 Mop/s	         1.000 goroutines	       956.3 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=1-4         	   10000	      1935 ns/op	         0.5169 Mop/s	         1.000 goroutines	      1935 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1-4            	   10000	      1824 ns/op	         0.5482 Mop/s	         1.000 goroutines	      1824 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=2-4                  	   10000	      2434 ns/op	         0.4109 Mop/s	         2.000 goroutines	      2434 ns/op-real
+==================
+WARNING: DATA RACE
+Read at 0x00c000022790 by goroutine 36:
+
+Previous write at 0x00c000022790 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000022798 by goroutine 36:
+
+Previous write at 0x00c000022798 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c0000227a0 by goroutine 36:
+
+Previous write at 0x00c0000227a0 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c0000227a8 by goroutine 36:
+
+Previous write at 0x00c0000227a8 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c00013c150 by goroutine 36:
+
+Previous write at 0x00c00013c150 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c00013c190 by goroutine 36:
+
+Previous write at 0x00c00013c190 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c00013c1d8 by goroutine 36:
+
+Previous write at 0x00c00013c1d8 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+--- FAIL: BenchmarkCandado/B_1agente_sinCandado_RACY/g=2
+...(pilas de goroutine recortadas; el log completo esta en el job)
+EXIT_todos=1
+REPORTES_DETECTOR=24
+CITA_FILTERS_GO=0
+CITA_HUBER_SIN_MUTEX=24
+CITA_COHERENCIA_SIN_MUTEX=24
