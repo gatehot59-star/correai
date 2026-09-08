@@ -1,0 +1,318 @@
+# Corre los CUERPOS de los benchmarks bajo el detector de carreras.
+#
+# EL HUECO QUE CIERRA, declarado en el barrido anterior: `go test` COMPILA los
+# benchmarks pero NO LOS EJECUTA sin `-bench`. Los 4 brazos de BenchmarkCandado
+# lanzan 8 goroutines sobre filtros compartidos, y ese codigo nunca vio el
+# detector salvo una corrida de UN brazo en el PR #4.
+#
+# ============================================================================
+# LA DISTINCION QUE HACE QUE EL CONTEO NO SEA INGENUO:
+#
+# El brazo B (`B_1agente_sinCandado_RACY`) es una CARRERA DELIBERADA: son los
+# gemelos sin mutex, y existen justo para demostrar que el patron detecta una
+# carrera cuando la hay. Correr `-race -bench BenchmarkCandado` en bloque va a
+# reportar carrera SIEMPRE, y quien cuente reportes sin separar brazos va a
+# concluir que hay un defecto donde hay un control.
+#
+# Asi que este job NO cuenta en bloque. Exige un resultado POR BRAZO:
+#
+#   A  1 agente, candado por agente     -> 0 carreras
+#   B  1 agente, SIN candado (RACY)     -> AL MENOS 1   <- control positivo
+#   C  N agentes aislados               -> 0
+#   D  N agentes, candado GLOBAL        -> 0
+#   VerifyPacketHMAC (serial)           -> 0
+#
+# El brazo B es un control positivo GRATIS que ya vive en el arbol: no hay que
+# mutar nada. Si B no reporta, el arnes esta ciego y los ceros de A, C y D no
+# significan nada.
+# ============================================================================
+#
+# LAS TRES REGLAS DE ESCRITURA DE EVIDENCIA, que ya me costaron tres rojos falsos:
+#   R1. Un guard no busca una palabra: lee un NUMERO calculado (`^CLAVE=[0-9]+`).
+#       Un grep de presencia no distingue el instrumento de la prosa que lo
+#       describe, y tres veces conto mis propios echos.
+#   R2. Rutas ABSOLUTAS con $GITHUB_WORKSPACE. Un `cd` filtrado ya mando los
+#       contadores adentro de una copia de /tmp.
+#   R3. El veredicto se TRUNCA, no se acumula. Dos veredictos contradictorios en
+#       un archivo es peor que ninguno.
+name: benchmarks-bajo-race
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/benchmarks-bajo-race
+
+permissions:
+  contents: write
+
+jobs:
+  benchmarks-con-detector:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 0 - enumerar los benchmarks y el entorno
+        if: always()
+        run: |
+          set +e
+          mkdir -p "$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/bench-race-0-sujeto.txt"
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Rama:    ${GITHUB_REF_NAME}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            echo "nproc:   $(nproc)"
+            go version
+            echo
+            echo "=== TODAS las funciones Benchmark del repo ==="
+            grep -rn '^func Benchmark' --include='*_test.go' . | sort
+            echo "BENCHMARKS_DECLARADOS=$(grep -rc '^func Benchmark' --include='*_test.go' . | awk -F: '{s+=$2} END {print s+0}')"
+            echo
+            echo "=== los sub-brazos de BenchmarkCandado, del fuente ==="
+            grep -n 'b.Run(fmt.Sprintf' gateway/candado_bench_test.go
+            echo
+            echo "=== control: go test SIN -bench ejecuta los cuerpos? ==="
+            echo "Si aparece 'BenchmarkCandado' con un conteo de iteraciones, los"
+            echo "ejecuta. Si no aparece nada, solo los compila, que es el hueco."
+            go test -race -run 'XXX_NO_EXISTE' -count=1 -timeout 10m -v ./gateway/... 2>&1 | tail -12
+            echo "EXIT_control_sin_bench=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 1 a 4 - cada brazo de BenchmarkCandado, SOLO, bajo -race
+        if: always()
+        run: |
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+
+          brazo() {
+            # $1 sufijo de archivo, $2 regex del sub-brazo, $3 que se espera
+            OUT="$D/bench-race-$1.txt"
+            LOG="/tmp/$1.log"
+            {
+              echo "=== brazo $1 ==="
+              echo "regex : $2"
+              echo "espera: $3"
+              echo
+              echo "go test -race -run '^\$' -bench '$2' -benchtime=20000x -cpu=4"
+              echo "(carga chica a proposito: bajo -race cada acceso se instrumenta,"
+              echo " asi que 20.000 iteraciones alcanzan para ejercitar el patron sin"
+              echo " que el job tarde media hora. Aca NO se miden tiempos: se busca"
+              echo " si el detector observa una carrera.)"
+              echo
+            } > "$OUT"
+            go test -race -run '^$' -bench "$2" -benchtime=20000x -cpu=4 \
+                    -timeout 25m ./gateway/... > "$LOG" 2>&1
+            EX=$?
+            {
+              cat "$LOG"
+              echo "EXIT_brazo=$EX"
+              echo "REPORTES_DETECTOR=$(grep -c 'WARNING: DATA RACE' "$LOG")"
+              echo "CITA_FILTERS_GO=$(grep -c 'gateway/filters.go' "$LOG")"
+              echo "CITA_BENCH_TEST=$(grep -c 'candado_bench_test.go' "$LOG")"
+              echo "BENCH_CORRIO=$(grep -cE '^BenchmarkCandado' "$LOG")"
+            } >> "$OUT"
+            echo "--- $1: reportes=$(grep -c 'WARNING: DATA RACE' "$LOG")  exit=$EX ---"
+          }
+
+          brazo 1-brazoA-candado-por-agente \
+                'BenchmarkCandado/A_1agente_candadoPorAgente' \
+                'CERO carreras: los filtros reales tienen su mutex'
+
+          brazo 2-brazoB-sin-candado-RACY \
+                'BenchmarkCandado/B_1agente_sinCandado_RACY' \
+                'AL MENOS UNA carrera: es el control positivo, gemelos sin mutex'
+
+          brazo 3-brazoC-agentes-aislados \
+                'BenchmarkCandado/C_NagentesAislados_candadoPorAgente' \
+                'CERO carreras: un agente por goroutine, el caso real'
+
+          brazo 4-brazoD-candado-global \
+                'BenchmarkCandado/D_NagentesAislados_candadoGLOBAL' \
+                'CERO carreras: el candado global serializa, no es carrera'
+
+      - name: 5 - el benchmark del HMAC, que es serial
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/bench-race-5-hmac.txt"
+          LOG=/tmp/hmac.log
+          {
+            echo "=== BenchmarkVerifyPacketHMAC bajo -race ==="
+            echo "Es serial (un solo goroutine), asi que no deberia reportar nada."
+            echo "Sirve de contraste: si ESTE reportara, el problema no seria de"
+            echo "concurrencia de los filtros sino del gateway."
+            echo
+          } > "$OUT"
+          go test -race -run '^$' -bench 'BenchmarkVerifyPacketHMAC' \
+                  -benchtime=20000x -cpu=4 -timeout 15m ./gateway/... > "$LOG" 2>&1
+          EX=$?
+          {
+            cat "$LOG"
+            echo "EXIT_hmac=$EX"
+            echo "REPORTES_DETECTOR=$(grep -c 'WARNING: DATA RACE' "$LOG")"
+            echo "BENCH_CORRIO=$(grep -cE '^BenchmarkVerifyPacketHMAC' "$LOG")"
+          } >> "$OUT"
+          tail -8 "$OUT"
+
+      - name: 6 - TODOS los benchmarks juntos, para tener el numero de bloque
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/bench-race-6-todos-juntos.txt"
+          LOG=/tmp/todos.log
+          {
+            echo "=== go test -race -bench . -benchtime=10000x ==="
+            echo "Este numero SIRVE PARA UNA SOLA COSA: mostrar que contar en bloque"
+            echo "es enganoso, porque el brazo B (RACY, deliberado) contamina el total."
+            echo "El veredicto NO usa este conteo: usa el de cada brazo por separado."
+            echo
+          } > "$OUT"
+          go test -race -run '^$' -bench . -benchtime=10000x -cpu=4 \
+                  -timeout 25m ./gateway/... > "$LOG" 2>&1
+          EX=$?
+          {
+            grep -vE '^\s+(github.com|/opt/|/home/|testing\.|main\.|runtime)' "$LOG" | head -80
+            echo "...(pilas de goroutine recortadas; el log completo esta en el job)"
+            echo "EXIT_todos=$EX"
+            echo "REPORTES_DETECTOR=$(grep -c 'WARNING: DATA RACE' "$LOG")"
+            echo "CITA_FILTERS_GO=$(grep -c 'gateway/filters.go' "$LOG")"
+            echo "CITA_HUBER_SIN_MUTEX=$(grep -c 'huberSinMutex' "$LOG")"
+            echo "CITA_COHERENCIA_SIN_MUTEX=$(grep -c 'coherenciaSinMutex' "$LOG")"
+          } >> "$OUT"
+          tail -10 "$OUT"
+
+      - name: 7 - veredicto (POR BRAZO, con numeros)
+        if: always()
+        run: |
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT=$D/bench-race-7-veredicto.txt
+          FALLAS=0
+
+          leer() {
+            V=$(grep -oE "^$2=[0-9]+" "$1" 2>/dev/null | tail -1 | cut -d= -f2)
+            [ -n "$V" ] && echo "$V" || echo NA
+          }
+
+          comparar() {
+            if [ "$2" = "$3" ]; then
+              printf 'PASS  %-52s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-52s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          al_menos() {
+            if [ "$2" != "NA" ] && [ "$2" -ge "$3" ] 2>/dev/null; then
+              printf 'PASS  %-52s obtenido=%-6s esperado>=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-52s obtenido=%-6s esperado>=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          A=$D/bench-race-1-brazoA-candado-por-agente.txt
+          B=$D/bench-race-2-brazoB-sin-candado-RACY.txt
+          C=$D/bench-race-3-brazoC-agentes-aislados.txt
+          E=$D/bench-race-4-brazoD-candado-global.txt
+          H=$D/bench-race-5-hmac.txt
+          T=$D/bench-race-6-todos-juntos.txt
+          S=$D/bench-race-0-sujeto.txt
+
+          RA=$(leer "$A" REPORTES_DETECTOR);  CA=$(leer "$A" BENCH_CORRIO)
+          RB=$(leer "$B" REPORTES_DETECTOR);  CB=$(leer "$B" BENCH_CORRIO)
+          RC=$(leer "$C" REPORTES_DETECTOR);  CC=$(leer "$C" BENCH_CORRIO)
+          RD=$(leer "$E" REPORTES_DETECTOR);  CD=$(leer "$E" BENCH_CORRIO)
+          RH=$(leer "$H" REPORTES_DETECTOR);  CH=$(leer "$H" BENCH_CORRIO)
+          FA=$(leer "$A" CITA_FILTERS_GO);    FC=$(leer "$C" CITA_FILTERS_GO)
+          FD=$(leer "$E" CITA_FILTERS_GO)
+          RT=$(leer "$T" REPORTES_DETECTOR)
+          TSM=$(leer "$T" CITA_HUBER_SIN_MUTEX)
+          TF=$(leer "$T" CITA_FILTERS_GO)
+
+          {
+            echo "Veredicto de la corrida ${GITHUB_SHA}"
+            echo "Fecha: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "=== EL HUECO QUE SE CIERRA ==="
+            echo "go test SIN -bench compila los benchmarks pero no los ejecuta."
+            echo "Estos 4 brazos lanzan 8 goroutines cada uno sobre filtros"
+            echo "compartidos, y nunca habian visto el detector completo."
+            grep 'BENCHMARKS_DECLARADOS=' "$S"
+            echo
+            echo "=== REPORTES DEL DETECTOR, POR BRAZO ==="
+            printf '%-46s corrio=%-4s reportes=%-5s cita filters.go=%s\n' \
+              'A  1 agente, candado por agente'     "$CA" "$RA" "$FA"
+            printf '%-46s corrio=%-4s reportes=%-5s (CONTROL POSITIVO)\n' \
+              'B  1 agente, SIN candado (RACY)'     "$CB" "$RB"
+            printf '%-46s corrio=%-4s reportes=%-5s cita filters.go=%s\n' \
+              'C  N agentes aislados (caso real)'   "$CC" "$RC" "$FC"
+            printf '%-46s corrio=%-4s reportes=%-5s cita filters.go=%s\n' \
+              'D  N agentes, candado GLOBAL'        "$CD" "$RD" "$FD"
+            printf '%-46s corrio=%-4s reportes=%-5s\n' \
+              'HMAC (serial, de contraste)'         "$CH" "$RH"
+            echo
+            echo "=== POR QUE CONTAR EN BLOQUE ENGANA ==="
+            echo "todos los benchmarks juntos -> reportes=$RT"
+            echo "  de esos, citando huberSinMutex (el brazo RACY) : $TSM"
+            echo "  citando filters.go (los filtros REALES)        : $TF"
+            echo "Un lector que solo mire el $RT concluye que hay un defecto."
+            echo "El desglose muestra que TODO viene del control deliberado."
+            echo
+            echo "=== VEREDICTO (por brazo, numeros calculados) ==="
+            comparar 'brazo A corrio'                        "$CA" 1
+            comparar 'brazo A: CERO carreras'                "$RA" 0
+            comparar 'brazo A: no cita filters.go'           "$FA" 0
+            al_menos 'brazo B: el CONTROL POSITIVO reporta'  "$RB" 1
+            comparar 'brazo C corrio'                        "$CC" 1
+            comparar 'brazo C: CERO carreras'                "$RC" 0
+            comparar 'brazo C: no cita filters.go'           "$FC" 0
+            comparar 'brazo D corrio'                        "$CD" 1
+            comparar 'brazo D: CERO carreras'                "$RD" 0
+            comparar 'brazo D: no cita filters.go'           "$FD" 0
+            comparar 'HMAC corrio'                           "$CH" 1
+            comparar 'HMAC: CERO carreras'                   "$RH" 0
+            comparar 'en bloque, los filtros REALES limpios' "$TF" 0
+            al_menos 'en bloque, el RACY si aparece'         "$TSM" 1
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+            echo
+            echo "LECTURA: el brazo B es un control positivo que YA VIVE EN EL ARBOL,"
+            echo "asi que este barrido no necesito mutar nada. Si B dejara de"
+            echo "reportar, el arnes estaria ciego y los ceros de A, C, D y HMAC no"
+            echo "significarian nada. Y verde sigue siendo NO OBSERVADA, no 'no"
+            echo "existe': el detector reporta lo que ve."
+          } > "$OUT"
+          cat "$OUT"
+
+      - name: Commitear todo
+        if: always()
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/bench-race-*.txt
+          git commit -m 'evidencia: los cuerpos de los benchmarks bajo -race, brazo por brazo [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          V="$GITHUB_WORKSPACE/verificacion/resultados-actions/bench-race-7-veredicto.txt"
+          grep -q 'RESULTADO=VERDE' "$V" || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
