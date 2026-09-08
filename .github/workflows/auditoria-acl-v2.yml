@@ -1,0 +1,107 @@
+# El instrumento v1 NO SERVIA: en MQTT 3.1.1 mosquitto responde SUBACK 0 tanto
+# si concede como si va a filtrar la entrega, asi que mi control positivo y mi
+# caso de prueba dieron lo MISMO. Un instrumento que no discrimina no mide.
+# v2 usa PUBLISH (que mosquitto SI deniega y SI loguea) y una entrega punta a
+# punta, que es la pregunta real: quien puede leer el subarbol de quien.
+name: auditoria-acl-v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/auditoria-de-la-auditoria
+    paths:
+      - '.github/workflows/auditoria-acl-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  acl-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq mosquitto mosquitto-clients
+
+      - name: Medir enforcement con PUBLISH y entrega punta a punta
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          OUT=verificacion/resultados-actions/acl-enforcement-v2.txt
+          PORT=18831
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            mosquitto -h 2>&1 | head -1
+            echo "acl.conf sha256: $(sha256sum mqtt/acl.conf | cut -d\  -f1)"
+            echo
+            echo "TODOS los usuarios se crean ANTES de arrancar el broker:"
+            echo "en v1 agregue un usuario despues del arranque y mosquitto no"
+            echo "recarga el password_file, asi que ese resultado era invalido."
+            cp mqtt/acl.conf /tmp/acl.conf
+            chmod 0600 /tmp/acl.conf
+            mosquitto_passwd -b -c /tmp/pw probe secreto
+            mosquitto_passwd -b /tmp/pw a_b secreto
+            mosquitto_passwd -b /tmp/pw fleet_server secreto
+            mosquitto_passwd -b /tmp/pw anonymous secreto
+            mosquitto_passwd -b /tmp/pw '%u' secreto
+            chmod 0600 /tmp/pw
+            printf 'listener %s 127.0.0.1\nallow_anonymous false\npassword_file /tmp/pw\nacl_file /tmp/acl.conf\nlog_type all\n' "$PORT" > /tmp/mosq.conf
+            mosquitto -c /tmp/mosq.conf -v > /tmp/broker.log 2>&1 &
+            BPID=$!
+            sleep 3
+            echo "broker vivo? $(kill -0 $BPID 2>/dev/null && echo SI || echo NO)"
+            echo
+            echo "=== A: probe publica en fleet/probe/x (el diseno lo QUIERE permitido) ==="
+            mosquitto_pub -h 127.0.0.1 -p "$PORT" -u probe -P secreto -q 1 -t 'fleet/probe/x' -m A 2>&1
+            echo "EXIT_A=$?"
+            echo "=== B: probe publica en cualquier/otro (debe estar DENEGADO) ==="
+            mosquitto_pub -h 127.0.0.1 -p "$PORT" -u probe -P secreto -q 1 -t 'cualquier/otro' -m B 2>&1
+            echo "EXIT_B=$?"
+            echo "=== C control positivo: fleet_server publica en fleet/x (debe estar PERMITIDO) ==="
+            mosquitto_pub -h 127.0.0.1 -p "$PORT" -u fleet_server -P secreto -q 1 -t 'fleet/x' -m C 2>&1
+            echo "EXIT_C=$?"
+            echo "=== D: usuario literal %u publica en fleet/%u/x ==="
+            mosquitto_pub -h 127.0.0.1 -p "$PORT" -u '%u' -P secreto -q 1 -t 'fleet/%u/x' -m D 2>&1
+            echo "EXIT_D=$?"
+            echo "=== E: anonymous (usuario nombrado asi) publica en cualquier/cosa ==="
+            mosquitto_pub -h 127.0.0.1 -p "$PORT" -u anonymous -P secreto -q 1 -t 'cualquier/cosa' -m E 2>&1
+            echo "EXIT_E=$?"
+            echo
+            echo "=== F: ENTREGA PUNTA A PUNTA. probe escucha su propio subarbol ==="
+            timeout 8 mosquitto_sub -h 127.0.0.1 -p "$PORT" -u probe -P secreto -t 'fleet/probe/#' -C 1 > /tmp/rx_probe.txt 2>&1 &
+            SPID=$!
+            sleep 2
+            mosquitto_pub -h 127.0.0.1 -p "$PORT" -u fleet_server -P secreto -q 1 -t 'fleet/probe/ota' -m HOLA
+            wait $SPID
+            echo "recibido por probe: [$(cat /tmp/rx_probe.txt)]"
+            echo
+            echo "=== G: CROSS-TENANT. a_b escucha fleet/a_b_c/# (D-45) ==="
+            timeout 8 mosquitto_sub -h 127.0.0.1 -p "$PORT" -u a_b -P secreto -t 'fleet/a_b_c/#' -C 1 > /tmp/rx_ab.txt 2>&1 &
+            GPID=$!
+            sleep 2
+            mosquitto_pub -h 127.0.0.1 -p "$PORT" -u fleet_server -P secreto -q 1 -t 'fleet/a_b_c/secreto' -m SECRETO_DE_OTRO
+            wait $GPID
+            echo "recibido por a_b: [$(cat /tmp/rx_ab.txt)]"
+            echo
+            echo "=== denegaciones que registro el broker ==="
+            grep -i denied /tmp/broker.log
+            echo "conteo_denied=$(grep -ci denied /tmp/broker.log)"
+            echo
+            echo "=== log completo ==="
+            cat /tmp/broker.log
+            kill $BPID 2>/dev/null
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: Commitear el resultado
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin titan/auditoria-de-la-auditoria || true
+          git add verificacion/resultados-actions/acl-enforcement-v2.txt
+          git commit -m 'evidencia: enforcement del ACL medido con publish y entrega [skip ci]' || echo 'sin cambios'
+          git push origin HEAD:titan/auditoria-de-la-auditoria

@@ -1,0 +1,119 @@
+Maquina: Actions ubuntu-latest (VM limpia)
+Commit:  20fdd7a782ed402700af1fdd474af31423048bca
+Fecha:   2026-09-07T18:44:37Z
+mosquitto version 2.0.18
+mosquitto version 2.0.18
+
+=== acl.conf tal cual esta en el repo ===
+# Copyright (c) 2026 Jorge Abraham Mendieta.
+# Computational Substrate Theory. Todos los derechos reservados.
+
+# MQTT ACL M-bM-^@M-^T Zero-Trust por identidad de usuario (%u)
+# Formato: tenant_id_node_id
+
+# Denegar acceso anM-CM-3nimo completamente.
+user anonymous
+topic read #
+topic write #
+
+# Cada usuario autenticado accede SOLO a su subM-CM-!rbol.
+user %u
+topic read  fleet/%u/#
+topic write fleet/%u/#
+
+# El servidor Fleet Manager tiene acceso global de escritura
+# para publicar OTA y alertas a todos los nodos.
+user fleet_server
+topic read  fleet/#
+topic write fleet/#
+
+=== arrancar broker en puerto libre ===
+broker vivo? SI
+--- primeras lineas del log del broker ---
+1788806677: mosquitto version 2.0.18 starting
+1788806677: Config loaded from /tmp/mosq.conf.
+1788806677: Opening ipv4 listen socket on port 18830.
+1788806677: mosquitto version 2.0.18 running
+
+=== PRUEBA 1: usuario probe se suscribe a fleet/probe/x ===
+El ACL dice 'user %u / topic read fleet/%u/#'. Si %u no se
+sustituye en lineas 'user', probe queda DENEGADO (SUBACK 128).
+Timed out
+Client null sending CONNECT
+Client null received CONNACK (0)
+Client null sending SUBSCRIBE (Mid: 1, Topic: fleet/probe/x, QoS: 0, Options: 0x00)
+Client null received SUBACK
+Subscribed (mid: 1): 0
+Client null sending DISCONNECT
+EXIT_p1=0
+
+=== PRUEBA 2 (control positivo): fleet_server se suscribe a fleet/# ===
+Esta linea del ACL NO usa %u, asi que debe CONCEDER. Si esta
+tambien da 128, el instrumento esta roto, no el ACL.
+Timed out
+Client null sending CONNECT
+Client null received CONNACK (0)
+Client null sending SUBSCRIBE (Mid: 1, Topic: fleet/#, QoS: 0, Options: 0x00)
+Client null received SUBACK
+Subscribed (mid: 1): 0
+Client null sending DISCONNECT
+EXIT_p2=0
+
+=== PRUEBA 3: usuario literal %u ===
+Connection error: Connection Refused: not authorised.
+Client null sending CONNECT
+Client null received CONNACK (5)
+Client null sending DISCONNECT
+EXIT_p3=0
+
+=== PRUEBA 4: colision cross-tenant (D-45) ===
+tenant a_b + nodo c y tenant a + nodo b_c dan el MISMO usuario a_b_c.
+Timed out
+Client null sending CONNECT
+Client null received CONNACK (0)
+Client null sending SUBSCRIBE (Mid: 1, Topic: fleet/a_b_c/#, QoS: 0, Options: 0x00)
+Client null received SUBACK
+Subscribed (mid: 1): 0
+Client null sending DISCONNECT
+EXIT_p4=0
+
+=== log completo del broker ===
+1788806677: mosquitto version 2.0.18 starting
+1788806677: Config loaded from /tmp/mosq.conf.
+1788806677: Opening ipv4 listen socket on port 18830.
+1788806677: mosquitto version 2.0.18 running
+1788806680: New connection from 127.0.0.1:60366 on port 18830.
+1788806680: New client connected from 127.0.0.1:60366 as auto-5FBDDC24-B7BD-4F5B-52A0-ABE70EBFF51D (p2, c1, k60, u'probe').
+1788806680: No will message specified.
+1788806680: Sending CONNACK to auto-5FBDDC24-B7BD-4F5B-52A0-ABE70EBFF51D (0, 0)
+1788806680: Received SUBSCRIBE from auto-5FBDDC24-B7BD-4F5B-52A0-ABE70EBFF51D
+1788806680: 	fleet/probe/x (QoS 0)
+1788806680: auto-5FBDDC24-B7BD-4F5B-52A0-ABE70EBFF51D 0 fleet/probe/x
+1788806680: Sending SUBACK to auto-5FBDDC24-B7BD-4F5B-52A0-ABE70EBFF51D
+1788806683: Received DISCONNECT from auto-5FBDDC24-B7BD-4F5B-52A0-ABE70EBFF51D
+1788806683: Client auto-5FBDDC24-B7BD-4F5B-52A0-ABE70EBFF51D disconnected.
+1788806683: New connection from 127.0.0.1:60368 on port 18830.
+1788806683: New client connected from 127.0.0.1:60368 as auto-DA9E325E-346C-09ED-7B09-AEA0B991B902 (p2, c1, k60, u'fleet_server').
+1788806683: No will message specified.
+1788806683: Sending CONNACK to auto-DA9E325E-346C-09ED-7B09-AEA0B991B902 (0, 0)
+1788806683: Received SUBSCRIBE from auto-DA9E325E-346C-09ED-7B09-AEA0B991B902
+1788806683: 	fleet/# (QoS 0)
+1788806683: auto-DA9E325E-346C-09ED-7B09-AEA0B991B902 0 fleet/#
+1788806683: Sending SUBACK to auto-DA9E325E-346C-09ED-7B09-AEA0B991B902
+1788806686: Received DISCONNECT from auto-DA9E325E-346C-09ED-7B09-AEA0B991B902
+1788806686: Client auto-DA9E325E-346C-09ED-7B09-AEA0B991B902 disconnected.
+1788806686: New connection from 127.0.0.1:60370 on port 18830.
+1788806686: Sending CONNACK to auto-C0DBADD2-7C9D-8CB6-142F-FEB71664AD19 (0, 5)
+1788806686: Client auto-C0DBADD2-7C9D-8CB6-142F-FEB71664AD19 disconnected, not authorised.
+1788806686: New connection from 127.0.0.1:60380 on port 18830.
+1788806686: New client connected from 127.0.0.1:60380 as auto-D93F7DD7-3C9D-7140-CAB3-96EF52BDFA18 (p2, c1, k60, u'a_b').
+1788806686: No will message specified.
+1788806686: Sending CONNACK to auto-D93F7DD7-3C9D-7140-CAB3-96EF52BDFA18 (0, 0)
+1788806686: Received SUBSCRIBE from auto-D93F7DD7-3C9D-7140-CAB3-96EF52BDFA18
+1788806686: 	fleet/a_b_c/# (QoS 0)
+1788806686: auto-D93F7DD7-3C9D-7140-CAB3-96EF52BDFA18 0 fleet/a_b_c/#
+1788806686: Sending SUBACK to auto-D93F7DD7-3C9D-7140-CAB3-96EF52BDFA18
+1788806689: Received DISCONNECT from auto-D93F7DD7-3C9D-7140-CAB3-96EF52BDFA18
+1788806689: Client auto-D93F7DD7-3C9D-7140-CAB3-96EF52BDFA18 disconnected.
+
+e8370c8d604d7b0e14b0e7d81f8ff55f2009a85c26ad88a19218919d4e858ad4  mqtt/acl.conf

@@ -1,0 +1,99 @@
+# El primer intento murio con 'Address already in use' en el puerto 1883, asi
+# que el ACL cargo pero nunca se probo su ENFORCEMENT. Este job usa un puerto
+# libre y mide lo unico que importa: si `user %u` concede lo que dice conceder.
+# Un SUBACK 128 es denegacion. Commitea su propio resultado.
+name: auditoria-acl-enforcement
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/auditoria-de-la-auditoria
+    paths:
+      - '.github/workflows/auditoria-acl-enforcement.yml'
+      - 'mqtt/acl.conf'
+
+permissions:
+  contents: write
+
+jobs:
+  acl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar mosquitto
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mosquitto mosquitto-clients
+
+      - name: Medir enforcement del ACL
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          OUT=verificacion/resultados-actions/acl-enforcement.txt
+          PORT=18830
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            mosquitto version 2>/dev/null | head -1
+            mosquitto -h 2>&1 | head -1
+            echo
+            echo "=== acl.conf tal cual esta en el repo ==="
+            cat -A mqtt/acl.conf | sed 's/\$$//' | head -40
+            echo
+            echo "=== arrancar broker en puerto libre ==="
+            sudo systemctl stop mosquitto 2>/dev/null
+            cp mqtt/acl.conf /tmp/acl.conf
+            chmod 0600 /tmp/acl.conf
+            mosquitto_passwd -b -c /tmp/pw probe secreto
+            mosquitto_passwd -b /tmp/pw a_b secreto
+            mosquitto_passwd -b /tmp/pw fleet_server secreto
+            chmod 0600 /tmp/pw
+            printf 'listener %s 127.0.0.1\nallow_anonymous false\npassword_file /tmp/pw\nacl_file /tmp/acl.conf\nlog_type all\n' "$PORT" > /tmp/mosq.conf
+            mosquitto -c /tmp/mosq.conf -v > /tmp/broker.log 2>&1 &
+            BPID=$!
+            sleep 3
+            echo "broker vivo? $(kill -0 $BPID 2>/dev/null && echo SI || echo NO)"
+            echo "--- primeras lineas del log del broker ---"
+            head -25 /tmp/broker.log
+            echo
+            echo "=== PRUEBA 1: usuario probe se suscribe a fleet/probe/x ==="
+            echo "El ACL dice 'user %u / topic read fleet/%u/#'. Si %u no se"
+            echo "sustituye en lineas 'user', probe queda DENEGADO (SUBACK 128)."
+            timeout 6 mosquitto_sub -h 127.0.0.1 -p "$PORT" -u probe -P secreto -t 'fleet/probe/x' -d -W 3 2>&1 | head -12
+            echo "EXIT_p1=$?"
+            echo
+            echo "=== PRUEBA 2 (control positivo): fleet_server se suscribe a fleet/# ==="
+            echo "Esta linea del ACL NO usa %u, asi que debe CONCEDER. Si esta"
+            echo "tambien da 128, el instrumento esta roto, no el ACL."
+            timeout 6 mosquitto_sub -h 127.0.0.1 -p "$PORT" -u fleet_server -P secreto -t 'fleet/#' -d -W 3 2>&1 | head -12
+            echo "EXIT_p2=$?"
+            echo
+            echo "=== PRUEBA 3: usuario literal %u ==="
+            mosquitto_passwd -b /tmp/pw '%u' secreto
+            timeout 6 mosquitto_sub -h 127.0.0.1 -p "$PORT" -u '%u' -P secreto -t 'fleet/%u/x' -d -W 3 2>&1 | head -12
+            echo "EXIT_p3=$?"
+            echo
+            echo "=== PRUEBA 4: colision cross-tenant (D-45) ==="
+            echo "tenant a_b + nodo c y tenant a + nodo b_c dan el MISMO usuario a_b_c."
+            timeout 6 mosquitto_sub -h 127.0.0.1 -p "$PORT" -u a_b -P secreto -t 'fleet/a_b_c/#' -d -W 3 2>&1 | head -12
+            echo "EXIT_p4=$?"
+            echo
+            echo "=== log completo del broker ==="
+            cat /tmp/broker.log
+            kill $BPID 2>/dev/null
+            echo
+            sha256sum mqtt/acl.conf
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: Commitear el resultado
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin titan/auditoria-de-la-auditoria || true
+          git add verificacion/resultados-actions/acl-enforcement.txt
+          git commit -m 'evidencia: enforcement real del ACL de mosquitto [skip ci]' || echo 'sin cambios'
+          git push origin HEAD:titan/auditoria-de-la-auditoria

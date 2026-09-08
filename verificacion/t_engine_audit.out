@@ -1,0 +1,57 @@
+Comando:  g++ -std=c++17 -O2 -o t_engine_audit t_engine_audit.cpp   (exit 0)
+          ./t_engine_audit                                            (exit 0)
+Compilador: g++ (Debian 12.2.0-14+deb12u1) 12.2.0
+sha256 del .cpp ejecutado: 25698cf8ce9f32d3b70958f0cb7bb372495a6470fd5dd9856d5ca8526ada7e75
+git blob sha1 de engine.hpp usado: 53327c6aac3030da08a908f38f1318f6b12aa2f6 (identico al del repo)
+
+== D-51: huella real reportada por el compilador ==
+sizeof(Engine_v4_3)    = 268288 bytes
+datos utiles (sin pad) = 266240 bytes
+L2 de 256 KiB          = 262144 bytes
+cabe en 256 KiB?       = NO
+kSigmaScale            = 0.00390625
+kMinSigmaSq            = 0.00010000
+kMinSigmaSq cuantizado = 0.025600 -> int16 0
+
+== D-41: colapso de varianza en dimension estable ==
+tras inject: sigma_crudo=256 kappa=1.00000000
+it=    1 sigma_crudo=   253 var_efectiva=0.98828125 kappa=0.98828125 dist=0.000000
+it=   10 sigma_crudo=   226 var_efectiva=0.88281250 kappa=0.88281250 dist=0.000000
+it=   50 sigma_crudo=   137 var_efectiva=0.53515625 kappa=0.53515625 dist=0.000000
+it=  100 sigma_crudo=    68 var_efectiva=0.26562500 kappa=0.26562500 dist=0.000000
+it=  300 sigma_crudo=     0 var_efectiva=0.00000000 kappa=0.00000000 dist=0.000000
+it=  600 sigma_crudo=     0 var_efectiva=0.00000000 kappa=0.00000000 dist=0.000000
+it= 1200 sigma_crudo=     0 var_efectiva=0.00000000 kappa=0.00000000 dist=0.000000
+it= 2000 sigma_crudo=     0 var_efectiva=0.00000000 kappa=0.00000000 dist=0.000000
+VEREDICTO D-41: COLAPSO A 0 (reproducido)
+
+== D-41b: el cero es estado ABSORBENTE, no piso ==
+escape teorico: kEwmaAlpha*sq >= kSigmaScale -> sq >= 0.390625
+amplitud  0.50 sq_max~  0.0625 sigma_final=     0 -> CERO (absorbente)
+amplitud  1.00 sq_max~  0.2500 sigma_final=     0 -> CERO (absorbente)
+amplitud  1.50 sq_max~  0.5625 sigma_final=     5 -> VIVA (control puede dar verde)
+amplitud  2.00 sq_max~  1.0000 sigma_final=    28 -> VIVA (control puede dar verde)
+amplitud  4.00 sq_max~  4.0000 sigma_final=   304 -> VIVA (control puede dar verde)
+amplitud  8.00 sq_max~ 16.0000 sigma_final=  1362 -> VIVA (control puede dar verde)
+
+== D-41c: amplificacion de la distancia ==
+perturbacion 0.01 con var colapsada aporta 1.0000
+con la varianza minima representable aporta 0.0256 (factor 39.1x)
+
+== D-49: process_token normaliza el token? ==
+dist(norma N)=0.000000 dist(norma 2N)=1.000000 -> la norma CAMBIA la distancia (D-49 confirmado)
+
+== D-50: control aparte, sintaxis sin <algorithm> ==
+$ g++ -std=c++17 -fsyntax-only engine.hpp
+engine.hpp:4:9: warning: #pragma once in main file
+EXIT=0
+$ g++ -std=c++17 -include algorithm -fsyntax-only engine.hpp
+engine.hpp:4:9: warning: #pragma once in main file
+EXIT=0
+VEREDICTO D-50: NO reproduce en g++ 12.2.0 / libstdc++. Riesgo de portabilidad
+latente, no defecto activo en este toolchain. Otras stdlib: NO MEDIDO.
+
+== D-40: busqueda de primitivas de sincronizacion ==
+$ grep -nE 'spinlock|atomic|mutex|std::lock|test_and_set' engine.hpp
+22: * - process_token es ahora thread-safe mediante spinlock
+Unica coincidencia: el COMENTARIO. Cero primitivas. D-40 confirmado.

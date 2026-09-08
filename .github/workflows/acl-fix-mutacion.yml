@@ -1,0 +1,141 @@
+# Un verde solo vale si el instrumento podia dar rojo CON ESTE MISMO SCRIPT.
+# Este job corre los 9 casos contra el acl.conf VIEJO (blob 37d2aec0, que se
+# recupera de git, no se reescribe a mano) y ESPERA que falle. Si el ACL viejo
+# tambien diera verde, el verde del fix seria del instrumento, no del fix.
+#
+# Inversion deliberada: este job termina en exito cuando la medicion da ROJO.
+name: acl-fix-mutacion
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/fix-acl-mqtt
+    paths:
+      - '.github/workflows/acl-fix-mutacion.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  mutacion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq mosquitto mosquitto-clients
+
+      - name: Correr los mismos 9 casos contra el ACL VIEJO
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          OUT=verificacion/resultados-actions/acl-fix-mutacion.txt
+          PORT=18833
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            mosquitto -h 2>&1 | head -1
+            echo
+            echo "=== ACL VIEJO recuperado de git, blob 37d2aec04467d67d95952c431d88c9e60aeb8735 ==="
+            git cat-file -p 37d2aec04467d67d95952c431d88c9e60aeb8735 > /tmp/acl.conf
+            echo "sha256 del viejo: $(sha256sum /tmp/acl.conf | cut -d' ' -f1)"
+            echo "sha256 del nuevo: $(sha256sum mqtt/acl.conf | cut -d' ' -f1)"
+            grep -vE '^\s*(#|$)' /tmp/acl.conf
+            echo
+            sudo systemctl stop mosquitto 2>/dev/null
+            chmod 0600 /tmp/acl.conf
+            mosquitto_passwd -b -c /tmp/pw probe secreto
+            mosquitto_passwd -b /tmp/pw fleet_server secreto
+            mosquitto_passwd -b /tmp/pw anonymous secreto
+            mosquitto_passwd -b /tmp/pw a_b_c secreto
+            chmod 0600 /tmp/pw
+            printf 'listener %s 127.0.0.1\nallow_anonymous false\npassword_file /tmp/pw\nacl_file /tmp/acl.conf\nlog_type all\n' "$PORT" > /tmp/mosq.conf
+            mosquitto -c /tmp/mosq.conf -v > /tmp/broker.log 2>&1 &
+            BPID=$!
+            sleep 3
+            if kill -0 $BPID 2>/dev/null; then BROKER=VIVO; else BROKER=MUERTO; fi
+            echo "broker: $BROKER"
+            echo
+
+            FAILS=0
+            PASSES=0
+            veredicto() {
+              if [ "$3" = "$4" ]; then
+                PASSES=$((PASSES+1))
+                printf '%-4s PASS  %-58s esperado=%-8s obtenido=%s\n' "$1" "$2" "$4" "$3"
+              else
+                FAILS=$((FAILS+1))
+                printf '%-4s FAIL  %-58s esperado=%-8s obtenido=%s\n' "$1" "$2" "$4" "$3"
+              fi
+            }
+            pub_estado() {
+              mosquitto_pub -h 127.0.0.1 -p "$PORT" -u "$1" -P secreto -q 1 -t "$2" -m x >/dev/null 2>&1
+              sleep 0.4
+              if grep -q "Denied PUBLISH.*'$2'" /tmp/broker.log; then echo DENIED; else echo ALLOWED; fi
+            }
+            entrega() {
+              rm -f /tmp/rx.txt
+              timeout 8 mosquitto_sub -h 127.0.0.1 -p "$PORT" -u "$1" -P secreto -t "$2" -C 1 > /tmp/rx.txt 2>&1 &
+              SPID=$!
+              sleep 2
+              mosquitto_pub -h 127.0.0.1 -p "$PORT" -u fleet_server -P secreto -q 1 -t "$3" -m ENTREGADO >/dev/null 2>&1
+              wait $SPID
+              if grep -q ENTREGADO /tmp/rx.txt; then echo RECIBIDO; else echo VACIO; fi
+            }
+
+            echo "=== LOS MISMOS 9 CASOS, MISMAS EXPECTATIVAS, ACL VIEJO ==="
+            veredicto T0 'el broker arranca con este ACL' "$BROKER" VIVO
+            veredicto T1 'probe publica en su propio subarbol fleet/probe/t1' \
+                      "$(pub_estado probe fleet/probe/t1)" ALLOWED
+            veredicto T2 'probe publica en el subarbol de OTRO fleet/otro/t2' \
+                      "$(pub_estado probe fleet/otro/t2)" DENIED
+            veredicto T3 'probe publica fuera del arbol fleet: libre/t3' \
+                      "$(pub_estado probe libre/t3)" DENIED
+            veredicto T4 'fleet_server publica en fleet/t4 (control positivo)' \
+                      "$(pub_estado fleet_server fleet/t4)" ALLOWED
+            veredicto T5 'usuario anonymous publica en libre/t5' \
+                      "$(pub_estado anonymous libre/t5)" DENIED
+            veredicto T6 'OTA llega al nodo: probe recibe en fleet/probe/#' \
+                      "$(entrega probe 'fleet/probe/#' fleet/probe/ota)" RECIBIDO
+            veredicto T7 'aislamiento de lectura: probe NO recibe fleet/otro/#' \
+                      "$(entrega probe 'fleet/otro/#' fleet/otro/secreto)" VACIO
+            veredicto T8 'a_b_c recibe fleet/a_b_c/#' \
+                      "$(entrega a_b_c 'fleet/a_b_c/#' fleet/a_b_c/x)" RECIBIDO
+
+            echo
+            echo "PASSES=$PASSES"
+            echo "FAILS=$FAILS"
+            if [ "$FAILS" -gt 0 ]; then
+              echo "MUTACION=DETECTADA (el instrumento SI puede dar rojo)"
+            else
+              echo "MUTACION=NO_DETECTADA (el instrumento NO discrimina: el verde del fix no vale)"
+            fi
+            echo
+            echo "=== log completo del broker ==="
+            cat /tmp/broker.log
+            kill $BPID 2>/dev/null
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: Commitear el resultado
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin titan/fix-acl-mqtt || true
+          git add verificacion/resultados-actions/acl-fix-mutacion.txt
+          git commit -m 'evidencia: control por mutacion del instrumento de ACL [skip ci]' || echo 'sin cambios'
+          git push origin HEAD:titan/fix-acl-mqtt
+
+      - name: Exigir que la mutacion se detecte
+        if: always()
+        run: |
+          grep -q 'MUTACION=DETECTADA' verificacion/resultados-actions/acl-fix-mutacion.txt || {
+            echo 'El ACL viejo tambien pasa los 9 casos: el instrumento no discrimina.'
+            exit 1
+          }
+          grep -E 'PASSES=|FAILS=|MUTACION=' verificacion/resultados-actions/acl-fix-mutacion.txt
