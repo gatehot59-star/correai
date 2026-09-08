@@ -22,10 +22,10 @@ rechazos son ambiguos.
 --- PASS: TestE2E_05_TimestampFueraDeVentana (0.33s)
 === RUN   TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua
     handleconn_e2e_test.go:280: CONTROL ROTO: un agente limpio fue rechazado (RECHAZO (0xFF)). El gateway se cayo por otra razon y E6 no mide D-46
---- FAIL: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (1.29s)
+--- FAIL: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (1.27s)
 === RUN   TestE2E_07_D47_ContextYCiphertextNoEstanFirmados
     handleconn_e2e_test.go:370: D-47 parece cerrado: el paquete con Context y Ciphertext alterados fue rechazado (RECHAZO (0xFF)). Si el HMAC se extendio, actualizar el contexto vivo y borrar este test
---- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.33s)
+--- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.31s)
 === RUN   TestE2E_08_TodosLosRechazosSonElMismoByte
     handleconn_e2e_test.go:473: E8 CINCO CAUSAS DE RECHAZO DISTINTAS:
           HMAC invalido                  RECHAZO (0xFF)
@@ -34,44 +34,46 @@ rechazos son ambiguos.
           contexto de largo equivocado   RECHAZO (0xFF)
           frame de tamano cero           RECHAZO (0xFF)
     handleconn_e2e_test.go:486: E8 MEDIDO: 5 causas distintas, UNA sola respuesta: RECHAZO (0xFF). Desde el cliente es imposible saber POR QUE lo rechazaron, y el gateway no escribe un solo log. Ese es el agujero que Testis existe para llenar, y ahora esta medido desde afuera en vez de contado leyendo el codigo.
---- PASS: TestE2E_08_TodosLosRechazosSonElMismoByte (1.55s)
+--- PASS: TestE2E_08_TodosLosRechazosSonElMismoByte (1.54s)
 === RUN   TestE2E_09_DosConexionesDelMismoCertificado
     handleconn_e2e_test.go:576: E9 DOS CONEXIONES CONCURRENTES, 40 paquetes por conexion
           MISMO cert (comparten AgentState) : ack=0    rechazo=2    conexiones cerradas=2
           certs DISTINTOS (control)         : ack=0    rechazo=2    conexiones cerradas=2
     handleconn_e2e_test.go:585: CONTROL ROTO: dos conexiones de certificados distintos no lograron ni un ACK (ack=0 rechazo=2 cerradas=2). El gateway no soporta dos conexiones concurrentes en general, asi que el caso compartido no mide el estado compartido
---- FAIL: TestE2E_09_DosConexionesDelMismoCertificado (0.70s)
-=== RUN   TestE2E_00_LaFronteraDelHuberFilter
-    huber_frontera_e2e_test.go:153: E0 BARRIDO DEL HuberFilter EN EL PRIMER PAQUETE
-          (read deadline del gateway: 2s)
-          payload=8     B  espera=0s       dt_min predicho=  0.056 s  ->  medido=RECHAZO  predicho=RECHAZO    
-          payload=8     B  espera=20ms     dt_min predicho=  0.056 s  ->  medido=RECHAZO  predicho=RECHAZO    
-          payload=8     B  espera=100ms    dt_min predicho=  0.056 s  ->  medido=RECHAZO  predicho=ACK      <<
-          payload=8     B  espera=300ms    dt_min predicho=  0.056 s  ->  medido=RECHAZO  predicho=ACK      <<
-          payload=64    B  espera=0s       dt_min predicho=  0.442 s  ->  medido=RECHAZO  predicho=RECHAZO    
-          payload=64    B  espera=300ms    dt_min predicho=  0.442 s  ->  medido=RECHAZO  predicho=RECHAZO    
-          payload=64    B  espera=600ms    dt_min predicho=  0.442 s  ->  medido=RECHAZO  predicho=ACK      <<
-          payload=256   B  espera=0s       dt_min predicho=  1.706 s  ->  medido=RECHAZO  predicho=RECHAZO    
-          payload=256   B  espera=1s       dt_min predicho=  1.706 s  ->  medido=RECHAZO  predicho=RECHAZO    
-          payload=256   B  espera=1.9s     dt_min predicho=  1.706 s  ->  medido=RECHAZO  predicho=ACK      <<
-          payload=512   B  espera=1.9s     dt_min predicho=  3.266 s  ->  medido=RECHAZO  predicho=RECHAZO    
-          desacuerdos entre medicion y prediccion: 4
-    huber_frontera_e2e_test.go:168: E0 HALLAZGO 1 MEDIDO: el primer paquete de un agente nuevo, con solo 8 bytes de payload y sin pausa, es RECHAZO. El gateway no puede atender a un agente que habla apenas conecta.
-    huber_frontera_e2e_test.go:177: CONTROL ROTO: con 8 B y 300 ms de espera (dt_min predicho 0.056 s) el gateway respondio RECHAZO. Sin un ACK en algun punto del barrido, este archivo no distingue 'el filtro bloquea' de 'el codificador esta mal'
---- FAIL: TestE2E_00_LaFronteraDelHuberFilter (6.21s)
+--- FAIL: TestE2E_09_DosConexionesDelMismoCertificado (0.69s)
+=== RUN   TestE2E_00_ElGatewayRechazaTodoPrimerPaquete
+    huber_frontera_e2e_test.go:201: E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline del gateway: 2s)
+          payload=8     B  espera=0s       dt_min que yo predije=  0.056 s  ->  MEDIDO=RECHAZO  predije=RECHAZO    
+          payload=8     B  espera=20ms     dt_min que yo predije=  0.056 s  ->  MEDIDO=RECHAZO  predije=RECHAZO    
+          payload=8     B  espera=100ms    dt_min que yo predije=  0.056 s  ->  MEDIDO=RECHAZO  predije=ACK      << mi prediccion FALLO
+          payload=8     B  espera=300ms    dt_min que yo predije=  0.056 s  ->  MEDIDO=RECHAZO  predije=ACK      << mi prediccion FALLO
+          payload=64    B  espera=0s       dt_min que yo predije=  0.442 s  ->  MEDIDO=RECHAZO  predije=RECHAZO    
+          payload=64    B  espera=300ms    dt_min que yo predije=  0.442 s  ->  MEDIDO=RECHAZO  predije=RECHAZO    
+          payload=64    B  espera=600ms    dt_min que yo predije=  0.442 s  ->  MEDIDO=RECHAZO  predije=ACK      << mi prediccion FALLO
+          payload=256   B  espera=0s       dt_min que yo predije=  1.706 s  ->  MEDIDO=RECHAZO  predije=RECHAZO    
+          payload=256   B  espera=1s       dt_min que yo predije=  1.706 s  ->  MEDIDO=RECHAZO  predije=RECHAZO    
+          payload=256   B  espera=1.9s     dt_min que yo predije=  1.706 s  ->  MEDIDO=RECHAZO  predije=ACK      << mi prediccion FALLO
+          payload=512   B  espera=1.9s     dt_min que yo predije=  3.266 s  ->  MEDIDO=RECHAZO  predije=RECHAZO    
+          ACK=0  RECHAZO=11  CERRADA=0  de 11 casos
+          casos en los que mi prediccion aritmetica FALLO: 4
+    huber_frontera_e2e_test.go:215: E0 HALLAZGO MEDIDO: 11 de 11 combinaciones de payload y espera, y NINGUNA logro que el gateway acepte un primer paquete. El gateway rechaza el primer paquete de TODA conexion.
+    huber_frontera_e2e_test.go:221: E0 MI PREDICCION QUEDA REFUTADA en 4 casos, y la medicion gana. Yo habia despejado dt_min = v/umbral del HuberFilter y supuse que el cliente podia satisfacerlo pausando antes de mandar. Falso: en handleConn el `now := time.Now()` se captura ANTES del io.ReadFull que espera el paquete, asi que `dt = now - lastSeen` mide el tiempo entre dos INICIOS de iteracion del loop del servidor, no entre paquetes. En la primera iteracion son microsegundos con el ReadFull todavia por delante. La pausa del cliente no entra en dt: NO HAY NADA que el cliente pueda hacer.
+    huber_frontera_e2e_test.go:234: E0 CONSECUENCIA: como el rechazo hace TriggerBlock + writeReject + return, ninguna conexion pasa nunca de UN paquete, y ese paquete siempre se rechaza. HiperSec no puede procesar un solo paquete de ningun agente. Nadie lo sabia porque hasta este commit el repo no tenia cliente.
+    huber_frontera_e2e_test.go:239: E0 NO MEDIDO: cual es el fix. Reemplazar Huber por Page-Hinkley (D-48), inicializar lastV con la primera muestra, o mover el `now` despues del ReadFull son tres arreglos distintos con consecuencias distintas, y elegir es diseno del producto.
+--- PASS: TestE2E_00_ElGatewayRechazaTodoPrimerPaquete (6.19s)
 FAIL
-FAIL	github.com/gatehot59-star/kampe-ir/gateway	11.709s
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	11.626s
 FAIL
 EXIT_e2e=1
-TESTS_PASS=4
-TESTS_FAIL=6
+TESTS_PASS=5
+TESTS_FAIL=5
 RACES_EN_PROCESO=0
 REPORTES_DETECTOR=0
-HUBER_BLOQUEA_PRIMERO=1
+HUBER_BLOQUEA_PRIMERO=0
 HUBER_CONTROL_OK=0
 HUBER_FRONTERA=0
 HUBER_FRONTERA_PREDICHA=0
-HUBER_DESACUERDOS=4
+HUBER_DESACUERDOS=
 E1_ARNES_OK=0
 D46_MEDIDO=0
 D46_MECANISMO=0

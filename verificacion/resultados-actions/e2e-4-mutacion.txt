@@ -20,74 +20,13 @@ CANDADOS_COMENTADOS=4
 --- E9 sobre la copia mutada ---
 EXIT_mutado=1
 === RUN   TestE2E_09_DosConexionesDelMismoCertificado
-==================
-WARNING: DATA RACE
-Write at 0x00c0002b0fd8 by goroutine 16:
-  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
-      /tmp/mut-e2e/repo/gateway/filters.go:96 +0x173
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
-      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
-
-Previous read at 0x00c0002b0fd8 by goroutine 15:
-  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
-      /tmp/mut-e2e/repo/gateway/filters.go:96 +0x139
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
-      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
-
-Goroutine 16 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
-  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
-      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:528 +0x2e
-
-Goroutine 15 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
-  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
-      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:528 +0x2e
-==================
-==================
-WARNING: DATA RACE
-Write at 0x00c0002b0fd8 by goroutine 15:
-  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
-      /tmp/mut-e2e/repo/gateway/filters.go:96 +0x173
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
-      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
-
-Previous read at 0x00c0002b0fd8 by goroutine 16:
-  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
-      /tmp/mut-e2e/repo/gateway/filters.go:118 +0x3b0
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
-      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
-
-Goroutine 15 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
-  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
-      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:528 +0x2e
-
-Goroutine 16 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
-  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
-      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:528 +0x2e
-==================
-==================
-WARNING: DATA RACE
-Read at 0x00c0002b0fe0 by goroutine 15:
-  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
-      /tmp/mut-e2e/repo/gateway/filters.go:99 +0x1ab
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
-      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
-MUTACION_REPORTO=1
-MUTACION_CITA_FILTERS=10
+    handleconn_e2e_test.go:576: E9 DOS CONEXIONES CONCURRENTES, 40 paquetes por conexion
+          MISMO cert (comparten AgentState) : ack=0    rechazo=2    conexiones cerradas=2
+          certs DISTINTOS (control)         : ack=0    rechazo=2    conexiones cerradas=2
+    handleconn_e2e_test.go:585: CONTROL ROTO: dos conexiones de certificados distintos no lograron ni un ACK (ack=0 rechazo=2 cerradas=2). El gateway no soporta dos conexiones concurrentes en general, asi que el caso compartido no mide el estado compartido
+--- FAIL: TestE2E_09_DosConexionesDelMismoCertificado (0.72s)
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	0.722s
+FAIL
+MUTACION_REPORTO=0
+MUTACION_CITA_FILTERS=0

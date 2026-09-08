@@ -130,9 +130,9 @@ func saltearSiElGatewayNoAcepta(t *testing.T, addr string, clave []byte, p *pki)
 	if elGatewayAceptaAlgo(t, addr, clave, p) {
 		return
 	}
-	t.Skipf("NO MEDIDO: este gateway no acepta NINGUN primer paquete (ver E0), asi "+
-		"que no hay forma de llegar al estado que este test necesita medir. El "+
-		"hallazgo se puede medir sobre una copia con el bloque del HuberFilter "+
+	t.Skipf("NO MEDIDO: este gateway no acepta NINGUN primer paquete (ver E0), asi " +
+		"que no hay forma de llegar al estado que este test necesita medir. El " +
+		"hallazgo se puede medir sobre una copia con el bloque del HuberFilter " +
 		"desactivado; ese sujeto es OTRO y el job lo corre aparte.")
 }
 
@@ -231,14 +231,14 @@ func TestE2E_00_ElGatewayRechazaTodoPrimerPaquete(t *testing.T) {
 			"porque todos los casos dieron el mismo resultado.", len(casos))
 	}
 
-	t.Logf("E0 CONSECUENCIA: como el rechazo hace TriggerBlock + writeReject + return, "+
-		"ninguna conexion pasa nunca de UN paquete, y ese paquete siempre se rechaza. "+
-		"HiperSec no puede procesar un solo paquete de ningun agente. Nadie lo sabia "+
+	t.Logf("E0 CONSECUENCIA: como el rechazo hace TriggerBlock + writeReject + return, " +
+		"ninguna conexion pasa nunca de UN paquete, y ese paquete siempre se rechaza. " +
+		"HiperSec no puede procesar un solo paquete de ningun agente. Nadie lo sabia " +
 		"porque hasta este commit el repo no tenia cliente.")
 
-	t.Logf("E0 NO MEDIDO: cual es el fix. Reemplazar Huber por Page-Hinkley (D-48), "+
-		"inicializar lastV con la primera muestra, o mover el `now` despues del "+
-		"ReadFull son tres arreglos distintos con consecuencias distintas, y elegir "+
+	t.Logf("E0 NO MEDIDO: cual es el fix. Reemplazar Huber por Page-Hinkley (D-48), " +
+		"inicializar lastV con la primera muestra, o mover el `now` despues del " +
+		"ReadFull son tres arreglos distintos con consecuencias distintas, y elegir " +
 		"es diseno del producto.")
 }
 

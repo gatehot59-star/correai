@@ -1,13 +1,13 @@
 Maquina: Actions ubuntu-latest (VM limpia)
-Commit:  077d7f902dcb17c64fa4ae30483b370fbbe861b5
+Commit:  7579f2c66f29d63dfa489b29f5b836588341f9e6
 Rama:    titan/cliente-mtls-e2e
-Fecha:   2026-09-08T10:35:34Z
-cpu:     AMD EPYC 7763 64-Core Processor
+Fecha:   2026-09-08T10:42:40Z
+cpu:     AMD EPYC 9V74 80-Core Processor
 nproc:   4
 go version go1.22.12 linux/amd64
 sha256 cliente_mtls_test.go: c75d5cd3426aeb901abd816685be691e6c2d933e11917957a9aa5503196f959a
 sha256 handleconn_e2e_test.go: bf90c82e1660849bb30055bf48bd1caf8b192111c923133bdc76209236de4bd7
-sha256 huber_frontera_e2e_test.go: 339b467f3991723b37a7c3334caea7d441e3545bce447601a313825a9d5fa93a
+sha256 huber_frontera_e2e_test.go: 1bf351c02a0bf060890cb850cd13fea7b684c263b793ea6b2d5842c9dd35054a
 sha256 gateway.go: f9cfc0580a2ddc23ccda6f675ebfa6f0bade054b86eb816ee03ed32e4a252dc1
 sha256 filters.go: 2f277d71f51a0ab2ddb509f03521a4dca49e59282992fdea8e954a0afa94a335
 
@@ -32,10 +32,11 @@ gateway/handleconn_e2e_test.go:229:func TestE2E_06_D46_EnvenenamientoDeLaMarcaDe
 gateway/handleconn_e2e_test.go:345:func TestE2E_07_D47_ContextYCiphertextNoEstanFirmados(t *testing.T) {
 gateway/handleconn_e2e_test.go:394:func TestE2E_08_TodosLosRechazosSonElMismoByte(t *testing.T) {
 gateway/handleconn_e2e_test.go:562:func TestE2E_09_DosConexionesDelMismoCertificado(t *testing.T) {
-gateway/huber_frontera_e2e_test.go:78:func TestE2E_00_LaFronteraDelHuberFilter(t *testing.T) {
+gateway/huber_frontera_e2e_test.go:149:func TestE2E_00_ElGatewayRechazaTodoPrimerPaquete(t *testing.T) {
 TESTS_E2E_DECLARADOS=10
 
 === gofmt de los tres archivos nuevos ===
+gateway/huber_frontera_e2e_test.go
 (vacio arriba = ya estaban formateados)
 
 === go build ./... ===

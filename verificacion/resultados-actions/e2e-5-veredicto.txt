@@ -1,16 +1,16 @@
-Veredicto de la corrida 077d7f902dcb17c64fa4ae30483b370fbbe861b5
-Fecha: 2026-09-08T10:37:10Z
+Veredicto de la corrida 7579f2c66f29d63dfa489b29f5b836588341f9e6
+Fecha: 2026-09-08T10:44:09Z
 
 === EL HUECO QUE SE CIERRA ===
 Hasta este commit ningun test toco el camino de red del gateway.
 tests E2E declarados (contados en gateway/): 10
 
 === EL HALLAZGO DEL TURNO, el HuberFilter ===
-  el primer paquete SIN pausa es rechazado             1
+  el primer paquete SIN pausa es rechazado             0
   con pausa suficiente SI da ACK (control)             0
   hay payloads sin espera posible (frontera)           0
   la frontera quedo predicha con las constantes        0
-  casos que NO coincidieron con la prediccion          4
+  casos que NO coincidieron con la prediccion          NA
 
 === LO QUE SE MIDIO EN EL CAMINO REAL ===
   E1 el arnes funciona punta a punta                   0
@@ -28,36 +28,36 @@ en el porton de main : 0
 
 === LA MUTACION, sin el mutex el arnes ve la carrera? ===
 candados comentados en la copia : 4
-carreras reportadas             : 1
-lineas citando filters.go       : 10
+carreras reportadas             : 0
+lineas citando filters.go       : 0
 
 === VEREDICTO (numeros calculados, esperados derivados) ===
 PASS  CERO workflows rotos (R5)                              obtenido=0      esperado=0
 PASS  compila                                                obtenido=0      esperado=0
 PASS  go vet limpio                                          obtenido=0      esperado=0
 FAIL  EL CONTROL DEL CODIFICADOR (hay un ACK)                obtenido=0      esperado>=1
-FAIL  pasaron los N tests E2E declarados                     obtenido=4      esperado=10
-FAIL  ningun test E2E en FAIL                                obtenido=6      esperado=0
+FAIL  pasaron los N tests E2E declarados                     obtenido=5      esperado=10
+FAIL  ningun test E2E en FAIL                                obtenido=5      esperado=0
 FAIL  la corrida E2E salio en 0                              obtenido=1      esperado=0
 PASS  CERO carreras en el camino real                        obtenido=0      esperado=0
 PASS  CERO carreras en 3 repeticiones                        obtenido=0      esperado=0
-FAIL  ningun FAIL en 3 repeticiones                          obtenido=18     esperado=0
+FAIL  ningun FAIL en 3 repeticiones                          obtenido=15     esperado=0
 FAIL  la repeticion salio en 0                               obtenido=1      esperado=0
 FAIL  el porton de main sigue verde                          obtenido=1      esperado=0
 PASS  CERO carreras en el porton de main                     obtenido=0      esperado=0
-PASS  HUBER el primer paquete se bloquea                     obtenido=1      esperado>=1
+FAIL  HUBER el primer paquete se bloquea                     obtenido=0      esperado>=1
 FAIL  HUBER la frontera esta medida                          obtenido=0      esperado>=1
-FAIL  HUBER cero desacuerdos con la prediccion               obtenido=4      esperado=0
+FAIL  HUBER cero desacuerdos con la prediccion               obtenido=NA     esperado=0
 FAIL  E1 el arnes funciona                                   obtenido=0      esperado>=1
 FAIL  D-46 medido en el camino real                          obtenido=0      esperado>=1
 FAIL  D-47 medido en el camino real                          obtenido=0      esperado>=1
 PASS  los rechazos son indistinguibles                       obtenido=1      esperado>=1
 FAIL  D-26 medido en el callsite real                        obtenido=0      esperado>=1
 PASS  la mutacion comento los 4 candados                     obtenido=4      esperado=4
-PASS  MUTACION el arnes SI ve la carrera                     obtenido=1      esperado>=1
-PASS  MUTACION y la atribuye a filters.go                    obtenido=10     esperado>=1
+FAIL  MUTACION el arnes SI ve la carrera                     obtenido=0      esperado>=1
+FAIL  MUTACION y la atribuye a filters.go                    obtenido=0      esperado>=1
 
-FALLAS_DE_VEREDICTO=13
+FALLAS_DE_VEREDICTO=16
 RESULTADO=ROJO
 
 LECTURA: el cero de carreras vale porque la mutacion (sacarle los
