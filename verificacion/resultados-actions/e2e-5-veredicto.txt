@@ -1,0 +1,61 @@
+Veredicto de la corrida 4e643cc18a451986175dcb410c68e10fb82cdcbd
+Fecha: 2026-09-08T10:23:51Z
+
+=== EL HUECO QUE SE CIERRA ===
+Hasta este commit ningun test toco el camino de red del gateway.
+handleConn, el decoder, el anti-replay y verifyPacketHMAC nunca
+habian sido ejercitados por un cliente.
+tests E2E declarados (del fuente): 9
+
+=== EL CONTROL DEL ARNES ===
+E1 (paquete valido -> ACK): 0
+(0 aca invalida TODO lo demas: los rechazos serian por paquete mal
+ formado y no por lo que dicen medir)
+
+=== LO QUE SE MIDIO EN EL CAMINO REAL ===
+  D-46 (envenenamiento de la marca de agua)      0
+  D-46 mecanismo confirmado por el otro lado     0
+  D-47 (context y payload sin firmar)            0
+  los rechazos son indistinguibles (Testis)      1
+  D-26 en el CALLSITE real, no en el proxy       0
+  hallazgo de conexiones concurrentes            0
+
+=== CARRERAS ===
+en los 9 tests E2E        : 0
+en 3 repeticiones         : 0
+en el porton de main      : 0
+
+=== LA MUTACION, sin el mutex el arnes ve la carrera? ===
+candados comentados en la copia : 4
+carreras reportadas             : 1
+lineas citando filters.go       : 8
+
+=== VEREDICTO (numeros calculados, esperados derivados) ===
+PASS  CERO workflows rotos (R5)                              obtenido=0      esperado=0
+PASS  compila                                                obtenido=0      esperado=0
+PASS  go vet limpio                                          obtenido=0      esperado=0
+FAIL  EL ARNES FUNCIONA (E1 da ACK)                          obtenido=0      esperado=1
+FAIL  pasaron los N tests E2E declarados                     obtenido=4      esperado=9
+FAIL  ningun test E2E en FAIL                                obtenido=5      esperado=0
+FAIL  la corrida E2E salio en 0                              obtenido=1      esperado=0
+PASS  CERO carreras en el camino real                        obtenido=0      esperado=0
+PASS  CERO carreras en 3 repeticiones                        obtenido=0      esperado=0
+FAIL  ningun FAIL en 3 repeticiones                          obtenido=15     esperado=0
+FAIL  la repeticion salio en 0                               obtenido=1      esperado=0
+FAIL  el porton de main sigue verde                          obtenido=1      esperado=0
+PASS  CERO carreras en el porton de main                     obtenido=0      esperado=0
+FAIL  D-46 medido en el camino real                          obtenido=0      esperado>=1
+FAIL  D-47 medido en el camino real                          obtenido=0      esperado>=1
+PASS  los rechazos son indistinguibles                       obtenido=1      esperado>=1
+FAIL  D-26 medido en el callsite real                        obtenido=0      esperado>=1
+PASS  la mutacion comento los 4 candados                     obtenido=4      esperado=4
+PASS  MUTACION: el arnes SI ve la carrera                    obtenido=1      esperado>=1
+PASS  MUTACION: y la atribuye a filters.go                   obtenido=8      esperado>=1
+
+FALLAS_DE_VEREDICTO=10
+RESULTADO=ROJO
+
+LECTURA: el cero de carreras en el camino real vale porque la
+mutacion (sacarle los candados a filters.go) SI produce reporte
+citando filters.go. Sin ese control, cero seria indistinguible de un
+arnes que no llega a los filtros.

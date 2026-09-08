@@ -179,8 +179,8 @@ func TestE2E_04_AgentIDQueNoCoincide(t *testing.T) {
 	}
 	t.Logf("E4 MEDIDO: AgentID del paquete (%x) != derivado del cert (%x) -> %s",
 		otro.agentID[:8], ag.agentID[:8], nombreDeRespuesta(resp))
-	t.Logf("E4 CONSECUENCIA: para forjar un paquete a nombre de un agente hay que "+
-		"presentar SU certificado. Eso acota D-46 a auto-DoS o a credencial robada, "+
+	t.Logf("E4 CONSECUENCIA: para forjar un paquete a nombre de un agente hay que " +
+		"presentar SU certificado. Eso acota D-46 a auto-DoS o a credencial robada, " +
 		"y ahora esta medido en el camino real, no deducido de leer el codigo.")
 }
 
@@ -588,9 +588,9 @@ func TestE2E_09_DosConexionesDelMismoCertificado(t *testing.T) {
 			"estado compartido", ackAisl, rechAisl, cerradasAisl)
 	}
 
-	t.Logf("E9 D-26 MEDIDO EN EL CALLSITE REAL: los filtros se ejercitaron desde dos "+
-		"conexiones TLS concurrentes sobre el mismo *AgentState, atravesando "+
-		"handleConn. Bajo -race, cero reportes = el mutex de filters.go cubre el "+
+	t.Logf("E9 D-26 MEDIDO EN EL CALLSITE REAL: los filtros se ejercitaron desde dos " +
+		"conexiones TLS concurrentes sobre el mismo *AgentState, atravesando " +
+		"handleConn. Bajo -race, cero reportes = el mutex de filters.go cubre el " +
 		"camino real, no solo el proxy.")
 
 	// El hallazgo del turno, si aparece. NO se declara verde ni rojo: se reporta.

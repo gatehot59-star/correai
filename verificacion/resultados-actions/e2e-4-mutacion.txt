@@ -1,0 +1,93 @@
+=== CONTROL POR MUTACION SOBRE EL CAMINO REAL ===
+E9 dice que cero reportes del detector significa que el mutex de
+filters.go cubre el camino real. Eso solo vale si este arnes PUEDE
+ver una carrera ahi. Asi que se copia el repo, se le SACAN los dos
+Lock/Unlock a los filtros de produccion, y se corre E9: tiene que
+reportar carrera CITANDO filters.go.
+
+--- las lineas del candado ANTES de mutar ---
+81:	f.mtx.Lock()
+82:	defer f.mtx.Unlock()
+167:	c.mtx.Lock()
+168:	defer c.mtx.Unlock()
+--- DESPUES de mutar ---
+81:	// MUTADO: f.mtx.Lock()
+82:	// MUTADO: defer f.mtx.Unlock()
+167:	// MUTADO: c.mtx.Lock()
+168:	// MUTADO: defer c.mtx.Unlock()
+CANDADOS_COMENTADOS=4
+
+--- E9 sobre la copia mutada ---
+EXIT_mutado=1
+=== RUN   TestE2E_09_DosConexionesDelMismoCertificado
+==================
+WARNING: DATA RACE
+Read at 0x00c000157ad8 by goroutine 15:
+  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+      /tmp/mut-e2e/repo/gateway/filters.go:96 +0x139
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
+      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
+
+Previous write at 0x00c000157ad8 by goroutine 16:
+  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+      /tmp/mut-e2e/repo/gateway/filters.go:96 +0x173
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
+      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
+
+Goroutine 15 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
+  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
+      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:457 +0x2e
+
+Goroutine 16 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
+  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
+      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:457 +0x2e
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000157ae0 by goroutine 15:
+  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+      /tmp/mut-e2e/repo/gateway/filters.go:99 +0x1ab
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
+      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
+
+Previous write at 0x00c000157ae0 by goroutine 16:
+  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+      /tmp/mut-e2e/repo/gateway/filters.go:106 +0x252
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
+      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
+
+Goroutine 15 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
+  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
+      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:457 +0x2e
+
+Goroutine 16 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
+  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
+      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:457 +0x2e
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000157ae8 by goroutine 15:
+  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+      /tmp/mut-e2e/repo/gateway/filters.go:110 +0x2ad
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
+      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
+MUTACION_REPORTO=1
+MUTACION_CITA_FILTERS=8

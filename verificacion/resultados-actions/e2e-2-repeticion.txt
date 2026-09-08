@@ -1,0 +1,49 @@
+=== go test -race -count=3 -run '^TestE2E_' ===
+E9 depende del interleaving de dos conexiones concurrentes, asi que
+una sola corrida es una muestra. Tres dan una idea de estabilidad.
+
+--- FAIL: TestE2E_01_ElArnesFunciona (0.03s)
+    handleconn_e2e_test.go:76: paquete VALIDO rechazado: RECHAZO (0xFF). El codificador no coincide con decodePerimeterPacket, asi que ningun otro test de este archivo mide lo que dice medir
+--- FAIL: TestE2E_03_AntiReplay (0.03s)
+    handleconn_e2e_test.go:142: el primer paquete tenia que pasar, dio RECHAZO (0xFF)
+--- FAIL: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (0.39s)
+    handleconn_e2e_test.go:280: CONTROL ROTO: un agente limpio fue rechazado (RECHAZO (0xFF)). El gateway se cayo por otra razon y E6 no mide D-46
+--- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.01s)
+    handleconn_e2e_test.go:370: D-47 parece cerrado: el paquete con Context y Ciphertext alterados fue rechazado (RECHAZO (0xFF)). Si el HMAC se extendio, actualizar el contexto vivo y borrar este test
+--- FAIL: TestE2E_09_DosConexionesDelMismoCertificado (0.01s)
+    handleconn_e2e_test.go:576: E9 DOS CONEXIONES CONCURRENTES, 40 paquetes por conexion
+          MISMO cert (comparten AgentState) : ack=0    rechazo=2    conexiones cerradas=2
+          certs DISTINTOS (control)         : ack=0    rechazo=2    conexiones cerradas=2
+    handleconn_e2e_test.go:585: CONTROL ROTO: dos conexiones de certificados distintos no lograron ni un ACK (ack=0 rechazo=2 cerradas=2). El gateway no soporta dos conexiones concurrentes en general, asi que el caso compartido no mide el estado compartido
+--- FAIL: TestE2E_01_ElArnesFunciona (0.01s)
+    handleconn_e2e_test.go:76: paquete VALIDO rechazado: RECHAZO (0xFF). El codificador no coincide con decodePerimeterPacket, asi que ningun otro test de este archivo mide lo que dice medir
+--- FAIL: TestE2E_03_AntiReplay (0.03s)
+    handleconn_e2e_test.go:142: el primer paquete tenia que pasar, dio RECHAZO (0xFF)
+--- FAIL: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (0.39s)
+    handleconn_e2e_test.go:280: CONTROL ROTO: un agente limpio fue rechazado (RECHAZO (0xFF)). El gateway se cayo por otra razon y E6 no mide D-46
+--- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.03s)
+    handleconn_e2e_test.go:370: D-47 parece cerrado: el paquete con Context y Ciphertext alterados fue rechazado (RECHAZO (0xFF)). Si el HMAC se extendio, actualizar el contexto vivo y borrar este test
+--- FAIL: TestE2E_09_DosConexionesDelMismoCertificado (0.02s)
+    handleconn_e2e_test.go:576: E9 DOS CONEXIONES CONCURRENTES, 40 paquetes por conexion
+          MISMO cert (comparten AgentState) : ack=0    rechazo=2    conexiones cerradas=2
+          certs DISTINTOS (control)         : ack=0    rechazo=2    conexiones cerradas=2
+    handleconn_e2e_test.go:585: CONTROL ROTO: dos conexiones de certificados distintos no lograron ni un ACK (ack=0 rechazo=2 cerradas=2). El gateway no soporta dos conexiones concurrentes en general, asi que el caso compartido no mide el estado compartido
+--- FAIL: TestE2E_01_ElArnesFunciona (0.03s)
+    handleconn_e2e_test.go:76: paquete VALIDO rechazado: RECHAZO (0xFF). El codificador no coincide con decodePerimeterPacket, asi que ningun otro test de este archivo mide lo que dice medir
+--- FAIL: TestE2E_03_AntiReplay (0.01s)
+    handleconn_e2e_test.go:142: el primer paquete tenia que pasar, dio RECHAZO (0xFF)
+--- FAIL: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (0.39s)
+    handleconn_e2e_test.go:280: CONTROL ROTO: un agente limpio fue rechazado (RECHAZO (0xFF)). El gateway se cayo por otra razon y E6 no mide D-46
+--- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.03s)
+    handleconn_e2e_test.go:370: D-47 parece cerrado: el paquete con Context y Ciphertext alterados fue rechazado (RECHAZO (0xFF)). Si el HMAC se extendio, actualizar el contexto vivo y borrar este test
+--- FAIL: TestE2E_09_DosConexionesDelMismoCertificado (0.02s)
+    handleconn_e2e_test.go:576: E9 DOS CONEXIONES CONCURRENTES, 40 paquetes por conexion
+          MISMO cert (comparten AgentState) : ack=0    rechazo=2    conexiones cerradas=2
+          certs DISTINTOS (control)         : ack=0    rechazo=2    conexiones cerradas=2
+    handleconn_e2e_test.go:585: CONTROL ROTO: dos conexiones de certificados distintos no lograron ni un ACK (ack=0 rechazo=2 cerradas=2). El gateway no soporta dos conexiones concurrentes en general, asi que el caso compartido no mide el estado compartido
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	1.692s
+FAIL
+EXIT_repeticion=1
+RACES_EN_PROCESO=0
+FAILS=15

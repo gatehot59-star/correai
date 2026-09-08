@@ -1,0 +1,43 @@
+Maquina: Actions ubuntu-latest (VM limpia)
+Commit:  4e643cc18a451986175dcb410c68e10fb82cdcbd
+Rama:    titan/cliente-mtls-e2e
+Fecha:   2026-09-08T10:23:12Z
+cpu:     AMD EPYC 7763 64-Core Processor
+nproc:   4
+go version go1.22.12 linux/amd64
+sha256 cliente_mtls_test.go:   f8734ec19c6d8b8743d9c6e00f88ae8a3d80298e9b1306265a4cc4aff177baf3
+sha256 handleconn_e2e_test.go: f3797bb2a1cd8a9e98e1fef074b8035d2d8be1738b768095a911db506294671b
+sha256 gateway.go (sin tocar): f9cfc0580a2ddc23ccda6f675ebfa6f0bade054b86eb816ee03ed32e4a252dc1
+
+=== R5: todos los workflows parsean? ===
+OK    .github/workflows/benchmarks-bajo-race.yml
+OK    .github/workflows/carreras-que-short-tapa.yml
+OK    .github/workflows/ci.yml
+OK    .github/workflows/go-bench-candado.yml
+OK    .github/workflows/go-latencia-p99.yml
+OK    .github/workflows/go-test-race.yml
+OK    .github/workflows/handleconn-e2e.yml
+OK    .github/workflows/porton-rojo-quien-cae.yml
+WORKFLOWS_ROTOS=0
+
+=== R4: cuantos tests E2E hay, contados del fuente ===
+61:func TestE2E_01_ElArnesFunciona(t *testing.T) {
+101:func TestE2E_02_HMACInvalido(t *testing.T) {
+125:func TestE2E_03_AntiReplay(t *testing.T) {
+158:func TestE2E_04_AgentIDQueNoCoincide(t *testing.T) {
+187:func TestE2E_05_TimestampFueraDeVentana(t *testing.T) {
+229:func TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua(t *testing.T) {
+345:func TestE2E_07_D47_ContextYCiphertextNoEstanFirmados(t *testing.T) {
+394:func TestE2E_08_TodosLosRechazosSonElMismoByte(t *testing.T) {
+562:func TestE2E_09_DosConexionesDelMismoCertificado(t *testing.T) {
+TESTS_E2E_DECLARADOS=9
+
+=== gofmt de los dos archivos nuevos ===
+gateway/handleconn_e2e_test.go
+(vacio arriba = ya estaban formateados)
+
+=== go build ./... ===
+EXIT_build=0
+
+=== go vet ./... ===
+EXIT_vet=0
