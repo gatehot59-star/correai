@@ -1,0 +1,76 @@
+Maquina: Actions ubuntu-latest (VM limpia)
+Commit:  27287bece7c8fec993415719c89ae18c492ebae4
+Fecha:   2026-09-08T15:00:50Z
+cpu:     AMD EPYC 9V74 80-Core Processor
+go version go1.22.12 linux/amd64
+sha256 gateway.go: 1d2158c028caa43d7a049ffdee85b6028a85e270ff26a5edb1d6d9695824ce8b
+sha256 filters.go: 652543a75435b24e6f94cfe6f4c509a21bb7104d3f00df0f32596c12e5fcfd7a
+
+El repo ya viene con LOS DOS fixes aplicados, asi que los brazos que
+no los quieren los REVIERTEN con sed, y cada brazo verifica su propio
+sujeto contando las lineas del fix en su copia.
+
+### BRAZO A   filters_fix=si  gateway_fix=si
+    sujeto verificado en la copia: visto=1  llegada=2  dt_llegada=1  build=1
+
+BRAZO_A_N=NA
+BRAZO_A_ACK=0
+BRAZO_A_RECHAZO=0
+BRAZO_A_CERRADA=0
+BRAZO_A_BUILD=1
+BRAZO_A_SUJETO_FILTERS=1
+BRAZO_A_SUJETO_GATEWAY=2
+
+### BRAZO B   filters_fix=si  gateway_fix=no
+    sujeto verificado en la copia: visto=1  llegada=0  dt_llegada=0  build=0
+          payload=8     B  espera=0s       ->  ACK
+          payload=8     B  espera=20ms     ->  ACK
+          payload=8     B  espera=100ms    ->  ACK
+          payload=8     B  espera=300ms    ->  ACK
+          payload=64    B  espera=0s       ->  ACK
+          payload=64    B  espera=300ms    ->  ACK
+          payload=64    B  espera=600ms    ->  ACK
+          payload=256   B  espera=0s       ->  ACK
+          payload=256   B  espera=1s       ->  ACK
+          payload=256   B  espera=1.9s     ->  ACK
+          payload=512   B  espera=1.9s     ->  ACK
+BRAZO_B_N=11
+BRAZO_B_ACK=11
+BRAZO_B_RECHAZO=0
+BRAZO_B_CERRADA=0
+BRAZO_B_BUILD=0
+BRAZO_B_SUJETO_FILTERS=1
+BRAZO_B_SUJETO_GATEWAY=0
+
+### BRAZO C   filters_fix=no  gateway_fix=si
+    sujeto verificado en la copia: visto=0  llegada=2  dt_llegada=1  build=1
+
+BRAZO_C_N=NA
+BRAZO_C_ACK=0
+BRAZO_C_RECHAZO=0
+BRAZO_C_CERRADA=0
+BRAZO_C_BUILD=1
+BRAZO_C_SUJETO_FILTERS=0
+BRAZO_C_SUJETO_GATEWAY=2
+
+### BRAZO D   filters_fix=no  gateway_fix=no
+    sujeto verificado en la copia: visto=0  llegada=0  dt_llegada=0  build=0
+          payload=8     B  espera=0s       ->  RECHAZO
+          payload=8     B  espera=20ms     ->  RECHAZO
+          payload=8     B  espera=100ms    ->  RECHAZO
+          payload=8     B  espera=300ms    ->  RECHAZO
+          payload=64    B  espera=0s       ->  RECHAZO
+          payload=64    B  espera=300ms    ->  RECHAZO
+          payload=64    B  espera=600ms    ->  RECHAZO
+          payload=256   B  espera=0s       ->  RECHAZO
+          payload=256   B  espera=1s       ->  RECHAZO
+          payload=256   B  espera=1.9s     ->  RECHAZO
+          payload=512   B  espera=1.9s     ->  RECHAZO
+BRAZO_D_N=11
+BRAZO_D_ACK=0
+BRAZO_D_RECHAZO=11
+BRAZO_D_CERRADA=0
+BRAZO_D_BUILD=0
+BRAZO_D_SUJETO_FILTERS=0
+BRAZO_D_SUJETO_GATEWAY=0
+
