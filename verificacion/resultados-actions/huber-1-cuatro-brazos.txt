@@ -4,24 +4,13 @@ Se corre SIN -race: aca se mide comportamiento, no carreras, y el
 detector multiplica el tiempo por ~17x sin cambiar el resultado.
 
 ### BRAZO A   filters_fix=si  gateway_fix=si
-    guard del sujeto: visto_activo=1  llegada_activa=1
-          payload=8     B  espera=0s       ->  ACK
-          payload=8     B  espera=20ms     ->  ACK
-          payload=8     B  espera=100ms    ->  ACK
-          payload=8     B  espera=300ms    ->  ACK
-          payload=64    B  espera=0s       ->  ACK
-          payload=64    B  espera=300ms    ->  ACK
-          payload=64    B  espera=600ms    ->  ACK
-          payload=256   B  espera=0s       ->  ACK
-          payload=256   B  espera=1s       ->  ACK
-          payload=256   B  espera=1.9s     ->  ACK
-          payload=512   B  espera=1.9s     ->  ACK
+    guard del sujeto: visto_activo=1  llegada_activa=2
 BRAZO_A_ACK=0
 BRAZO_A_RECHAZO=0
 BRAZO_A_CERRADA=0
 
 ### BRAZO B   filters_fix=si  gateway_fix=no
-    guard del sujeto: visto_activo=1  llegada_activa=0
+    guard del sujeto: visto_activo=1  llegada_activa=1
           payload=8     B  espera=0s       ->  ACK
           payload=8     B  espera=20ms     ->  ACK
           payload=8     B  espera=100ms    ->  ACK
@@ -38,6 +27,12 @@ BRAZO_B_RECHAZO=0
 BRAZO_B_CERRADA=0
 
 ### BRAZO C   filters_fix=no  gateway_fix=si
+    guard del sujeto: visto_activo=0  llegada_activa=2
+BRAZO_C_ACK=0
+BRAZO_C_RECHAZO=0
+BRAZO_C_CERRADA=0
+
+### BRAZO D   filters_fix=no  gateway_fix=no
     guard del sujeto: visto_activo=0  llegada_activa=1
           payload=8     B  espera=0s       ->  RECHAZO
           payload=8     B  espera=20ms     ->  RECHAZO
@@ -49,23 +44,6 @@ BRAZO_B_CERRADA=0
           payload=256   B  espera=0s       ->  RECHAZO
           payload=256   B  espera=1s       ->  RECHAZO
           payload=256   B  espera=1.9s     ->  ACK
-          payload=512   B  espera=1.9s     ->  RECHAZO
-BRAZO_C_ACK=0
-BRAZO_C_RECHAZO=0
-BRAZO_C_CERRADA=0
-
-### BRAZO D   filters_fix=no  gateway_fix=no
-    guard del sujeto: visto_activo=0  llegada_activa=0
-          payload=8     B  espera=0s       ->  RECHAZO
-          payload=8     B  espera=20ms     ->  RECHAZO
-          payload=8     B  espera=100ms    ->  RECHAZO
-          payload=8     B  espera=300ms    ->  RECHAZO
-          payload=64    B  espera=0s       ->  RECHAZO
-          payload=64    B  espera=300ms    ->  RECHAZO
-          payload=64    B  espera=600ms    ->  RECHAZO
-          payload=256   B  espera=0s       ->  RECHAZO
-          payload=256   B  espera=1s       ->  RECHAZO
-          payload=256   B  espera=1.9s     ->  RECHAZO
           payload=512   B  espera=1.9s     ->  RECHAZO
 BRAZO_D_ACK=0
 BRAZO_D_RECHAZO=0

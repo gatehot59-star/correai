@@ -1,5 +1,5 @@
-Veredicto de la corrida 9ddbd9aedeab1a6d2ebd2b6c8e7fbba9ca004f3e
-Fecha: 2026-09-08T12:32:31Z
+Veredicto de la corrida 44e0b49aa315c3c288c653134194d80b36843c21
+Fecha: 2026-09-08T12:38:15Z
 
 === EL FIX, en dos cambios ===
 filters.go  la primera muestra INICIALIZA el filtro y devuelve false
@@ -13,20 +13,20 @@ gateway.go  llegada := time.Now() despues del ReadFull, y de ahi salen
   D  ninguno             ACK=0      (se espera 0, reproduce el hallazgo)
 
 === LA SUITE E2E SOBRE EL GATEWAY REAL ===
-PASS=13  FAIL=0  SKIP=0  carreras=0   (declarados: 13)
-  E0  el fix cierra el hallazgo                  1
-  E0b CONTROL la rafaga sigue bloqueada          1
-  E0c D-48 SIGUE ABIERTO (medido)                1
-  E0d la ventana se mide desde la llegada        1
-  E1  el arnes quedo validado                    1
-  E3  anti-replay medido                         1
-  D-46 medido en el camino real                  1
-  D-47 medido en el camino real                  1
-  D-26 medido en el CALLSITE real                1
-  los rechazos son indistinguibles               1
+PASS=0  FAIL=0  SKIP=0  carreras=0   (declarados: 13)
+  E0  el fix cierra el hallazgo                  0
+  E0b CONTROL la rafaga sigue bloqueada          0
+  E0c D-48 SIGUE ABIERTO (medido)                0
+  E0d la ventana se mide desde la llegada        0
+  E1  el arnes quedo validado                    0
+  E3  anti-replay medido                         0
+  D-46 medido en el camino real                  0
+  D-47 medido en el camino real                  0
+  D-26 medido en el CALLSITE real                0
+  los rechazos son indistinguibles               0
 
 === VEREDICTO ===
-PASS  el parche declaro llegada                                obtenido=1      esperado=1
+FAIL  el parche declaro llegada                                obtenido=2      esperado=1
 PASS  el parche cambio el reloj del anti-replay                obtenido=1      esperado=1
 PASS  el parche cambio el calculo de dt                        obtenido=1      esperado=1
 PASS  el parche cambio lastSeen                                obtenido=1      esperado=1
@@ -34,29 +34,29 @@ PASS  CERO residuo de now en dt                                obtenido=0      e
 PASS  CERO residuo de now en el anti-replay                    obtenido=0      esperado=0
 PASS  now SIGUE en FSM.Allow (no se toco)                      obtenido=1      esperado=1
 PASS  now SIGUE en el read deadline (no se toco)               obtenido=1      esperado=1
-PASS  compila                                                  obtenido=0      esperado=0
-PASS  go vet limpio                                            obtenido=0      esperado=0
+FAIL  compila                                                  obtenido=1      esperado=0
+FAIL  go vet limpio                                            obtenido=1      esperado=0
   -- los 4 brazos --
 FAIL  brazo A (los dos fixes) acepta todo                      obtenido=0      esperado=12
 FAIL  brazo B (solo filters) acepta todo                       obtenido=0      esperado=12
 FAIL  brazo C (solo gateway) acepta 4                          obtenido=0      esperado=4
 PASS  brazo D (ninguno) reproduce el hallazgo                  obtenido=0      esperado=0
   -- la suite sobre el gateway real --
-PASS  pasaron los N tests declarados                           obtenido=13     esperado=13
+FAIL  pasaron los N tests declarados                           obtenido=0      esperado=13
 PASS  ningun test en FAIL                                      obtenido=0      esperado=0
 PASS  NINGUN test se saltea ya                                 obtenido=0      esperado=0
 PASS  CERO carreras                                            obtenido=0      esperado=0
-PASS  la suite salio en 0                                      obtenido=0      esperado=0
-PASS  E0  el fix cierra el hallazgo                            obtenido=1      esperado>=1
-PASS  E0b CONTROL la rafaga sigue bloqueada                    obtenido=1      esperado>=1
-PASS  E0c D-48 declarado abierto con numero                    obtenido=1      esperado>=1
-PASS  E0d la ventana se mide desde la llegada                  obtenido=1      esperado>=1
-PASS  E1  el arnes quedo validado                              obtenido=1      esperado>=1
-PASS  D-46 medido SIN mutar nada                               obtenido=1      esperado>=1
-PASS  D-47 medido SIN mutar nada                               obtenido=1      esperado>=1
-PASS  D-26 medido SIN mutar nada                               obtenido=1      esperado>=1
+FAIL  la suite salio en 0                                      obtenido=1      esperado=0
+FAIL  E0  el fix cierra el hallazgo                            obtenido=0      esperado>=1
+FAIL  E0b CONTROL la rafaga sigue bloqueada                    obtenido=0      esperado>=1
+FAIL  E0c D-48 declarado abierto con numero                    obtenido=0      esperado>=1
+FAIL  E0d la ventana se mide desde la llegada                  obtenido=0      esperado>=1
+FAIL  E1  el arnes quedo validado                              obtenido=0      esperado>=1
+FAIL  D-46 medido SIN mutar nada                               obtenido=0      esperado>=1
+FAIL  D-47 medido SIN mutar nada                               obtenido=0      esperado>=1
+FAIL  D-26 medido SIN mutar nada                               obtenido=0      esperado>=1
   -- el porton de main y los vecinos --
-PASS  el porton de main sigue verde                            obtenido=0      esperado=0
+FAIL  el porton de main sigue verde                            obtenido=1      esperado=0
 PASS  CERO carreras en el porton                               obtenido=0      esperado=0
 PASS  ningun test en FAIL en el porton                         obtenido=0      esperado=0
 PASS  dualbrain compila                                        obtenido=0      esperado=0
@@ -66,7 +66,7 @@ PASS  custos legis corre                                       obtenido=0      e
 PASS  fleet corre                                              obtenido=0      esperado=0
 PASS  testis corre                                             obtenido=0      esperado=0
 
-FALLAS_DE_VEREDICTO=3
+FALLAS_DE_VEREDICTO=17
 RESULTADO=ROJO
 
 LECTURA. El brazo D reproduce el hallazgo del turno pasado, asi que el

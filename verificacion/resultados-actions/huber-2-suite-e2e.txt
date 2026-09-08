@@ -2,99 +2,22 @@
 Sobre el gateway REAL con los dos fixes. Ya no hace falta mutar nada
 para medir D-46, D-47, el anti-replay ni D-26 en el callsite.
 
-=== RUN   TestE2E_01_ElArnesYElPrimerPaquete
-    handleconn_e2e_test.go:88: E1 handshake mTLS OK, agentID derivado del cert = 2a9a616128e5c0a8
-    handleconn_e2e_test.go:108: E1 ARNES VALIDADO: dos paquetes validos en la misma conexion, los dos ACK. El codificador coincide con decodePerimeterPacket campo por campo, handleConn hace loop, y verifyPacketHMAC acepta mi firma. Todos los rechazos de este archivo son atribuibles a su causa declarada.
---- PASS: TestE2E_01_ElArnesYElPrimerPaquete (0.37s)
-=== RUN   TestE2E_02_HMACInvalido
-    handleconn_e2e_test.go:139: E2 MEDIDO: HMAC alterado en 1 byte -> RECHAZO (0xFF)
---- PASS: TestE2E_02_HMACInvalido (0.33s)
-=== RUN   TestE2E_04_AgentIDQueNoCoincide
-    handleconn_e2e_test.go:162: E4 MEDIDO: AgentID del paquete (6d695ffee3243fe4) != derivado del cert (b2d8d0484fe25bca) -> RECHAZO (0xFF)
-    handleconn_e2e_test.go:164: E4 CONSECUENCIA: para forjar un paquete a nombre de un agente hay que presentar SU certificado. Eso acota D-46 a auto-DoS o a credencial robada, y ahora esta medido en el camino real, no deducido de leer el codigo.
---- PASS: TestE2E_04_AgentIDQueNoCoincide (0.33s)
-=== RUN   TestE2E_05_TimestampFueraDeVentana
-    handleconn_e2e_test.go:189: E5 MEDIDO: ts = now + 31 s (ventana = 30s) -> RECHAZO (0xFF)
---- PASS: TestE2E_05_TimestampFueraDeVentana (0.31s)
-=== RUN   TestE2E_03_AntiReplay
-    handleconn_e2e_test.go:228: E3 MEDIDO: primer paquete ACK, mismo timestamp otra vez -> RECHAZO (0xFF)
---- PASS: TestE2E_03_AntiReplay (0.65s)
-=== RUN   TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua
-    handleconn_e2e_test.go:313: E6 RESULTADOS
-          forjado (HMAC roto, ts=now+29s)       -> RECHAZO (0xFF)
-          legitimo despues (ts=now)            -> RECHAZO (0xFF)
-          agente LIMPIO (control)              -> ACK (0x00)
-          ts POSTERIOR al envenenado (control) -> ACK (0x00)
-    handleconn_e2e_test.go:330: E6 D-46 MEDIDO EN EL CAMINO REAL: un paquete con FIRMA INVALIDA movio lastTimestampNs 29s al futuro, y el agente quedo rechazando sus propios paquetes legitimos hasta que el reloj alcance esa marca.
-    handleconn_e2e_test.go:335: E6 MECANISMO CONFIRMADO: el agente NO esta muerto. Un ts posterior a la marca envenenada se acepta, asi que el defecto es exactamente un salto de la marca de agua, ni mas ni menos. La ventana de dano es 29s.
---- PASS: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (2.60s)
-=== RUN   TestE2E_07_D47_ContextYCiphertextNoEstanFirmados
-    handleconn_e2e_test.go:396: E7 D-47 MEDIDO EN EL CAMINO REAL: Context[0] paso de 0.1 a 999999, el ciphertext paso de "abcdefgh" a "CARGA-REEMPLAZADA-POR-UN-ATACANTE", flags a 0xDEAD, y el gateway respondio ACK (0x00). El HMAC cubre 48 bytes de cabecera; el contexto que alimenta al CoherenceFilter y el payload entero viajan SIN FIRMAR.
---- PASS: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.63s)
-=== RUN   TestE2E_08_TodosLosRechazosSonElMismoByte
-    handleconn_e2e_test.go:494: E8 CINCO CAUSAS DE RECHAZO DISTINTAS:
-          HMAC invalido                  RECHAZO (0xFF)
-          timestamp fuera de ventana     RECHAZO (0xFF)
-          AgentID de otro                RECHAZO (0xFF)
-          contexto de largo equivocado   RECHAZO (0xFF)
-          frame de tamano cero           RECHAZO (0xFF)
-    handleconn_e2e_test.go:507: E8 MEDIDO: 5 causas distintas, UNA sola respuesta: RECHAZO (0xFF). Desde el cliente es imposible saber POR QUE lo rechazaron, y el gateway no escribe un solo log. Ese es el agujero que Testis existe para llenar, y ahora esta medido desde afuera en vez de contado leyendo el codigo.
---- PASS: TestE2E_08_TodosLosRechazosSonElMismoByte (1.54s)
-=== RUN   TestE2E_09_DosConexionesDelMismoCertificado
-    handleconn_e2e_test.go:588: E9 DOS CONEXIONES CONCURRENTES, 20 paquetes por conexion
-          MISMO cert (comparten AgentState) : ack=11   rechazo=2    conexiones cerradas=2
-          certs DISTINTOS (control)         : ack=40   rechazo=0    conexiones cerradas=0
-    handleconn_e2e_test.go:598: E9 D-26 MEDIDO EN EL CALLSITE REAL: los filtros se ejercitaron desde dos conexiones TLS concurrentes sobre el mismo *AgentState, atravesando handleConn. Bajo -race, cero reportes = el mutex de filters.go cubre el camino real, no solo el proxy.
-    handleconn_e2e_test.go:604: E9 HALLAZGO: el caso compartido perdio 4 paquetes (rechazo+cerradas) contra 0 del aislado. La marca de agua anti-replay es POR AGENTE, asi que dos conexiones del mismo certificado se pisan los timestamps: la que llega tarde cae en el chequeo `<=` y arrastra un TriggerBlock. El gateway YA castiga las conexiones concurrentes del mismo cert, pero con bloqueos en vez de un rechazo limpio.
---- PASS: TestE2E_09_DosConexionesDelMismoCertificado (1.99s)
-=== RUN   TestE2E_00_ElGatewayAceptaElPrimerPaquete
-    huber_frontera_e2e_test.go:173: E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline: 2s)
-          payload=8     B  espera=0s       ->  ACK
-          payload=8     B  espera=20ms     ->  ACK
-          payload=8     B  espera=100ms    ->  ACK
-          payload=8     B  espera=300ms    ->  ACK
-          payload=64    B  espera=0s       ->  ACK
-          payload=64    B  espera=300ms    ->  ACK
-          payload=64    B  espera=600ms    ->  ACK
-          payload=256   B  espera=0s       ->  ACK
-          payload=256   B  espera=1s       ->  ACK
-          payload=256   B  espera=1.9s     ->  ACK
-          payload=512   B  espera=1.9s     ->  ACK
-          ACK=11  RECHAZO=0  CERRADA=0  de 11 casos
-    huber_frontera_e2e_test.go:183: E0 FIX MEDIDO: 11 de 11 primeros paquetes ACEPTADOS, con cualquier payload y con o sin pausa. Antes del fix eran 0 de 11. El gateway puede atender a un agente por primera vez en la vida del proyecto.
---- PASS: TestE2E_00_ElGatewayAceptaElPrimerPaquete (6.19s)
-=== RUN   TestE2E_00b_ControlPositivoLaRafagaSigueBloqueada
-    huber_frontera_e2e_test.go:223: E0b los 8 paquetes estables de 8 B fueron ACK
-    huber_frontera_e2e_test.go:240: E0b CONTROL POSITIVO OK: la rafaga de 16384 B (2048x el tramo estable) fue RECHAZO (0xFF). El fix NO desarmo la deteccion: el filtro sigue bloqueando un cambio real de varianza.
---- PASS: TestE2E_00b_ControlPositivoLaRafagaSigueBloqueada (0.63s)
-=== RUN   TestE2E_00c_D48_LosPayloadsVariablesSiguenBloqueados
-    huber_frontera_e2e_test.go:307: E0c CLIENTE CON PAYLOADS VARIABLES (64 a 192 B, pausa de 40ms)
-          paquete 1  payload=64   B  -> ACK
-          paquete 2  payload=96   B  -> RECHAZO
-          paquete 3  payload=64   B  -> CERRADA
-          ACK=1  no-ACK=2   primer no-ACK en el paquete 2
-    huber_frontera_e2e_test.go:319: E0c D-48 SIGUE ABIERTO, medido en el camino real: un cliente que manda tamanos normales y variables es bloqueado en el paquete 2. El fix de E0 cura el PRIMER paquete y nada mas: el gateway sigue inutilizable para cualquier agente cuyo trafico no sea de tamano constante. La tolerancia depende de dt (a 40 ms alcanza un +11% de cambio), y eso es la inconsistencia dimensional de D-48: hace falta Page-Hinkley, no un parche.
---- PASS: TestE2E_00c_D48_LosPayloadsVariablesSiguenBloqueados (0.41s)
-=== RUN   TestE2E_00d_LaVentanaSeMideDesdeLaLlegada
-    huber_frontera_e2e_test.go:382: E0d VENTANA ANTI-REPLAY (declarada: 30s)
-          ts de 29.5s de antiguedad, pausa de 1.9s antes de mandar -> RECHAZO
-          el MISMO ts, sin pausa                              -> ACK
-    huber_frontera_e2e_test.go:402: E0d FIX MEDIDO: el reloj del anti-replay es ahora el de la LLEGADA del paquete. Con el codigo viejo los dos brazos daban ACK, porque los dos se comparaban contra un `now` capturado antes de esperar el paquete: la ventana efectiva hacia atras era de hasta 30s + 2s = 32s, no los 30s declarados.
---- PASS: TestE2E_00d_LaVentanaSeMideDesdeLaLlegada (1.91s)
-PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	18.888s
-EXIT_suite=0
-TESTS_PASS=13
+# github.com/gatehot59-star/kampe-ir/gateway [github.com/gatehot59-star/kampe-ir/gateway.test]
+gateway/gateway.go:278:11: no new variables on left side of :=
+FAIL	github.com/gatehot59-star/kampe-ir/gateway [build failed]
+FAIL
+EXIT_suite=1
+TESTS_PASS=0
 TESTS_FAIL=0
 TESTS_SKIP=0
 RACES=0
-FIX_MEDIDO=1
-CONTROL_RAFAGA=1
-D48_ABIERTO=1
-VENTANA_DESDE_LLEGADA=1
-ARNES_VALIDADO=1
-E3_REPLAY=1
-D46=1
-D47=1
-D26=1
-RECHAZOS_INDISTINGUIBLES=1
+FIX_MEDIDO=0
+CONTROL_RAFAGA=0
+D48_ABIERTO=0
+VENTANA_DESDE_LLEGADA=0
+ARNES_VALIDADO=0
+E3_REPLAY=0
+D46=0
+D47=0
+D26=0
+RECHAZOS_INDISTINGUIBLES=0

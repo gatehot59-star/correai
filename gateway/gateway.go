@@ -271,6 +271,12 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		// deadline, que SI deben mirar el inicio de la iteracion.
 		llegada := time.Now()
 
+		// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo
+		// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj
+		// del anti-replay. `now` se sigue usando para FSM.Allow y para el read
+		// deadline, que SI deben mirar el inicio de la iteracion.
+		llegada := time.Now()
+
 		pkt.Reset()
 		if !decodePerimeterPacket(body, pkt) {
 			writeReject(conn)
