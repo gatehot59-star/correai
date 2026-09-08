@@ -42,6 +42,53 @@ const (
 //
 // LÍMITE DECLARADO: esto elimina la carrera de datos, no la mezcla semántica.
 // Dos conexiones del mismo agente siguen alimentando una sola EWMA.
+//
+// ===========================================================================
+// FIX E0: LA PRIMERA MUESTRA INICIALIZA EL FILTRO, NO PUEDE SER UNA ANOMALÍA.
+//
+// El gateway rechazaba el primer paquete de TODA conexión. Medido con el primer
+// cliente mTLS del proyecto: 0 de 11 combinaciones de payload (8 a 512 B) y
+// espera (0 a 1,9 s) lograban un ACK, y como el rechazo dispara TriggerBlock y
+// cierra, ninguna conexión pasaba nunca de un paquete.
+//
+// La causa aritmética: sobre un filtro recién creado lastV = 0, así que
+//
+//	derivative = (v - lastV)/dt = v/dt
+//
+// o sea la varianza entera dividida por un dt chico, contra un umbral que es
+// una fracción de sqrt(v). Con dt de microsegundos eso son cuatro órdenes de
+// magnitud de diferencia.
+//
+// EL ARGUMENTO ES MÁS FUERTE QUE EL BUG: no se puede detectar un CAMBIO de
+// varianza con UNA muestra. Un filtro que marca anomalía en su primera
+// observación no está midiendo una desviación, está midiendo que nació.
+//
+// Así que la primera muestra inicializa s y mu con el valor observado (que es
+// la inicialización estándar de una EWMA, en vez del sesgo de arrancar en cero)
+// y devuelve false sin evaluar el gatillo.
+//
+// EL CONTROL QUE HACE QUE ESTO NO SEA ROMPER EL PRODUCTO: una ráfaga real sigue
+// bloqueada. Modelado sobre la aritmética del filtro, tras 30 paquetes estables:
+//
+//	 ráfaga  1 KB -> BLOQUEA (derivada 3,15 contra umbral 0,021)
+//	 ráfaga  4 KB -> BLOQUEA (57,5 contra 0,121)
+//	 ráfaga 16 KB -> BLOQUEA (1.184 contra 0,839)
+//	 ráfaga 64 KB -> BLOQUEA (20.093 contra 5,139)
+//
+// LO QUE ESTE FIX NO ARREGLA, y está cuantificado: D-48 sigue vivo. Con payloads
+// VARIABLES el filtro bloquea 46 de 50 paquetes, antes y después del fix. La
+// tolerancia depende de dt:
+//
+//	dt = 1 ms   -> bloquea con +1,6%  de cambio de tamaño
+//	dt = 40 ms  -> bloquea con +10,9%
+//	dt = 1 s    -> bloquea con +243,8%
+//
+// Cuanto más rápido habla el agente, MENOS variación tolera. Eso es al revés de
+// lo que un rate limiter debería hacer, y es exactamente la inconsistencia
+// dimensional de D-48 (derivada en var/s contra un umbral en unidades de
+// desvío). No se arregla acá: hay que reemplazar el algoritmo por Page-Hinkley,
+// y eso es una decisión de producto.
+// ===========================================================================
 type HuberFilter struct {
 	mtx   sync.Mutex
 	alpha float64
@@ -50,6 +97,12 @@ type HuberFilter struct {
 	mu    float64 // media Winsorizada (NO es un mutex)
 	v     float64 // varianza de Huber
 	lastV float64 // varianza previa para derivada
+
+	// visto marca si el filtro ya procesó al menos una muestra. Con visto=false
+	// no hay varianza previa contra la que comparar, así que no hay derivada que
+	// evaluar. Es el estado que faltaba: antes, "sin historia" y "varianza cero"
+	// eran indistinguibles, y el filtro trataba lo primero como lo segundo.
+	visto bool
 }
 
 func NewHuberFilter(alpha, sigma float64) *HuberFilter {
@@ -74,9 +127,10 @@ func NewHuberFilter(alpha, sigma float64) *HuberFilter {
 // distinguir ráfagas legítimas sostenidas de picos anómalos.
 //
 // FIX D-26: toma f.mtx durante toda la actualización. Cada llamada es atómica;
-// la SECUENCIA de llamadas no lo es, y eso es deliberado: el llamador no
-// necesita una decisión conjunta con CoherenceFilter para ser seguro en
-// memoria.
+// la SECUENCIA de llamadas no lo es, y eso es deliberado.
+//
+// FIX E0: la primera muestra inicializa y devuelve false. Ver el comentario del
+// tipo para el argumento y para los números del control positivo.
 func (f *HuberFilter) Update(x float64, dt float64) bool {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
@@ -89,6 +143,17 @@ func (f *HuberFilter) Update(x float64, dt float64) bool {
 	}
 	if dt <= 1e-9 {
 		dt = 1e-9
+	}
+
+	// FIX E0. La primera muestra no tiene con qué compararse: inicializa el
+	// estado y sale. Un filtro que marca anomalía con n=1 no mide una desviación.
+	if !f.visto {
+		f.visto = true
+		f.s = x
+		f.mu = x
+		f.v = 0
+		f.lastV = 0
+		return false
 	}
 
 	// EWMA de inercia: S_t = (1-α)·S_{t-1} + α·x_t
