@@ -1,42 +1,5 @@
-
-=== EL SUJETO, medido ===
-CANTIDAD_SALTEADOS=4
-tests que -short saltea:
-TestControlDeContencion_ElArnesVeLaDiferencia
-TestControlPositivoDeCola_CandadoGlobal
-TestCostoDelCandado_ContraElHMAC
-TestLatenciaP99DeLaEspera
-
-=== CARRERAS EN PROCESO encontradas ===
-salteados repetidos x5 : 0
-suite completa x3      : 0
-tests en FAIL (x5)     : 0
-suite exit             : EXIT_suite=0
-salteados exit         : EXIT_salteados=0
-
-=== LA MUTACION (el control que hace que el verde valga) ===
-    testing.go:1398: race detected during execution of test
---- FAIL: TestLatenciaP99DeLaEspera (5.87s)
-
-=== VEREDICTO ===
-PASS  el sujeto se enumero                                     [carreras-1-sujeto.txt] aparece=SI esperado=SI
-PASS  los salteados corrieron 5 veces                          [carreras-3-salteados-con-race.txt] aparece=SI esperado=SI
-PASS  CERO carreras en proceso en los salteados                [carreras-3-salteados-con-race.txt] aparece=NO esperado=NO
-PASS  ningun salteado en FAIL                                  [carreras-3-salteados-con-race.txt] aparece=NO esperado=NO
-PASS  la suite completa x3 sale en 0                           [carreras-4-suite-completa.txt] aparece=SI esperado=SI
-PASS  CERO carreras en proceso en la suite                     [carreras-4-suite-completa.txt] aparece=NO esperado=NO
-PASS  la MUTACION fue detectada                                [carreras-5-mutacion.txt] aparece=SI esperado=SI
-PASS  la MUTACION hizo caer el test                            [carreras-5-mutacion.txt] aparece=SI esperado=SI
-FAIL  no hay t.Parallel() que complique                        [carreras-2-vars-de-paquete.txt] aparece=SI esperado=NO
-
-FALLAS_DE_VEREDICTO=1
-RESULTADO=ROJO
-
-LECTURA OBLIGATORIA: verde aca significa NO OBSERVADA EN 8 CORRIDAS
-(5 de los salteados + 3 de la suite completa), no 'no existe'. El
-detector de Go reporta lo que ve; la mutacion prueba que este arnes
-SI ve una carrera cuando la hay, y eso es lo maximo que se puede
-afirmar sin analisis estatico.
+Veredicto de la corrida 3328973837d342a7f71c843e0c446d93ca2394ed
+Fecha: 2026-09-08T01:27:25Z
 
 === EL SUJETO, medido ===
 tests que -short saltea: 4   |   SKIP observados: 4
@@ -52,13 +15,14 @@ tests que quedaron en FAIL          : 0 (salteados) / 0 (suite)
 tests en PASS en los salteados      : 20   (4 tests x 5 corridas = 20)
 
 === LA MUTACION, el control que hace que el verde valga ===
-carreras detectadas al revertir el fix : NA
-el test cayo                          : NA
+la mutacion se aplico (lineas)        : 1
+carreras detectadas al revertir el fix : 1
+el test cayo                          : 1
 
 === VEREDICTO (numeros calculados, no palabras) ===
 PASS  el sujeto se enumero y son 4                           obtenido=4      esperado=4
 PASS  los 4 se saltean de verdad con -short                  obtenido=4      esperado=4
-PASS  no hay t.Parallel() en el fuente                       obtenido=0      esperado=0
+PASS  no hay Parallel() en el fuente                         obtenido=0      esperado=0
 PASS  CERO carreras en proceso en los salteados              obtenido=0      esperado=0
 PASS  CERO carreras en proceso en la suite                   obtenido=0      esperado=0
 PASS  ningun salteado en FAIL                                obtenido=0      esperado=0
@@ -66,11 +30,12 @@ PASS  ningun test de la suite en FAIL                        obtenido=0      esp
 PASS  los 20 PASS de los salteados estan                     obtenido=20     esperado=20
 PASS  los salteados salieron en 0                            obtenido=0      esperado=0
 PASS  la suite completa salio en 0                           obtenido=0      esperado=0
-FAIL  la MUTACION fue detectada                              obtenido=NA     esperado=1
-FAIL  la MUTACION hizo caer el test                          obtenido=NA     esperado=1
+PASS  la mutacion se aplico                                  obtenido=1      esperado=1
+PASS  la MUTACION fue detectada                              obtenido=1      esperado=1
+PASS  la MUTACION hizo caer el test                          obtenido=1      esperado=1
 
-FALLAS_DE_VEREDICTO=2
-RESULTADO=ROJO
+FALLAS_DE_VEREDICTO=0
+RESULTADO=VERDE
 
 LECTURA OBLIGATORIA: verde aca significa NO OBSERVADA EN 8 CORRIDAS
 (5 de los salteados + 3 de la suite completa), no 'no existe'. El

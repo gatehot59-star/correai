@@ -49,7 +49,7 @@ var (
 ./gateway/candado_bench_test.go:69:	candadoGlobal.Lock()
 ./gateway/candado_bench_test.go:70:	defer candadoGlobal.Unlock()
 
-=== tests en paralelo (el fuente, no esta prosa) ===
+=== tests en paralelo (grep del fuente, no de esta prosa) ===
 T_PARALLEL_HITS=0
 (0 = los tests corren secuenciales, asi que un var de paquete
  compartido ENTRE tests no puede correr contra otro test)
