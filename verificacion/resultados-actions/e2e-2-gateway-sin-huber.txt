@@ -32,10 +32,10 @@ EXIT_sinhuber=1
 --- PASS: TestE2E_04_AgentIDQueNoCoincide (0.33s)
 === RUN   TestE2E_05_TimestampFueraDeVentana
     handleconn_e2e_test.go:189: E5 MEDIDO: ts = now + 31 s (ventana = 30s) -> RECHAZO (0xFF)
---- PASS: TestE2E_05_TimestampFueraDeVentana (0.33s)
+--- PASS: TestE2E_05_TimestampFueraDeVentana (0.31s)
 === RUN   TestE2E_03_AntiReplay
     handleconn_e2e_test.go:228: E3 MEDIDO: primer paquete ACK, mismo timestamp otra vez -> RECHAZO (0xFF)
---- PASS: TestE2E_03_AntiReplay (0.67s)
+--- PASS: TestE2E_03_AntiReplay (0.65s)
 === RUN   TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua
     handleconn_e2e_test.go:313: E6 RESULTADOS
           forjado (HMAC roto, ts=now+29s)       -> RECHAZO (0xFF)
@@ -44,7 +44,7 @@ EXIT_sinhuber=1
           ts POSTERIOR al envenenado (control) -> ACK (0x00)
     handleconn_e2e_test.go:330: E6 D-46 MEDIDO EN EL CAMINO REAL: un paquete con FIRMA INVALIDA movio lastTimestampNs 29s al futuro, y el agente quedo rechazando sus propios paquetes legitimos hasta que el reloj alcance esa marca.
     handleconn_e2e_test.go:335: E6 MECANISMO CONFIRMADO: el agente NO esta muerto. Un ts posterior a la marca envenenada se acepta, asi que el defecto es exactamente un salto de la marca de agua, ni mas ni menos. La ventana de dano es 29s.
---- PASS: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (2.60s)
+--- PASS: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (2.58s)
 === RUN   TestE2E_07_D47_ContextYCiphertextNoEstanFirmados
     handleconn_e2e_test.go:396: E7 D-47 MEDIDO EN EL CAMINO REAL: Context[0] paso de 0.1 a 999999, el ciphertext paso de "abcdefgh" a "CARGA-REEMPLAZADA-POR-UN-ATACANTE", flags a 0xDEAD, y el gateway respondio ACK (0x00). El HMAC cubre 48 bytes de cabecera; el contexto que alimenta al CoherenceFilter y el payload entero viajan SIN FIRMAR.
 --- PASS: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.63s)
@@ -56,7 +56,7 @@ EXIT_sinhuber=1
           contexto de largo equivocado   RECHAZO (0xFF)
           frame de tamano cero           RECHAZO (0xFF)
     handleconn_e2e_test.go:507: E8 MEDIDO: 5 causas distintas, UNA sola respuesta: RECHAZO (0xFF). Desde el cliente es imposible saber POR QUE lo rechazaron, y el gateway no escribe un solo log. Ese es el agujero que Testis existe para llenar, y ahora esta medido desde afuera en vez de contado leyendo el codigo.
---- PASS: TestE2E_08_TodosLosRechazosSonElMismoByte (1.54s)
+--- PASS: TestE2E_08_TodosLosRechazosSonElMismoByte (1.52s)
 === RUN   TestE2E_09_DosConexionesDelMismoCertificado
     handleconn_e2e_test.go:588: E9 DOS CONEXIONES CONCURRENTES, 20 paquetes por conexion
           MISMO cert (comparten AgentState) : ack=20   rechazo=1    conexiones cerradas=1
@@ -80,9 +80,9 @@ EXIT_sinhuber=1
           ACK=11  RECHAZO=0  CERRADA=0  de 11 casos
           casos en los que mi prediccion aritmetica FALLO: 7
     huber_frontera_e2e_test.go:209: HALLAZGO CERRADO: el gateway acepto 11 de 11 primeros paquetes. Si el HuberFilter se arreglo, actualizar el contexto vivo, cerrar el hallazgo y borrar este test de caracterizacion
---- FAIL: TestE2E_00_ElGatewayRechazaTodoPrimerPaquete (6.19s)
+--- FAIL: TestE2E_00_ElGatewayRechazaTodoPrimerPaquete (6.17s)
 FAIL
-FAIL	github.com/gatehot59-star/kampe-ir/gateway	15.471s
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	15.371s
 FAIL
 MUT_TESTS_PASS=9
 MUT_TESTS_FAIL=1

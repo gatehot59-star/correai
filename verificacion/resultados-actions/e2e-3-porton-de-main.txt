@@ -2,6 +2,6 @@
 Los tests E2E no se saltean con -short, asi que entran al porton
 compartido. Este paso mide si lo fortalecen o lo rompen.
 
-ok  	github.com/gatehot59-star/kampe-ir/gateway	23.364s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	23.090s
 EXIT_porton=0
 RACES_EN_PROCESO=0
