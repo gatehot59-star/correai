@@ -9,6 +9,33 @@
 // el `AgentState` directamente, que es un PROXY DECLARADO del callsite y no el
 // callsite. Este cliente convierte ese proxy en la cosa real.
 //
+// ===========================================================================
+// LO PRIMERO QUE MIDIO ESTE CLIENTE, y no era lo que iba a medir:
+//
+//	EL GATEWAY RECHAZA EL PRIMER PAQUETE DE TODO AGENTE.
+//
+// El control del arnes (E1: paquete perfecto -> ACK) fallo con 0xFF. La causa NO
+// es el codificador: es el HuberFilter. Sobre un filtro recien creado lastV=0,
+// asi que `derivative = (v - lastV)/dt` es v/dt entero, y con el dt de un cliente
+// que escribe apenas termina el handshake (microsegundos) eso queda cuatro
+// ordenes de magnitud sobre el umbral. Reproducido con la aritmetica del filtro:
+//
+//	payload 27 B, dt=1e-5 s -> derivada=8.8989  umbral=0.000474  BLOQUEA
+//	payload 27 B, dt=0.19 s -> derivada=0.0005  umbral=0.000474  pasa
+//
+// Es D-48 (la inconsistencia dimensional entre var/s y desvio) en su forma mas
+// brutal. El hallazgo del auditor decia "bloquea casi cualquier rafaga"; la
+// medicion dice que bloquea el primer paquete, siempre.
+//
+// Y tiene FRONTERA: dt_min = sqrt(v)/(0.05*inertia) ~ 7,2 s por KB de payload.
+// Con 303 bytes o mas, el dt necesario pasa los 2 s del read deadline del propio
+// gateway, o sea que el primer paquete NO PUEDE ser aceptado nunca.
+//
+// POR ESO ESTE CLIENTE PAUSA. No es un truco para que el test pase: es lo que el
+// gateway exige hoy. Y la frontera NO se afirma desde esta aritmetica: la mide el
+// test E0 contra el gateway real.
+// ===========================================================================
+//
 // TRES PIEZAS:
 //   1. una PKI de prueba: CA, cert de servidor, y un cert POR AGENTE.
 //   2. el CODIFICADOR del PerimeterPacket, escrito contra `decodePerimeterPacket`
@@ -21,10 +48,6 @@
 // bloqueado con backoff exponencial, asi que un caso que dispara un bloqueo
 // contamina a cualquier caso posterior que use el mismo cert. Por eso cada caso
 // emite su PROPIO certificado, con su propio CommonName.
-//
-// Y EL CODIFICADOR NO SE VALIDA CONTRA UNA SPEC, se valida contra el decoder del
-// repo: si un campo, un wire type o un orden esta mal, el gateway rechaza el
-// paquete y el test de ACK cae. Ese test es el control del arnes.
 
 package gateway
 
@@ -61,6 +84,26 @@ const alpnDelGateway = "hipersec/perimeter/v1"
 const (
 	respAck     = byte(0x00)
 	respRechazo = byte(0xFF)
+)
+
+// LAS DOS PAUSAS Y EL PAYLOAD CHICO EXISTEN POR EL HuberFilter, no por prolijidad.
+//
+// El gateway mide `dt` desde que termina el handshake hasta que llega el primer
+// paquete, y con lastV=0 la derivada de varianza queda enorme. Los numeros que
+// justifican estas constantes, con payload de 8 bytes:
+//
+//	primer paquete : dt_min = 0,0558 s   ->  300 ms deja 5x de margen
+//	segundo y sig. : dt_min = 0,0204 s   ->   40 ms deja 2x de margen
+//
+// Son la CONDICION DE OPERACION del gateway tal como esta hoy, no una eleccion
+// del arnes. El test E0 las mide contra el gateway real.
+const (
+	pausaAntesDelPrimero = 300 * time.Millisecond
+	pausaEntrePaquetes   = 40 * time.Millisecond
+
+	// cargaChica en bytes. Con payload grande el dt exigido crece lineal y a los
+	// ~303 bytes ya supera el read deadline de 2 s del gateway.
+	cargaChica = 8
 )
 
 // ---------------------------------------------------------------------------
@@ -101,13 +144,12 @@ func nuevaPKI(t *testing.T) *pki {
 		t.Fatalf("parsear cert de CA: %v", err)
 	}
 
-	p := &pki{
+	return &pki{
 		dir:    t.TempDir(),
 		caCert: cert,
 		caKey:  key,
 		caPEM:  pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
 	}
-	return p
 }
 
 // emitir firma un cert con la CA. `servidor` decide el ExtKeyUsage y los SAN.
@@ -184,8 +226,7 @@ func (p *pki) archivosDelServidor(t *testing.T) (caPath, certPath, keyPath strin
 
 // agente es un cliente con su certificado y el AgentID que el gateway va a
 // derivar de el. Ese AgentID se calcula con la MISMA funcion del repo
-// (deriveAgentID), no con una reimplementacion: si cambiara la derivacion, este
-// arnes cambia con ella.
+// (deriveAgentID), no con una reimplementacion.
 type agente struct {
 	nombre  string
 	agentID [32]byte
@@ -224,8 +265,6 @@ func (p *pki) nuevoAgente(t *testing.T, cn string) *agente {
 // CODIFICADOR del PerimeterPacket
 // ---------------------------------------------------------------------------
 
-// paquete es lo que el cliente va a mandar. Los campos son deliberadamente
-// crudos para poder forjar cada uno por separado en los tests.
 type paquete struct {
 	agentID    [32]byte
 	timestamp  uint64
@@ -287,9 +326,9 @@ func (p *paquete) codificar() []byte {
 	cabecera = campoVarint(cabecera, 4, uint64(p.nonce))
 	cabecera = campoBytes(cabecera, 5, p.hmac)
 
-	// El contexto va como 8 float64 LITTLE-endian, aunque el resto del
-	// protocolo sea big-endian. No es un error mio: es lo que hace
-	// decodeContext con binary.LittleEndian.Uint64.
+	// El contexto va como 8 float64 LITTLE-endian, aunque el resto del protocolo
+	// sea big-endian. No es un error mio: es lo que hace decodeContext con
+	// binary.LittleEndian.Uint64.
 	crudo := make([]byte, 0, 8*ContextVectorSize)
 	for _, v := range p.contexto {
 		var tmp [8]byte
@@ -315,16 +354,21 @@ func (p *paquete) codificar() []byte {
 	return frame
 }
 
-// paqueteValido devuelve un paquete bien formado y bien firmado para `ag`.
-func paqueteValido(clave []byte, ag *agente, ts uint64, nonce uint32) *paquete {
+// paqueteConCarga devuelve un paquete bien formado y bien firmado, con un payload
+// de `bytes` bytes. El tamano importa: es lo que decide el `dt` que el
+// HuberFilter va a exigir.
+func paqueteConCarga(clave []byte, ag *agente, ts uint64, nonce uint32, bytes int) *paquete {
+	carga := make([]byte, bytes)
+	for i := range carga {
+		carga[i] = byte('a' + i%26)
+	}
+
 	p := &paquete{
 		agentID:    ag.agentID,
 		timestamp:  ts,
 		epoch:      1,
 		nonce:      nonce,
-		ciphertext: []byte("carga-de-prueba-de-kampe-ir"),
-		flags:      0,
-		padding:    0,
+		ciphertext: carga,
 	}
 	for i := range p.contexto {
 		p.contexto[i] = 0.1 * float64(i+1)
@@ -333,12 +377,19 @@ func paqueteValido(clave []byte, ag *agente, ts uint64, nonce uint32) *paquete {
 	return p
 }
 
+// paqueteValido usa la carga chica, que es la unica con la que el gateway acepta
+// un primer paquete en un tiempo razonable.
+func paqueteValido(clave []byte, ag *agente, ts uint64, nonce uint32) *paquete {
+	return paqueteConCarga(clave, ag, ts, nonce, cargaChica)
+}
+
 // ---------------------------------------------------------------------------
 // EL CLIENTE
 // ---------------------------------------------------------------------------
 
 type conexion struct {
-	conn net.Conn
+	conn    net.Conn
+	yaEnvio bool
 }
 
 // conectar hace el handshake mTLS contra el gateway.
@@ -352,15 +403,33 @@ func (ag *agente) conectar(addr string) (*conexion, error) {
 
 func (c *conexion) cerrar() { _ = c.conn.Close() }
 
-// enviar manda un paquete y devuelve el byte de respuesta.
+// pausar mete la espera que el HuberFilter exige. Ver el comentario de las
+// constantes: no es prolijidad, es la condicion de operacion del gateway.
+func (c *conexion) pausar() {
+	if c.yaEnvio {
+		time.Sleep(pausaEntrePaquetes)
+		return
+	}
+	time.Sleep(pausaAntesDelPrimero)
+	c.yaEnvio = true
+}
+
+// enviar manda un paquete PAUSANDO antes, y devuelve el byte de respuesta.
 // Un error de lectura significa que el gateway cerro sin responder.
 func (c *conexion) enviar(p *paquete) (byte, error) {
-	_ = c.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	c.pausar()
+	return c.enviarSinPausa(p)
+}
+
+// enviarSinPausa manda sin esperar. Lo usa el test que MIDE la frontera del
+// HuberFilter, que controla su propia espera.
+func (c *conexion) enviarSinPausa(p *paquete) (byte, error) {
+	_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	if _, err := c.conn.Write(p.codificar()); err != nil {
 		return 0, fmt.Errorf("escribir frame: %w", err)
 	}
 
-	_ = c.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = c.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	var resp [1]byte
 	if _, err := io.ReadFull(c.conn, resp[:]); err != nil {
 		return 0, fmt.Errorf("leer respuesta: %w", err)
@@ -369,13 +438,16 @@ func (c *conexion) enviar(p *paquete) (byte, error) {
 }
 
 // enviarCrudo manda bytes arbitrarios, para forjar frames que el codificador no
-// puede producir (tamano cero, tamano gigante, basura).
+// puede producir. Pausa igual, para que el unico rechazo posible sea el del
+// decoder y no el del HuberFilter.
 func (c *conexion) enviarCrudo(datos []byte) (byte, error) {
-	_ = c.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	c.pausar()
+
+	_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	if _, err := c.conn.Write(datos); err != nil {
 		return 0, fmt.Errorf("escribir crudo: %w", err)
 	}
-	_ = c.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = c.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	var resp [1]byte
 	if _, err := io.ReadFull(c.conn, resp[:]); err != nil {
 		return 0, fmt.Errorf("leer respuesta: %w", err)
@@ -399,8 +471,8 @@ func claveHMACDePrueba() ([]byte, string) {
 
 // puertoLibre pide un puerto al SO y lo suelta.
 //
-// LIMITACION DECLARADA: entre el Close y el Listen del gateway hay una ventana
-// en la que otro proceso podria tomar el puerto. Si eso pasa, Run() falla y
+// LIMITACION DECLARADA: entre el Close y el Listen del gateway hay una ventana en
+// la que otro proceso podria tomar el puerto. Si eso pasa, Run() falla y
 // esperarAlGateway corta el test con un mensaje claro. No se enmascara.
 func puertoLibre(t *testing.T) string {
 	t.Helper()
@@ -428,12 +500,11 @@ func esperarAlGateway(t *testing.T, addr string) {
 }
 
 // arrancarGateway levanta un gateway REAL con NewGateway + NewTLSConfig + Run.
-// Devuelve la direccion, la clave HMAC y la PKI.
 //
 // LIMITACION DECLARADA: Run() no tiene forma de apagarse (no hay Shutdown en el
 // codigo de produccion), asi que su goroutine y su listener quedan vivos hasta
-// que termina el proceso de test. Es una fuga por turno de test, acotada, y es
-// un hueco del gateway, no del arnes.
+// que termina el proceso de test. Es una fuga por test, acotada, y es un hueco
+// del gateway, no del arnes.
 func arrancarGateway(t *testing.T) (addr string, clave []byte, p *pki) {
 	t.Helper()
 
