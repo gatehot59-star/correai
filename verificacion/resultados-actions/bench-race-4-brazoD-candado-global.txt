@@ -10,13 +10,13 @@ goos: linux
 goarch: amd64
 pkg: github.com/gatehot59-star/kampe-ir/gateway
 cpu: AMD EPYC 7763 64-Core Processor                
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1-4         	   20000	      2015 ns/op	         0.4963 Mop/s	         1.000 goroutines	      2015 ns/op-real
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=2-4         	   20000	      2460 ns/op	         0.4065 Mop/s	         2.000 goroutines	      2460 ns/op-real
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=4-4         	   20000	      2747 ns/op	         0.3640 Mop/s	         4.000 goroutines	      2747 ns/op-real
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=8-4         	   20000	      2803 ns/op	         0.3568 Mop/s	         8.000 goroutines	      2803 ns/op-real
-BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=16-4        	   20000	      2777 ns/op	         0.3601 Mop/s	        16.00 goroutines	      2777 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1-4         	   20000	      1988 ns/op	         0.5031 Mop/s	         1.000 goroutines	      1988 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=2-4         	   20000	      2470 ns/op	         0.4049 Mop/s	         2.000 goroutines	      2470 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=4-4         	   20000	      2880 ns/op	         0.3472 Mop/s	         4.000 goroutines	      2880 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=8-4         	   20000	      2881 ns/op	         0.3471 Mop/s	         8.000 goroutines	      2881 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=16-4        	   20000	      2890 ns/op	         0.3461 Mop/s	        16.00 goroutines	      2889 ns/op-real
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	1.274s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.277s
 EXIT_brazo=0
 REPORTES_DETECTOR=0
 CITA_FILTERS_GO=0

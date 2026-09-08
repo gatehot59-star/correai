@@ -10,7 +10,7 @@ goos: linux
 goarch: amd64
 pkg: github.com/gatehot59-star/kampe-ir/gateway
 cpu: AMD EPYC 7763 64-Core Processor                
-BenchmarkCandado/B_1agente_sinCandado_RACY/g=1-4         	   20000	       906.7 ns/op	         1.103 Mop/s	         1.000 goroutines	       906.6 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=1-4         	   20000	       816.8 ns/op	         1.224 Mop/s	         1.000 goroutines	       816.8 ns/op-real
 ==================
 WARNING: DATA RACE
 Read at 0x00c000022880 by goroutine 17:
@@ -181,7 +181,7 @@ Goroutine 18 (finished) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Read at 0x00c000120150 by goroutine 17:
+Read at 0x00c00011e150 by goroutine 17:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:214 +0x79
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -191,7 +191,7 @@ Read at 0x00c000120150 by goroutine 17:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c000120150 by goroutine 18:
+Previous write at 0x00c00011e150 by goroutine 18:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:214 +0xc4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -223,7 +223,7 @@ Goroutine 18 (finished) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Read at 0x00c000120190 by goroutine 17:
+Read at 0x00c00011e190 by goroutine 17:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:215 +0x12e
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -233,7 +233,7 @@ Read at 0x00c000120190 by goroutine 17:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c000120190 by goroutine 18:
+Previous write at 0x00c00011e190 by goroutine 18:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -265,7 +265,7 @@ Goroutine 18 (finished) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Read at 0x00c0001201d8 by goroutine 17:
+Read at 0x00c00011e1d8 by goroutine 17:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:226 +0x3a4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -275,7 +275,7 @@ Read at 0x00c0001201d8 by goroutine 17:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c0001201d8 by goroutine 18:
+Previous write at 0x00c00011e1d8 by goroutine 18:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:227 +0x3dc
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -309,48 +309,6 @@ Goroutine 18 (finished) created at:
     testing.go:1398: race detected during execution of test
 ==================
 WARNING: DATA RACE
-Write at 0x00c000022898 by goroutine 22:
-  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:193 +0x204
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
-Previous read at 0x00c000022898 by goroutine 23:
-  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:196 +0x2be
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
-Goroutine 22 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-
-Goroutine 23 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-==================
-==================
-WARNING: DATA RACE
 Write at 0x00c000022880 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:181 +0xbd
@@ -361,7 +319,7 @@ Write at 0x00c000022880 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous read at 0x00c000022880 by goroutine 22:
+Previous read at 0x00c000022880 by goroutine 23:
   github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:197 +0x326
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -381,38 +339,6 @@ Goroutine 21 (running) created at:
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
 
-Goroutine 22 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-==================
-==================
-WARNING: DATA RACE
-Write at 0x00c0001201a8 by goroutine 23:
-  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
-Previous write at 0x00c0001201a8 by goroutine 22:
-  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
 Goroutine 23 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
@@ -422,40 +348,30 @@ Goroutine 23 (running) created at:
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-
-Goroutine 22 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
 ==================
 ==================
 WARNING: DATA RACE
-Write at 0x00c000120170 by goroutine 22:
-  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:214 +0xc4
+Write at 0x00c000022898 by goroutine 21:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:193 +0x204
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c000120170 by goroutine 23:
-  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:214 +0xc4
+Previous read at 0x00c000022898 by goroutine 23:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:196 +0x2be
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Goroutine 22 (running) created at:
+Goroutine 21 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -477,9 +393,51 @@ Goroutine 23 (running) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Read at 0x00c0001201b0 by goroutine 21:
+Read at 0x00c000022888 by goroutine 22:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:190 +0x15b
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Previous write at 0x00c000022888 by goroutine 21:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:190 +0x18f
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Goroutine 22 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+
+Goroutine 21 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c00011e190 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:220 +0x225
+      /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
@@ -487,7 +445,7 @@ Read at 0x00c0001201b0 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c0001201b0 by goroutine 22:
+Previous write at 0x00c00011e190 by goroutine 22:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -519,9 +477,9 @@ Goroutine 22 (running) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Read at 0x00c0001201b0 by goroutine 21:
+Write at 0x00c00011e158 by goroutine 22:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:222 +0x2a7
+      /home/runner/work/correai/correai/gateway/race_test.go:214 +0xc4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
@@ -529,9 +487,9 @@ Read at 0x00c0001201b0 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c0001201b0 by goroutine 23:
+Previous write at 0x00c00011e158 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
+      /home/runner/work/correai/correai/gateway/race_test.go:214 +0xc4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
@@ -539,7 +497,7 @@ Previous write at 0x00c0001201b0 by goroutine 23:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Goroutine 21 (running) created at:
+Goroutine 22 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -549,7 +507,7 @@ Goroutine 21 (running) created at:
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
 
-Goroutine 23 (running) created at:
+Goroutine 21 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -561,7 +519,7 @@ Goroutine 23 (running) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Read at 0x00c000120178 by goroutine 21:
+Read at 0x00c00011e150 by goroutine 23:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:220 +0x1fa
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -571,7 +529,7 @@ Read at 0x00c000120178 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c000120178 by goroutine 23:
+Previous write at 0x00c00011e150 by goroutine 22:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:214 +0xc4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -581,7 +539,7 @@ Previous write at 0x00c000120178 by goroutine 23:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Goroutine 21 (running) created at:
+Goroutine 23 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -591,7 +549,7 @@ Goroutine 21 (running) created at:
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
 
-Goroutine 23 (running) created at:
+Goroutine 22 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -603,9 +561,9 @@ Goroutine 23 (running) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Write at 0x00c0001201d8 by goroutine 21:
+Read at 0x00c00011e1a0 by goroutine 23:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:227 +0x3dc
+      /home/runner/work/correai/correai/gateway/race_test.go:220 +0x225
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
@@ -613,15 +571,25 @@ Write at 0x00c0001201d8 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c0001201d8 by goroutine 23:
+Previous write at 0x00c00011e1a0 by goroutine 21:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:227 +0x3dc
+      /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Goroutine 23 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
 
 Goroutine 21 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
@@ -632,8 +600,40 @@ Goroutine 21 (running) created at:
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c00011e1a0 by goroutine 23:
+  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:222 +0x2a7
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Goroutine 23 (finished) created at:
+Previous write at 0x00c00011e1a0 by goroutine 22:
+  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Goroutine 23 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+
+Goroutine 22 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -647,7 +647,7 @@ Goroutine 23 (finished) created at:
     testing.go:1398: race detected during execution of test
 ==================
 WARNING: DATA RACE
-Write at 0x00c000120150 by goroutine 26:
+Write at 0x00c00011e150 by goroutine 26:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:214 +0xc4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -657,7 +657,7 @@ Write at 0x00c000120150 by goroutine 26:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous read at 0x00c000120150 by goroutine 27:
+Previous read at 0x00c00011e150 by goroutine 31:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:221 +0x248
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -677,7 +677,7 @@ Goroutine 26 (running) created at:
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
 
-Goroutine 27 (finished) created at:
+Goroutine 31 (finished) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -689,27 +689,27 @@ Goroutine 27 (finished) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Read at 0x00c000022888 by goroutine 32:
-  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:190 +0x15b
+Write at 0x00c00011e1d8 by goroutine 28:
+  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:227 +0x3dc
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous write at 0x00c000022888 by goroutine 28:
-  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:190 +0x18f
+Previous write at 0x00c00011e1d8 by goroutine 32:
+  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:227 +0x3dc
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Goroutine 32 (running) created at:
+Goroutine 28 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -719,7 +719,7 @@ Goroutine 32 (running) created at:
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
 
-Goroutine 28 (running) created at:
+Goroutine 32 (finished) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -733,49 +733,7 @@ Goroutine 28 (running) created at:
     testing.go:1398: race detected during execution of test
 ==================
 WARNING: DATA RACE
-Write at 0x00c000022880 by goroutine 49:
-  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:181 +0xbd
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
-Previous write at 0x00c000022880 by goroutine 37:
-  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:181 +0xbd
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
-Goroutine 49 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-
-Goroutine 37 (finished) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-==================
-==================
-WARNING: DATA RACE
-Write at 0x00c000120158 by goroutine 49:
+Write at 0x00c00011e158 by goroutine 39:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:214 +0xc4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -785,7 +743,7 @@ Write at 0x00c000120158 by goroutine 49:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Previous read at 0x00c000120158 by goroutine 35:
+Previous read at 0x00c00011e158 by goroutine 38:
   github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
       /home/runner/work/correai/correai/gateway/race_test.go:221 +0x284
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
@@ -795,7 +753,7 @@ Previous read at 0x00c000120158 by goroutine 35:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Goroutine 49 (running) created at:
+Goroutine 39 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -804,80 +762,6 @@ Goroutine 49 (running) created at:
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-
-Goroutine 35 (finished) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-==================
-==================
-WARNING: DATA RACE
-Write at 0x00c000120198 by goroutine 49:
-  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:215 +0x184
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
-Previous read at 0x00c000120198 by goroutine 35:
-  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:222 +0x2e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:180 +0x10d
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
-Goroutine 49 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-
-Goroutine 35 (finished) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
-  testing.(*B).runN()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
-  testing.(*B).run1.func1()
-      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
-==================
-==================
-WARNING: DATA RACE
-Read at 0x00c000022890 by goroutine 38:
-  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:194 +0x232
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
-
-Previous write at 0x00c000022890 by goroutine 39:
-  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
-      /home/runner/work/correai/correai/gateway/race_test.go:194 +0x272
-  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
-  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
-      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
 Goroutine 38 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
@@ -888,8 +772,124 @@ Goroutine 38 (running) created at:
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
   testing.(*B).run1.func1()
       /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000022890 by goroutine 34:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:196 +0x2a4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
 
-Goroutine 39 (running) created at:
+Previous write at 0x00c000022890 by goroutine 40:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:194 +0x272
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Goroutine 34 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+
+Goroutine 40 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000022890 by goroutine 44:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:194 +0x272
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Previous read at 0x00c000022890 by goroutine 40:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:197 +0x2de
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Goroutine 44 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+
+Goroutine 40 (finished) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000022888 by goroutine 45:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:190 +0x18f
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Previous write at 0x00c000022888 by goroutine 47:
+  github.com/gatehot59-star/kampe-ir/gateway.(*huberSinMutex).Update()
+      /home/runner/work/correai/correai/gateway/race_test.go:190 +0x18f
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2.1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:179 +0xad
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:135 +0xae
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.gowrap1()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:137 +0x41
+
+Goroutine 45 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
+  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
+      /home/runner/work/correai/correai/gateway/candado_bench_test.go:178 +0x265
+  testing.(*B).runN()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:193 +0x19c
+  testing.(*B).run1.func1()
+      /opt/hostedtoolcache/go/1.22.12/x64/src/testing/benchmark.go:215 +0x7b
+
+Goroutine 47 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente()
       /home/runner/work/correai/correai/gateway/candado_bench_test.go:132 +0x1e4
   github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func2()
@@ -905,7 +905,7 @@ Goroutine 39 (running) created at:
     candado_bench_test.go:158: GOMAXPROCS=4 NumCPU=4
 FAIL
 exit status 1
-FAIL	github.com/gatehot59-star/kampe-ir/gateway	0.037s
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	0.034s
 FAIL
 EXIT_brazo=1
 REPORTES_DETECTOR=21

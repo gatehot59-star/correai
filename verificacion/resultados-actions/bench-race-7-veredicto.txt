@@ -1,5 +1,5 @@
-Veredicto de la corrida 976567ddd3aab8c1b7facdad94a2da70770cc840
-Fecha: 2026-09-08T04:36:28Z
+Veredicto de la corrida b16e2788abf9ceb09f062555c6db66c7c3643814
+Fecha: 2026-09-08T04:42:04Z
 
 === R5: los workflows parsean? ===
 workflows encontrados: 7   |   rotos: 0
@@ -22,10 +22,10 @@ El brazo B corre MENOS sub-benchmarks (1 de 5) porque el
 detector aborta el proceso al primer reporte. Es esperado.
 
 === POR QUE CONTAR EN BLOQUE ENGANA ===
-todos los benchmarks juntos -> reportes=23
-  citando huberSinMutex (el brazo RACY) : 22
+todos los benchmarks juntos -> reportes=24
+  citando huberSinMutex (el brazo RACY) : 24
   citando filters.go (los REALES)       : 0
-Un lector que solo mire el 23 concluye que hay un defecto.
+Un lector que solo mire el 24 concluye que hay un defecto.
 El desglose muestra que TODO viene del control deliberado.
 
 === VEREDICTO (esperados DERIVADOS del fuente) ===
@@ -45,7 +45,7 @@ PASS  brazo D: no cita filters.go                          obtenido=0      esper
 PASS  HMAC corrio                                          obtenido=1      esperado=1
 PASS  HMAC: CERO carreras                                  obtenido=0      esperado=0
 PASS  en bloque, los filtros REALES limpios                obtenido=0      esperado=0
-PASS  en bloque, el RACY si aparece                        obtenido=22     esperado>=1
+PASS  en bloque, el RACY si aparece                        obtenido=24     esperado>=1
 
 FALLAS_DE_VEREDICTO=0
 RESULTADO=VERDE

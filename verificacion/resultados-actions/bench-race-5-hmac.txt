@@ -7,9 +7,9 @@ goos: linux
 goarch: amd64
 pkg: github.com/gatehot59-star/kampe-ir/gateway
 cpu: AMD EPYC 7763 64-Core Processor                
-BenchmarkVerifyPacketHMAC-4   	   20000	      7477 ns/op
+BenchmarkVerifyPacketHMAC-4   	   20000	      7260 ns/op
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	1.161s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.157s
 EXIT_hmac=0
 REPORTES_DETECTOR=0
 SUBBENCH_CORRIDOS=1

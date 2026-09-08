@@ -1,7 +1,7 @@
 Maquina: Actions ubuntu-latest (VM limpia)
-Commit:  976567ddd3aab8c1b7facdad94a2da70770cc840
+Commit:  b16e2788abf9ceb09f062555c6db66c7c3643814
 Rama:    titan/benchmarks-bajo-race
-Fecha:   2026-09-08T04:36:07Z
+Fecha:   2026-09-08T04:41:45Z
 cpu:     AMD EPYC 7763 64-Core Processor
 nproc:   4
 go version go1.22.12 linux/amd64
