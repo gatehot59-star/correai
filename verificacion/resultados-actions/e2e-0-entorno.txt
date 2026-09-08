@@ -1,13 +1,15 @@
 Maquina: Actions ubuntu-latest (VM limpia)
-Commit:  1725164f7534be113e28eb9be816d81ba27bed15
+Commit:  077d7f902dcb17c64fa4ae30483b370fbbe861b5
 Rama:    titan/cliente-mtls-e2e
-Fecha:   2026-09-08T10:33:41Z
-cpu:     AMD EPYC 9V74 80-Core Processor
+Fecha:   2026-09-08T10:35:34Z
+cpu:     AMD EPYC 7763 64-Core Processor
 nproc:   4
 go version go1.22.12 linux/amd64
-sha256 cliente_mtls_test.go:   c75d5cd3426aeb901abd816685be691e6c2d933e11917957a9aa5503196f959a
+sha256 cliente_mtls_test.go: c75d5cd3426aeb901abd816685be691e6c2d933e11917957a9aa5503196f959a
 sha256 handleconn_e2e_test.go: bf90c82e1660849bb30055bf48bd1caf8b192111c923133bdc76209236de4bd7
-sha256 gateway.go (sin tocar): f9cfc0580a2ddc23ccda6f675ebfa6f0bade054b86eb816ee03ed32e4a252dc1
+sha256 huber_frontera_e2e_test.go: 339b467f3991723b37a7c3334caea7d441e3545bce447601a313825a9d5fa93a
+sha256 gateway.go: f9cfc0580a2ddc23ccda6f675ebfa6f0bade054b86eb816ee03ed32e4a252dc1
+sha256 filters.go: 2f277d71f51a0ab2ddb509f03521a4dca49e59282992fdea8e954a0afa94a335
 
 === R5: todos los workflows parsean? ===
 OK    .github/workflows/benchmarks-bajo-race.yml
@@ -20,19 +22,20 @@ OK    .github/workflows/handleconn-e2e.yml
 OK    .github/workflows/porton-rojo-quien-cae.yml
 WORKFLOWS_ROTOS=0
 
-=== R4: cuantos tests E2E hay, contados del fuente ===
-61:func TestE2E_01_ElArnesFunciona(t *testing.T) {
-101:func TestE2E_02_HMACInvalido(t *testing.T) {
-125:func TestE2E_03_AntiReplay(t *testing.T) {
-158:func TestE2E_04_AgentIDQueNoCoincide(t *testing.T) {
-187:func TestE2E_05_TimestampFueraDeVentana(t *testing.T) {
-229:func TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua(t *testing.T) {
-345:func TestE2E_07_D47_ContextYCiphertextNoEstanFirmados(t *testing.T) {
-394:func TestE2E_08_TodosLosRechazosSonElMismoByte(t *testing.T) {
-562:func TestE2E_09_DosConexionesDelMismoCertificado(t *testing.T) {
-TESTS_E2E_DECLARADOS=9
+=== R4: cuantos tests E2E hay, contados de TODO gateway/ ===
+gateway/handleconn_e2e_test.go:61:func TestE2E_01_ElArnesFunciona(t *testing.T) {
+gateway/handleconn_e2e_test.go:101:func TestE2E_02_HMACInvalido(t *testing.T) {
+gateway/handleconn_e2e_test.go:125:func TestE2E_03_AntiReplay(t *testing.T) {
+gateway/handleconn_e2e_test.go:158:func TestE2E_04_AgentIDQueNoCoincide(t *testing.T) {
+gateway/handleconn_e2e_test.go:187:func TestE2E_05_TimestampFueraDeVentana(t *testing.T) {
+gateway/handleconn_e2e_test.go:229:func TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua(t *testing.T) {
+gateway/handleconn_e2e_test.go:345:func TestE2E_07_D47_ContextYCiphertextNoEstanFirmados(t *testing.T) {
+gateway/handleconn_e2e_test.go:394:func TestE2E_08_TodosLosRechazosSonElMismoByte(t *testing.T) {
+gateway/handleconn_e2e_test.go:562:func TestE2E_09_DosConexionesDelMismoCertificado(t *testing.T) {
+gateway/huber_frontera_e2e_test.go:78:func TestE2E_00_LaFronteraDelHuberFilter(t *testing.T) {
+TESTS_E2E_DECLARADOS=10
 
-=== gofmt de los dos archivos nuevos ===
+=== gofmt de los tres archivos nuevos ===
 (vacio arriba = ya estaban formateados)
 
 === go build ./... ===

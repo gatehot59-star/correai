@@ -6,16 +6,16 @@ porton compartido. Este paso mide si lo fortalecen o lo rompen.
     handleconn_e2e_test.go:76: paquete VALIDO rechazado: RECHAZO (0xFF). El codificador no coincide con decodePerimeterPacket, asi que ningun otro test de este archivo mide lo que dice medir
 --- FAIL: TestE2E_03_AntiReplay (0.33s)
     handleconn_e2e_test.go:142: el primer paquete tenia que pasar, dio RECHAZO (0xFF)
---- FAIL: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (1.29s)
+--- FAIL: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (1.27s)
     handleconn_e2e_test.go:280: CONTROL ROTO: un agente limpio fue rechazado (RECHAZO (0xFF)). El gateway se cayo por otra razon y E6 no mide D-46
---- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.31s)
+--- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.33s)
     handleconn_e2e_test.go:370: D-47 parece cerrado: el paquete con Context y Ciphertext alterados fue rechazado (RECHAZO (0xFF)). Si el HMAC se extendio, actualizar el contexto vivo y borrar este test
 --- FAIL: TestE2E_09_DosConexionesDelMismoCertificado (0.72s)
     handleconn_e2e_test.go:576: E9 DOS CONEXIONES CONCURRENTES, 40 paquetes por conexion
           MISMO cert (comparten AgentState) : ack=0    rechazo=2    conexiones cerradas=2
           certs DISTINTOS (control)         : ack=0    rechazo=2    conexiones cerradas=2
     handleconn_e2e_test.go:585: CONTROL ROTO: dos conexiones de certificados distintos no lograron ni un ACK (ack=0 rechazo=2 cerradas=2). El gateway no soporta dos conexiones concurrentes en general, asi que el caso compartido no mide el estado compartido
---- FAIL: TestE2E_00_LaFronteraDelHuberFilter (6.18s)
+--- FAIL: TestE2E_00_LaFronteraDelHuberFilter (6.21s)
     huber_frontera_e2e_test.go:153: E0 BARRIDO DEL HuberFilter EN EL PRIMER PAQUETE
           (read deadline del gateway: 2s)
           payload=8     B  espera=0s       dt_min predicho=  0.056 s  ->  medido=RECHAZO  predicho=RECHAZO    
@@ -33,7 +33,7 @@ porton compartido. Este paso mide si lo fortalecen o lo rompen.
     huber_frontera_e2e_test.go:168: E0 HALLAZGO 1 MEDIDO: el primer paquete de un agente nuevo, con solo 8 bytes de payload y sin pausa, es RECHAZO. El gateway no puede atender a un agente que habla apenas conecta.
     huber_frontera_e2e_test.go:177: CONTROL ROTO: con 8 B y 300 ms de espera (dt_min predicho 0.056 s) el gateway respondio RECHAZO. Sin un ACK en algun punto del barrido, este archivo no distingue 'el filtro bloquea' de 'el codificador esta mal'
 FAIL
-FAIL	github.com/gatehot59-star/kampe-ir/gateway	25.995s
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	26.504s
 FAIL
 EXIT_porton=1
 RACES_EN_PROCESO=0

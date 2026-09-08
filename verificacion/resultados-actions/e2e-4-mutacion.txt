@@ -22,15 +22,7 @@ EXIT_mutado=1
 === RUN   TestE2E_09_DosConexionesDelMismoCertificado
 ==================
 WARNING: DATA RACE
-Read at 0x00c0001a8998 by goroutine 15:
-  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
-      /tmp/mut-e2e/repo/gateway/filters.go:96 +0x139
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
-      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
-
-Previous write at 0x00c0001a8998 by goroutine 16:
+Write at 0x00c0002b0fd8 by goroutine 16:
   github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
       /tmp/mut-e2e/repo/gateway/filters.go:96 +0x173
   github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
@@ -38,6 +30,44 @@ Previous write at 0x00c0001a8998 by goroutine 16:
   github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
       /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
 
+Previous read at 0x00c0002b0fd8 by goroutine 15:
+  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+      /tmp/mut-e2e/repo/gateway/filters.go:96 +0x139
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
+      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
+
+Goroutine 16 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
+  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
+      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:528 +0x2e
+
+Goroutine 15 (running) created at:
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
+  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
+      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:528 +0x2e
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c0002b0fd8 by goroutine 15:
+  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+      /tmp/mut-e2e/repo/gateway/filters.go:96 +0x173
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
+      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
+
+Previous read at 0x00c0002b0fd8 by goroutine 16:
+  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
+      /tmp/mut-e2e/repo/gateway/filters.go:118 +0x3b0
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
+      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
+  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
+      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
+
 Goroutine 15 (running) created at:
   github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
       /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
@@ -52,42 +82,12 @@ Goroutine 16 (running) created at:
 ==================
 ==================
 WARNING: DATA RACE
-Read at 0x00c0001a89a0 by goroutine 15:
+Read at 0x00c0002b0fe0 by goroutine 15:
   github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
       /tmp/mut-e2e/repo/gateway/filters.go:99 +0x1ab
   github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
       /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
   github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
       /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
-
-Previous write at 0x00c0001a89a0 by goroutine 16:
-  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
-      /tmp/mut-e2e/repo/gateway/filters.go:106 +0x252
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
-      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
-
-Goroutine 15 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
-  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
-      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:528 +0x2e
-
-Goroutine 16 (running) created at:
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x358
-  github.com/gatehot59-star/kampe-ir/gateway.arrancarGateway.func1()
-      /tmp/mut-e2e/repo/gateway/cliente_mtls_test.go:528 +0x2e
-==================
-==================
-WARNING: DATA RACE
-Read at 0x00c0001a89a8 by goroutine 15:
-  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update()
-      /tmp/mut-e2e/repo/gateway/filters.go:110 +0x2ad
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).handleConn()
-      /tmp/mut-e2e/repo/gateway/gateway.go:328 +0xd89
-  github.com/gatehot59-star/kampe-ir/gateway.(*Gateway).Run.gowrap2()
-      /tmp/mut-e2e/repo/gateway/gateway.go:198 +0x4f
 MUTACION_REPORTO=1
-MUTACION_CITA_FILTERS=8
+MUTACION_CITA_FILTERS=10

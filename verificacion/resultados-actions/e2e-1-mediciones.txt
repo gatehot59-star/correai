@@ -1,7 +1,8 @@
 === go test -race -v -count=1 -run '^TestE2E_' ./gateway/... ===
 
-E1 es el control del arnes. Si E1 no pasa, los rechazos de E2 a E8
-son rechazos por paquete mal formado y no miden lo que dicen.
+E0 mide la frontera del HuberFilter y ademas contiene el control del
+codificador: si en ningun punto del barrido hay un ACK, todos los
+rechazos son ambiguos.
 
 === RUN   TestE2E_01_ElArnesFunciona
     handleconn_e2e_test.go:76: paquete VALIDO rechazado: RECHAZO (0xFF). El codificador no coincide con decodePerimeterPacket, asi que ningun otro test de este archivo mide lo que dice medir
@@ -24,7 +25,7 @@ son rechazos por paquete mal formado y no miden lo que dicen.
 --- FAIL: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (1.29s)
 === RUN   TestE2E_07_D47_ContextYCiphertextNoEstanFirmados
     handleconn_e2e_test.go:370: D-47 parece cerrado: el paquete con Context y Ciphertext alterados fue rechazado (RECHAZO (0xFF)). Si el HMAC se extendio, actualizar el contexto vivo y borrar este test
---- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.31s)
+--- FAIL: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.33s)
 === RUN   TestE2E_08_TodosLosRechazosSonElMismoByte
     handleconn_e2e_test.go:473: E8 CINCO CAUSAS DE RECHAZO DISTINTAS:
           HMAC invalido                  RECHAZO (0xFF)
@@ -57,15 +58,20 @@ son rechazos por paquete mal formado y no miden lo que dicen.
           desacuerdos entre medicion y prediccion: 4
     huber_frontera_e2e_test.go:168: E0 HALLAZGO 1 MEDIDO: el primer paquete de un agente nuevo, con solo 8 bytes de payload y sin pausa, es RECHAZO. El gateway no puede atender a un agente que habla apenas conecta.
     huber_frontera_e2e_test.go:177: CONTROL ROTO: con 8 B y 300 ms de espera (dt_min predicho 0.056 s) el gateway respondio RECHAZO. Sin un ACK en algun punto del barrido, este archivo no distingue 'el filtro bloquea' de 'el codificador esta mal'
---- FAIL: TestE2E_00_LaFronteraDelHuberFilter (6.20s)
+--- FAIL: TestE2E_00_LaFronteraDelHuberFilter (6.21s)
 FAIL
-FAIL	github.com/gatehot59-star/kampe-ir/gateway	11.684s
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	11.709s
 FAIL
 EXIT_e2e=1
 TESTS_PASS=4
 TESTS_FAIL=6
 RACES_EN_PROCESO=0
 REPORTES_DETECTOR=0
+HUBER_BLOQUEA_PRIMERO=1
+HUBER_CONTROL_OK=0
+HUBER_FRONTERA=0
+HUBER_FRONTERA_PREDICHA=0
+HUBER_DESACUERDOS=4
 E1_ARNES_OK=0
 D46_MEDIDO=0
 D46_MECANISMO=0
