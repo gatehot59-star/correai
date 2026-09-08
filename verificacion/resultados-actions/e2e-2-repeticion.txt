@@ -1,0 +1,8 @@
+=== go test -race -count=3 -run '^TestE2E_' ===
+E9 depende del interleaving de dos conexiones concurrentes, asi que
+una sola corrida es una muestra. Tres dan una idea de estabilidad.
+
+ok  	github.com/gatehot59-star/kampe-ir/gateway	32.063s
+EXIT_repeticion=0
+RACES_EN_PROCESO=0
+FAILS=0

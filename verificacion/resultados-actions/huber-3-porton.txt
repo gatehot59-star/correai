@@ -1,0 +1,11 @@
+=== go test -race ./...   (el comando LITERAL del ci.yml de main) ===
+El fix toca codigo de produccion, asi que toda la suite tiene que
+seguir verde: los tests de D-26, del candado y de latencia incluidos.
+
+# github.com/gatehot59-star/kampe-ir/gateway [github.com/gatehot59-star/kampe-ir/gateway.test]
+gateway/gateway.go:278:11: no new variables on left side of :=
+FAIL	github.com/gatehot59-star/kampe-ir/gateway [build failed]
+FAIL
+EXIT_porton=1
+RACES=0
+FAILS=0

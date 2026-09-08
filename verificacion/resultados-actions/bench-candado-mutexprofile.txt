@@ -1,0 +1,66 @@
+=== perfil de mutex del runtime ===
+Contabiliza nanosegundos de BLOQUEO reales, no tiempo de pared.
+
+--- brazo A (1 agente compartido, 8 goroutines: el caso patologico) ---
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	  500000	       132.1 ns/op	         7.568 Mop/s	         8.000 goroutines	       132.1 ns/op-real
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.072s
+EXIT_A=0
+
+--- top del perfil A ---
+File: gateway.test
+Type: delay
+Time: Sep 7, 2026 at 8:25pm (UTC)
+Showing nodes accounting for 96.97ms, 100% of 96.97ms total
+      flat  flat%   sum%        cum   cum%
+   93.89ms 96.82% 96.82%    93.89ms 96.82%  sync.(*Mutex).Unlock
+    3.08ms  3.18%   100%     3.08ms  3.18%  runtime._LostContendedRuntimeLock
+         0     0%   100%    74.90ms 77.24%  github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update
+         0     0%   100%    18.99ms 19.58%  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update
+         0     0%   100%    93.89ms 96.82%  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func1.1
+         0     0%   100%    93.89ms 96.82%  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1
+
+--- brazo C (N agentes aislados, 8 goroutines: el caso real) ---
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=8-4         	  500000	        38.65 ns/op	        25.87 Mop/s	         8.000 goroutines	        38.65 ns/op-real
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.026s
+EXIT_C=0
+
+--- top del perfil C ---
+File: gateway.test
+Type: delay
+Time: Sep 7, 2026 at 8:25pm (UTC)
+Showing nodes accounting for 253.75us, 100% of 253.75us total
+      flat  flat%   sum%        cum   cum%
+  253.75us   100%   100%   253.75us   100%  runtime._LostContendedRuntimeLock
+
+--- brazo D (N agentes, candado GLOBAL: control positivo) ---
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=8-4         	  500000	       130.1 ns/op	         7.686 Mop/s	         8.000 goroutines	       130.1 ns/op-real
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.071s
+EXIT_D=0
+
+--- top del perfil D ---
+File: gateway.test
+Type: delay
+Time: Sep 7, 2026 at 8:25pm (UTC)
+Showing nodes accounting for 120.69ms, 100% of 120.69ms total
+      flat  flat%   sum%        cum   cum%
+  117.97ms 97.75% 97.75%   117.97ms 97.75%  sync.(*Mutex).Unlock
+    2.72ms  2.25%   100%     2.72ms  2.25%  runtime._LostContendedRuntimeLock
+         0     0%   100%    64.65ms 53.57%  github.com/gatehot59-star/kampe-ir/gateway.(*coherenciaCandadoGlobal).Update
+         0     0%   100%    53.32ms 44.18%  github.com/gatehot59-star/kampe-ir/gateway.(*huberCandadoGlobal).Update
+         0     0%   100%   117.97ms 97.75%  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func4.1
+         0     0%   100%   117.97ms 97.75%  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1

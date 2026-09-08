@@ -1,0 +1,15 @@
+=== go test -run TestControlPositivoDeCola_CandadoGlobal -v -cpu=4 ===
+FALLA si el p99 de un candado global no es peor que el del candado
+por agente: sin eso, este arnes mide promedios disfrazados de
+cuantiles y ningun p99 del archivo vale.
+
+=== RUN   TestControlPositivoDeCola_CandadoGlobal
+    latencia_test.go:446: 
+        === CONTROL POSITIVO DE COLA (ns) ===
+        candado por agente (N agentes aislados)        n=800000    media=    152.1  p50=    97  p90=    234  p99=     456  p99.9=      563  max=  10060507
+        candado GLOBAL (N agentes aislados)            n=800000    media=   1921.1  p50=   230  p90=   1626  p99=   42939  p99.9=   116205  max=   1396703
+    latencia_test.go:454: factor p99 global/porAgente = 94.2x   |   factor p99.9 = 206.4x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (0.33s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.332s
+EXIT_control=0

@@ -1,0 +1,25 @@
+=== POR QUE ESTE PASO EXISTE ===
+La version anterior de este mismo archivo NO PARSEABA: un string
+multilinea con menos indentacion que su bloque 'run: |'. GitHub
+creo CERO jobs, nada fallo, y el resultado commiteado siguio siendo
+el de la corrida anterior. Un workflow roto es INVISIBLE.
+
+=== los workflows del repo ===
+benchmarks-bajo-race.yml
+carreras-que-short-tapa.yml
+ci.yml
+go-bench-candado.yml
+go-latencia-p99.yml
+go-test-race.yml
+porton-rojo-quien-cae.yml
+WORKFLOWS_ENCONTRADOS=7
+
+=== parseo, uno por uno ===
+OK    .github/workflows/benchmarks-bajo-race.yml
+OK    .github/workflows/carreras-que-short-tapa.yml
+OK    .github/workflows/ci.yml
+OK    .github/workflows/go-bench-candado.yml
+OK    .github/workflows/go-latencia-p99.yml
+OK    .github/workflows/go-test-race.yml
+OK    .github/workflows/porton-rojo-quien-cae.yml
+WORKFLOWS_ROTOS=0

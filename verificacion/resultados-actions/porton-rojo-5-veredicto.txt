@@ -1,0 +1,18 @@
+=== QUIEN CAE ===
+TestLatenciaP99DeLaEspera                            con -race: pasa
+TestControlPositivoDeCola_CandadoGlobal              con -race: pasa
+TestControlDeContencion_ElArnesVeLaDiferencia        con -race: pasa
+TestCostoDelCandado_ContraElHMAC                     con -race: pasa
+
+=== y sin -race, para contraste ===
+--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (0.09s)
+--- PASS: TestCostoDelCandado_ContraElHMAC (0.02s)
+--- PASS: TestLatenciaP99DeLaEspera (0.65s)
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (0.35s)
+
+=== el paso 1 reprodujo el rojo de main? ===
+EXIT_igual_que_main=0
+
+=== conteos ===
+tests que CAEN con -race: 0
+tests que caen SIN -race: 0

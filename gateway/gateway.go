@@ -87,11 +87,11 @@ func (p *PerimeterPacket) Reset() {
 // AgentState contiene todos los filtros y el estado de un agente.
 // FIX anti-replay: se agrega lastTimestampNs para detectar replays.
 type AgentState struct {
-	FSM              *AgentFSM
-	Huber            *HuberFilter
-	Coherence        *CoherenceFilter
-	mu               sync.Mutex
-	lastTimestampNs  uint64 // FIX: para anti-replay monotónico
+	FSM             *AgentFSM
+	Huber           *HuberFilter
+	Coherence       *CoherenceFilter
+	mu              sync.Mutex
+	lastTimestampNs uint64 // FIX: para anti-replay monotónico
 }
 
 // Gateway es el punto de entrada TLS mTLS del sistema.
@@ -265,6 +265,12 @@ func (g *Gateway) handleConn(conn net.Conn) {
 
 		body := buf[frameHeaderSize:bodyEnd]
 
+		// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo
+		// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj
+		// del anti-replay. `now` se sigue usando para FSM.Allow y para el read
+		// deadline, que SI deben mirar el inicio de la iteracion.
+		llegada := time.Now()
+
 		pkt.Reset()
 		if !decodePerimeterPacket(body, pkt) {
 			writeReject(conn)
@@ -283,7 +289,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		// FIX 2: Anti-replay — verificar ventana de timestamp.
 		// El timestamp del paquete no debe diferir más de ±30s del reloj
 		// del servidor, y debe ser mayor al último timestamp aceptado.
-		nowNs := uint64(now.UnixNano())
+		nowNs := uint64(llegada.UnixNano())
 		if !validateTimestamp(nowNs, pkt.Timestamp, maxTimestampDriftNs) {
 			writeReject(conn)
 			agent.FSM.TriggerBlock(now)
@@ -313,11 +319,11 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		// FIX 4: Pasar bytes reales al HuberFilter en lugar del
 		// valor fijo 1.0. Usamos el tamaño del ciphertext normalizado
 		// a KB como métrica de volumen real.
-		dt := now.Sub(lastSeen).Seconds()
+		dt := llegada.Sub(lastSeen).Seconds()
 		if dt <= 0 {
 			dt = 1e-9
 		}
-		lastSeen = now
+		lastSeen = llegada
 
 		// Volumen normalizado: bytes del payload en KB.
 		volumeKB := float64(len(pkt.Ciphertext)) / 1024.0

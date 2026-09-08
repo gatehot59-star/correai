@@ -1,0 +1,29 @@
+Maquina: Actions ubuntu-latest (VM limpia)
+Commit:  b16e2788abf9ceb09f062555c6db66c7c3643814
+Rama:    titan/benchmarks-bajo-race
+Fecha:   2026-09-08T04:41:45Z
+cpu:     AMD EPYC 7763 64-Core Processor
+nproc:   4
+go version go1.22.12 linux/amd64
+
+=== TODAS las funciones Benchmark del repo ===
+./gateway/candado_bench_test.go:157:func BenchmarkCandado(b *testing.B) {
+./gateway/candado_bench_test.go:220:func BenchmarkVerifyPacketHMAC(b *testing.B) {
+BENCHMARKS_DECLARADOS=2
+
+=== DERIVAR el esperado: niveles de concurrencia del fuente ===
+161:	for _, g := range []int{1, 2, 4, 8, 16} {
+NIVELES_DE_CONCURRENCIA=5
+(cada brazo corre un sub-benchmark por nivel. Este numero sale del
+ archivo porque ponerlo de memoria ya me dio 3 FAIL sobre datos
+ perfectos.)
+
+=== los sub-brazos, del fuente ===
+166:		b.Run(fmt.Sprintf("A_1agente_candadoPorAgente/g=%d", goroutines), func(b *testing.B) {
+175:		b.Run(fmt.Sprintf("B_1agente_sinCandado_RACY/g=%d", goroutines), func(b *testing.B) {
+185:		b.Run(fmt.Sprintf("C_NagentesAislados_candadoPorAgente/g=%d", goroutines), func(b *testing.B) {
+197:		b.Run(fmt.Sprintf("D_NagentesAislados_candadoGLOBAL/g=%d", goroutines), func(b *testing.B) {
+
+=== control: go test SIN -bench ejecuta los cuerpos? ===
+BENCH_EJECUTADOS_SIN_FLAG=0
+(0 = los compila y no los corre: ese era el hueco)

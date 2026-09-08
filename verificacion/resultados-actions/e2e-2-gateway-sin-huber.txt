@@ -1,0 +1,97 @@
+=== SUJETO 2: copia con el BLOQUEO del HuberFilter desactivado ===
+
+La mutacion es minima y deliberada: se le agrega '&& false' a la
+condicion, asi que la LLAMADA al filtro sigue ocurriendo (el detector
+de carreras sigue teniendo sujeto) y lo unico que se anula es el
+rechazo. No se toca ninguna otra linea del gateway.
+
+ESTE SUJETO NO ES EL PRODUCTO. Es el gateway con su defecto mas grave
+desactivado, y existe para poder medir D-46, D-47 y D-26 en el camino
+real, que sobre el gateway de verdad son inalcanzables.
+
+--- la linea ANTES ---
+328:		if agent.Huber.Update(volumeKB, dt) {
+--- la linea DESPUES ---
+328:		if agent.Huber.Update(volumeKB, dt) && false {
+MUTACION_APLICADA=1
+
+EXIT_vet_mutado=0
+
+--- los mismos tests, sobre este sujeto ---
+EXIT_sinhuber=1
+=== RUN   TestE2E_01_ElArnesYElPrimerPaquete
+    handleconn_e2e_test.go:88: E1 handshake mTLS OK, agentID derivado del cert = 2a9a616128e5c0a8
+    handleconn_e2e_test.go:108: E1 ARNES VALIDADO: dos paquetes validos en la misma conexion, los dos ACK. El codificador coincide con decodePerimeterPacket campo por campo, handleConn hace loop, y verifyPacketHMAC acepta mi firma. Todos los rechazos de este archivo son atribuibles a su causa declarada.
+--- PASS: TestE2E_01_ElArnesYElPrimerPaquete (0.37s)
+=== RUN   TestE2E_02_HMACInvalido
+    handleconn_e2e_test.go:139: E2 MEDIDO: HMAC alterado en 1 byte -> RECHAZO (0xFF)
+--- PASS: TestE2E_02_HMACInvalido (0.33s)
+=== RUN   TestE2E_04_AgentIDQueNoCoincide
+    handleconn_e2e_test.go:162: E4 MEDIDO: AgentID del paquete (6d695ffee3243fe4) != derivado del cert (b2d8d0484fe25bca) -> RECHAZO (0xFF)
+    handleconn_e2e_test.go:164: E4 CONSECUENCIA: para forjar un paquete a nombre de un agente hay que presentar SU certificado. Eso acota D-46 a auto-DoS o a credencial robada, y ahora esta medido en el camino real, no deducido de leer el codigo.
+--- PASS: TestE2E_04_AgentIDQueNoCoincide (0.33s)
+=== RUN   TestE2E_05_TimestampFueraDeVentana
+    handleconn_e2e_test.go:189: E5 MEDIDO: ts = now + 31 s (ventana = 30s) -> RECHAZO (0xFF)
+--- PASS: TestE2E_05_TimestampFueraDeVentana (0.31s)
+=== RUN   TestE2E_03_AntiReplay
+    handleconn_e2e_test.go:228: E3 MEDIDO: primer paquete ACK, mismo timestamp otra vez -> RECHAZO (0xFF)
+--- PASS: TestE2E_03_AntiReplay (0.65s)
+=== RUN   TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua
+    handleconn_e2e_test.go:313: E6 RESULTADOS
+          forjado (HMAC roto, ts=now+29s)       -> RECHAZO (0xFF)
+          legitimo despues (ts=now)            -> RECHAZO (0xFF)
+          agente LIMPIO (control)              -> ACK (0x00)
+          ts POSTERIOR al envenenado (control) -> ACK (0x00)
+    handleconn_e2e_test.go:330: E6 D-46 MEDIDO EN EL CAMINO REAL: un paquete con FIRMA INVALIDA movio lastTimestampNs 29s al futuro, y el agente quedo rechazando sus propios paquetes legitimos hasta que el reloj alcance esa marca.
+    handleconn_e2e_test.go:335: E6 MECANISMO CONFIRMADO: el agente NO esta muerto. Un ts posterior a la marca envenenada se acepta, asi que el defecto es exactamente un salto de la marca de agua, ni mas ni menos. La ventana de dano es 29s.
+--- PASS: TestE2E_06_D46_EnvenenamientoDeLaMarcaDeAgua (2.58s)
+=== RUN   TestE2E_07_D47_ContextYCiphertextNoEstanFirmados
+    handleconn_e2e_test.go:396: E7 D-47 MEDIDO EN EL CAMINO REAL: Context[0] paso de 0.1 a 999999, el ciphertext paso de "abcdefgh" a "CARGA-REEMPLAZADA-POR-UN-ATACANTE", flags a 0xDEAD, y el gateway respondio ACK (0x00). El HMAC cubre 48 bytes de cabecera; el contexto que alimenta al CoherenceFilter y el payload entero viajan SIN FIRMAR.
+--- PASS: TestE2E_07_D47_ContextYCiphertextNoEstanFirmados (0.63s)
+=== RUN   TestE2E_08_TodosLosRechazosSonElMismoByte
+    handleconn_e2e_test.go:494: E8 CINCO CAUSAS DE RECHAZO DISTINTAS:
+          HMAC invalido                  RECHAZO (0xFF)
+          timestamp fuera de ventana     RECHAZO (0xFF)
+          AgentID de otro                RECHAZO (0xFF)
+          contexto de largo equivocado   RECHAZO (0xFF)
+          frame de tamano cero           RECHAZO (0xFF)
+    handleconn_e2e_test.go:507: E8 MEDIDO: 5 causas distintas, UNA sola respuesta: RECHAZO (0xFF). Desde el cliente es imposible saber POR QUE lo rechazaron, y el gateway no escribe un solo log. Ese es el agujero que Testis existe para llenar, y ahora esta medido desde afuera en vez de contado leyendo el codigo.
+--- PASS: TestE2E_08_TodosLosRechazosSonElMismoByte (1.52s)
+=== RUN   TestE2E_09_DosConexionesDelMismoCertificado
+    handleconn_e2e_test.go:588: E9 DOS CONEXIONES CONCURRENTES, 20 paquetes por conexion
+          MISMO cert (comparten AgentState) : ack=20   rechazo=1    conexiones cerradas=1
+          certs DISTINTOS (control)         : ack=40   rechazo=0    conexiones cerradas=0
+    handleconn_e2e_test.go:598: E9 D-26 MEDIDO EN EL CALLSITE REAL: los filtros se ejercitaron desde dos conexiones TLS concurrentes sobre el mismo *AgentState, atravesando handleConn. Bajo -race, cero reportes = el mutex de filters.go cubre el camino real, no solo el proxy.
+    handleconn_e2e_test.go:604: E9 HALLAZGO: el caso compartido perdio 2 paquetes (rechazo+cerradas) contra 0 del aislado. La marca de agua anti-replay es POR AGENTE, asi que dos conexiones del mismo certificado se pisan los timestamps: la que llega tarde cae en el chequeo `<=` y arrastra un TriggerBlock. El gateway YA castiga las conexiones concurrentes del mismo cert, pero con bloqueos en vez de un rechazo limpio.
+--- PASS: TestE2E_09_DosConexionesDelMismoCertificado (2.47s)
+=== RUN   TestE2E_00_ElGatewayRechazaTodoPrimerPaquete
+    huber_frontera_e2e_test.go:201: E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline del gateway: 2s)
+          payload=8     B  espera=0s       dt_min que yo predije=  0.056 s  ->  MEDIDO=ACK      predije=RECHAZO  << mi prediccion FALLO
+          payload=8     B  espera=20ms     dt_min que yo predije=  0.056 s  ->  MEDIDO=ACK      predije=RECHAZO  << mi prediccion FALLO
+          payload=8     B  espera=100ms    dt_min que yo predije=  0.056 s  ->  MEDIDO=ACK      predije=ACK        
+          payload=8     B  espera=300ms    dt_min que yo predije=  0.056 s  ->  MEDIDO=ACK      predije=ACK        
+          payload=64    B  espera=0s       dt_min que yo predije=  0.442 s  ->  MEDIDO=ACK      predije=RECHAZO  << mi prediccion FALLO
+          payload=64    B  espera=300ms    dt_min que yo predije=  0.442 s  ->  MEDIDO=ACK      predije=RECHAZO  << mi prediccion FALLO
+          payload=64    B  espera=600ms    dt_min que yo predije=  0.442 s  ->  MEDIDO=ACK      predije=ACK        
+          payload=256   B  espera=0s       dt_min que yo predije=  1.706 s  ->  MEDIDO=ACK      predije=RECHAZO  << mi prediccion FALLO
+          payload=256   B  espera=1s       dt_min que yo predije=  1.706 s  ->  MEDIDO=ACK      predije=RECHAZO  << mi prediccion FALLO
+          payload=256   B  espera=1.9s     dt_min que yo predije=  1.706 s  ->  MEDIDO=ACK      predije=ACK        
+          payload=512   B  espera=1.9s     dt_min que yo predije=  3.266 s  ->  MEDIDO=ACK      predije=RECHAZO  << mi prediccion FALLO
+          ACK=11  RECHAZO=0  CERRADA=0  de 11 casos
+          casos en los que mi prediccion aritmetica FALLO: 7
+    huber_frontera_e2e_test.go:209: HALLAZGO CERRADO: el gateway acepto 11 de 11 primeros paquetes. Si el HuberFilter se arreglo, actualizar el contexto vivo, cerrar el hallazgo y borrar este test de caracterizacion
+--- FAIL: TestE2E_00_ElGatewayRechazaTodoPrimerPaquete (6.17s)
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	15.371s
+FAIL
+MUT_TESTS_PASS=9
+MUT_TESTS_FAIL=1
+MUT_TESTS_SKIP=0
+MUT_RACES=0
+MUT_ARNES_VALIDADO=1
+MUT_D46=1
+MUT_D46_MECANISMO=1
+MUT_D47=1
+MUT_D26=1
+MUT_E3_REPLAY=1
+MUT_E9_HALLAZGO=1

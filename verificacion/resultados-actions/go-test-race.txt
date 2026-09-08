@@ -1,0 +1,59 @@
+Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)
+Commit:  c487796d54d95c5cfbf52c9d758ea2b8157ad35a
+Rama:    titan/fix-d26-race
+Fecha:   2026-09-07T20:12:59Z
+runner:  Linux 6.17.0-1022-azure x86_64
+go version go1.22.12 linux/amd64
+module github.com/gatehot59-star/kampe-ir
+
+=== PASO 0: gofmt ===
+--- sin formatear ANTES ---
+gateway/fsm.go
+gateway/gateway.go
+--- diff de los dos archivos que este PR posee ---
+--- sin formatear DESPUES (deben quedar solo fsm.go y gateway.go) ---
+gateway/fsm.go
+gateway/gateway.go
+sha256 filters.go:   2f277d71f51a0ab2ddb509f03521a4dca49e59282992fdea8e954a0afa94a335
+sha256 race_test.go: 623ee64414165aa5cf17bf02854cd592176e4d8f354d77df63d2f626b16085a1
+
+=== PASO 1: go build ./... ===
+EXIT_build=0
+
+=== PASO 2: go vet ./... ===
+vet incluye copylocks: si alguien copia un filtro por valor,
+ahora que tienen sync.Mutex, esto lo caza.
+EXIT_vet=0
+
+=== VEREDICTO ===
+PASS  compila                                                      [go-test-race.txt] aparece=SI esperado=SI
+PASS  go vet limpio (incluye copylocks)                            [go-test-race.txt] aparece=SI esperado=SI
+PASS  el detector estaba armado                                    [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  el patron detecta filtros SIN mutex                          [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  D-26 CERRADO en proceso                                      [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  D-26 CERRADO con el instrumento anterior                     [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  el FSM sincronizado no reporta carrera                       [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  D-47 medido sobre la funcion real                            [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  validateTimestamp pasa                                       [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  los filtros se usan por puntero                              [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  el detector emitio su marca completa                         [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  NINGUN reporte cita filters.go (D-26)                        [go-test-conrace.txt] aparece=NO esperado=NO
+PASS  la suite con -race termino en 0                              [go-test-conrace.txt] aparece=SI esperado=SI
+PASS  ningun test en FAIL en la corrida -race                      [go-test-conrace.txt] aparece=NO esperado=NO
+PASS  SIN -race el control positivo cae                            [go-test-sinrace.txt] aparece=SI esperado=SI
+PASS  SIN -race el FAIL es el del detector                         [go-test-sinrace.txt] aparece=SI esperado=SI
+
+FALLAS_DE_VEREDICTO=0
+RESULTADO=VERDE
+
+reportes_del_detector_conrace=25
+reportes_del_detector_sinrace=0
+citas_de_filters_go=0
+citas_de_race_test_go=196
+tests_PASS_conrace=10
+tests_FAIL_conrace=0
+
+Los tres archivos de esta medicion:
+  go-test-race.txt     formato, build, vet y este veredicto
+  go-test-conrace.txt  la suite con -race, con los reportes crudos
+  go-test-sinrace.txt  el control por mutacion del flag

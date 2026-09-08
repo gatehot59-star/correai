@@ -1,0 +1,14 @@
+=== go test -v -count=1 -run TestControlPositivo_DetectorArmado ./gateway/... ===
+SIN -race. Tiene que dar ROJO: si pasara, el detector no seria
+lo que produce el verde de la corrida anterior.
+
+=== RUN   TestControlPositivo_DetectorArmado
+    race_test.go:307: EVIDENCIA CRUDA modo="armado" exit_err=<nil> bytes=0 reportes=0
+        --- inicio salida del subproceso ---
+        --- fin salida del subproceso ---
+    race_test.go:310: el detector de carreras NO esta activo: la carrera sembrada no fue reportada. Este archivo solo mide algo con `go test -race`.
+--- FAIL: TestControlPositivo_DetectorArmado (0.00s)
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	0.005s
+FAIL
+EXIT_test_sin_race=1

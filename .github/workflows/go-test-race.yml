@@ -1,0 +1,197 @@
+# Corre la suite de concurrencia del gateway con el detector de carreras.
+#
+# TRES CONTROLES QUE HACEN QUE EL VERDE VALGA:
+#  1. la MISMA suite corrida SIN -race tiene que dar ROJO (mutacion del flag);
+#  2. los gemelos sin mutex, con el mismo patron, tienen que reportar carrera
+#     (mutacion del codigo, dentro del test);
+#  3. filters.go NO debe aparecer en ningun reporte del detector.
+#
+# EL GUARD 3 ESTA INVERTIDO RESPECTO DE LA VERSION ANTERIOR, a proposito.
+# Cuando el objetivo era MEDIR D-26, este workflow exigia que filters.go
+# apareciera en un reporte. Ahora que D-26 esta arreglado exige lo contrario:
+# si vuelve a aparecer, la carrera reaparecio. Los gemelos sin mutex viven en
+# race_test.go, asi que los reportes que si se esperan no citan filters.go.
+#
+# Cada seccion escribe SU PROPIO archivo, y cada guard mira solo el suyo. En la
+# primera version un unico archivo mezclaba la corrida con -race y la corrida
+# sin -race, asi que el chequeo "ningun test en FAIL" leia el FAIL deliberado
+# del control y daba rojo falso.
+#
+# Commitea su propio resultado: ningun agente puede leer el texto de un log de
+# Actions, asi que un resultado no commiteado es invisible.
+name: go-test-race
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/test-go-race
+      - titan/fix-d26-race
+    paths:
+      - 'gateway/**'
+      - 'go.mod'
+      - '.github/workflows/go-test-race.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Formato, build y vet
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          BASE=verificacion/resultados-actions/go-test-race.txt
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Rama:    ${GITHUB_REF_NAME}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "runner:  $(uname -srm)"
+            go version
+            grep '^module' go.mod
+            echo
+            echo "=== PASO 0: gofmt ==="
+            echo "--- sin formatear ANTES ---"
+            gofmt -l gateway/
+            echo "--- diff de los dos archivos que este PR posee ---"
+            gofmt -d gateway/filters.go gateway/race_test.go
+            gofmt -w gateway/filters.go gateway/race_test.go
+            echo "--- sin formatear DESPUES (deben quedar solo fsm.go y gateway.go) ---"
+            gofmt -l gateway/
+            echo "sha256 filters.go:   $(sha256sum gateway/filters.go | cut -d' ' -f1)"
+            echo "sha256 race_test.go: $(sha256sum gateway/race_test.go | cut -d' ' -f1)"
+            echo
+            echo "=== PASO 1: go build ./... ==="
+            go build ./... 2>&1
+            echo "EXIT_build=$?"
+            echo
+            echo "=== PASO 2: go vet ./... ==="
+            echo "vet incluye copylocks: si alguien copia un filtro por valor,"
+            echo "ahora que tienen sync.Mutex, esto lo caza."
+            go vet ./... 2>&1
+            echo "EXIT_vet=$?"
+          } > "$BASE" 2>&1
+          cat "$BASE"
+
+      - name: Correr la suite CON el detector
+        if: always()
+        run: |
+          set +e
+          CONRACE=verificacion/resultados-actions/go-test-conrace.txt
+          {
+            echo "=== go test -race -v -count=1 ./gateway/... ==="
+            echo "Los bloques del detector aparecen dentro del log de cada test,"
+            echo "porque el test loguea SIEMPRE la salida cruda del subproceso."
+            echo "Los reportes que se ESPERAN vienen de la carrera sembrada y de"
+            echo "los gemelos sin mutex, los dos definidos en race_test.go."
+            echo
+            go test -race -v -count=1 ./gateway/... 2>&1
+            echo "EXIT_test_race=$?"
+          } > "$CONRACE" 2>&1
+          tail -40 "$CONRACE"
+
+      - name: Control por mutacion del FLAG, la misma suite SIN detector
+        if: always()
+        run: |
+          set +e
+          SINRACE=verificacion/resultados-actions/go-test-sinrace.txt
+          {
+            echo "=== go test -v -count=1 -run TestControlPositivo_DetectorArmado ./gateway/... ==="
+            echo "SIN -race. Tiene que dar ROJO: si pasara, el detector no seria"
+            echo "lo que produce el verde de la corrida anterior."
+            echo
+            go test -v -count=1 -run 'TestControlPositivo_DetectorArmado' ./gateway/... 2>&1
+            echo "EXIT_test_sin_race=$?"
+          } > "$SINRACE" 2>&1
+          cat "$SINRACE"
+
+      - name: Veredicto
+        if: always()
+        run: |
+          set +e
+          BASE=verificacion/resultados-actions/go-test-race.txt
+          CONRACE=verificacion/resultados-actions/go-test-conrace.txt
+          SINRACE=verificacion/resultados-actions/go-test-sinrace.txt
+          FALLAS=0
+
+          esperar() {
+            # $1 descripcion, $2 archivo, $3 patron, $4 SI|NO
+            if grep -q -- "$3" "$2"; then HAY=SI; else HAY=NO; fi
+            if [ "$HAY" = "$4" ]; then
+              printf 'PASS  %-60s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
+            else
+              printf 'FAIL  %-60s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          {
+            echo
+            echo "=== VEREDICTO ==="
+            esperar 'compila'                                    "$BASE"    'EXIT_build=0'                                                SI
+            esperar 'go vet limpio (incluye copylocks)'          "$BASE"    'EXIT_vet=0'                                                  SI
+            esperar 'el detector estaba armado'                  "$CONRACE" '--- PASS: TestControlPositivo_DetectorArmado'                  SI
+            esperar 'el patron detecta filtros SIN mutex'        "$CONRACE" '--- PASS: TestControlMutacion_ElPatronDetectaFaltaDeMutex'     SI
+            esperar 'D-26 CERRADO en proceso'                    "$CONRACE" '--- PASS: TestD26_LosFiltrosSonSegurosEnConcurrencia'          SI
+            esperar 'D-26 CERRADO con el instrumento anterior'   "$CONRACE" '--- PASS: TestD26_ElSubprocesoTampocoReporta'                  SI
+            esperar 'el FSM sincronizado no reporta carrera'     "$CONRACE" '--- PASS: TestControlNegativo_ElFSMNoReportaCarrera'           SI
+            esperar 'D-47 medido sobre la funcion real'          "$CONRACE" '--- PASS: TestD47_ElHMACNoCubreContextNiCiphertext'            SI
+            esperar 'validateTimestamp pasa'                     "$CONRACE" '--- PASS: TestValidateTimestamp'                              SI
+            esperar 'los filtros se usan por puntero'            "$CONRACE" '--- PASS: TestFiltrosNoSeCopianPorValor'                       SI
+            esperar 'el detector emitio su marca completa'        "$CONRACE" 'WARNING: DATA RACE'                                           SI
+            esperar 'NINGUN reporte cita filters.go (D-26)'      "$CONRACE" 'gateway/filters.go'                                           NO
+            esperar 'la suite con -race termino en 0'             "$CONRACE" 'EXIT_test_race=0'                                             SI
+            esperar 'ningun test en FAIL en la corrida -race'     "$CONRACE" '^--- FAIL'                                                    NO
+            esperar 'SIN -race el control positivo cae'           "$SINRACE" 'EXIT_test_sin_race=1'                                         SI
+            esperar 'SIN -race el FAIL es el del detector'        "$SINRACE" '^--- FAIL: TestControlPositivo_DetectorArmado'                 SI
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+            echo
+            echo "reportes_del_detector_conrace=$(grep -c 'WARNING: DATA RACE' "$CONRACE")"
+            echo "reportes_del_detector_sinrace=$(grep -c 'WARNING: DATA RACE' "$SINRACE")"
+            echo "citas_de_filters_go=$(grep -c 'gateway/filters.go' "$CONRACE")"
+            echo "citas_de_race_test_go=$(grep -c 'gateway/race_test.go' "$CONRACE")"
+            echo "tests_PASS_conrace=$(grep -c '^--- PASS' "$CONRACE")"
+            echo "tests_FAIL_conrace=$(grep -c '^--- FAIL' "$CONRACE")"
+            echo
+            echo "Los tres archivos de esta medicion:"
+            echo "  go-test-race.txt     formato, build, vet y este veredicto"
+            echo "  go-test-conrace.txt  la suite con -race, con los reportes crudos"
+            echo "  go-test-sinrace.txt  el control por mutacion del flag"
+          } >> "$BASE"
+          tail -34 "$BASE"
+
+      - name: Commitear los resultados y los archivos formateados
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/go-test-race.txt \
+                  verificacion/resultados-actions/go-test-conrace.txt \
+                  verificacion/resultados-actions/go-test-sinrace.txt \
+                  gateway/filters.go \
+                  gateway/race_test.go
+          git commit -m 'evidencia: go test -race post-fix de D-26, con sus dos mutaciones [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          grep -q 'RESULTADO=VERDE' verificacion/resultados-actions/go-test-race.txt || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' verificacion/resultados-actions/go-test-race.txt
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=|reportes_del_detector|citas_de_|tests_' verificacion/resultados-actions/go-test-race.txt

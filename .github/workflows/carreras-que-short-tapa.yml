@@ -1,0 +1,336 @@
+# Barre carreras de datos en TODO lo que `-short` saltea.
+#
+# EL PUNTO DE METODO, y decide como se lee cada verde de abajo: UN VERDE DEL
+# DETECTOR NO ES AUSENCIA DE CARRERAS. El detector de Go reporta lo que OBSERVA
+# en la corrida; no prueba un teorema. Por eso este job hace tres cosas que una
+# sola corrida no hace:
+#
+#   1. ENUMERA el sujeto mecanicamente en vez de confiar en que son 4 tests.
+#   2. REPITE con -count=5 y -cpu=4, para darle mas oportunidades de observar.
+#   3. MUTA EL PROPIO FIX: revierte `sumideros[ranura&63]` a `sumideros[0]` sobre
+#      una COPIA del paquete, que es el bug exacto de hace dos horas, y exige que
+#      la suite de ROJO. Si no lo agarra, este arnes no puede ver carreras en
+#      proceso y ninguno de los verdes de arriba significa nada.
+#
+# Y la distincion que evita el conteo ingenuo: hay reportes ESPERADOS, de las
+# carreras sembradas a proposito (el control del detector y los gemelos sin
+# mutex), y esos corren en SUBPROCESO para no marcar el test padre. Asi que no se
+# cuenta 'WARNING: DATA RACE': se cuenta `race detected during execution of
+# test`, que es lo que produce una carrera EN PROCESO.
+#
+# ============================================================================
+# LAS TRES REGLAS DE ESCRITURA DE EVIDENCIA, cada una aprendida a los golpes:
+#
+#   R1. UN GUARD NO PUEDE BUSCAR UNA PALABRA. TIENE QUE LEER UN NUMERO
+#       CALCULADO. Tres veces me mordio: un grep de 'DATA RACE' conto MI PROPIO
+#       echo (verde falso), un grep de 'Total:' busco una cadena que pprof no
+#       emite (rojo falso), y un grep de 't.Parallel()' conto MI PROPIO
+#       encabezado (rojo falso sobre un barrido limpio). Un grep de presencia no
+#       distingue el instrumento de la prosa que lo describe.
+#
+#   R2. RUTAS ABSOLUTAS PARA LA EVIDENCIA. El paso de la mutacion hace `cd` a la
+#       copia, y un $OUT relativo despues de ese cd escribe los contadores DENTRO
+#       DE LA COPIA MUTADA. El veredicto los leyo como NA y dio rojo falso sobre
+#       una mutacion que si habia funcionado.
+#
+#   R3. EL VEREDICTO SE TRUNCA, NO SE ACUMULA. Con >> el archivo termino con dos
+#       veredictos contradictorios de dos corridas distintas, y quien lo lea no
+#       sabe cual rige. Peor que no tener veredicto.
+# ============================================================================
+#
+# Cada paso a su archivo. Sexta vez que lo hago asi: un archivo compartido ya me
+# produjo cuatro guards que median otra cosa.
+name: carreras-que-short-tapa
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/carreras-que-short-tapa
+
+permissions:
+  contents: write
+
+jobs:
+  barrer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 1 - enumerar el sujeto, mecanicamente
+        if: always()
+        run: |
+          set +e
+          mkdir -p "$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/carreras-1-sujeto.txt"
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Rama:    ${GITHUB_REF_NAME}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            echo "nproc:   $(nproc)"
+            go version
+            echo
+            echo "=== TODOS los archivos de test del repo ==="
+            find . -name '*_test.go' -not -path './.git/*' | sort
+            echo "ARCHIVOS_DE_TEST=$(find . -name '*_test.go' -not -path './.git/*' | wc -l)"
+            echo
+            echo "=== toda aparicion del skip por -short, con su linea ==="
+            grep -rn 'testing\.Short()' --include='*_test.go' . | sort
+            echo
+            echo "=== el TEST que envuelve cada skip ==="
+            for f in $(grep -rl 'testing\.Short()' --include='*_test.go' .); do
+              awk -v F="$f" '
+                /^func (Test|Benchmark)[A-Za-z0-9_]*\(/ { split($2, a, "("); ultimo=a[1]; lineafunc=NR }
+                /testing\.Short\(\)/ { printf "%-30s linea %-5d  -> %s (declarado en %d)\n", F, NR, ultimo, lineafunc }
+              ' "$f"
+            done
+            echo
+            echo "=== los tests que -short SALTEA ==="
+            for f in $(grep -rl 'testing\.Short()' --include='*_test.go' .); do
+              awk '/^func (Test|Benchmark)[A-Za-z0-9_]*\(/ { split($2, a, "("); ultimo=a[1] }
+                   /testing\.Short\(\)/ { print ultimo }' "$f"
+            done | sort -u > /tmp/salteados.txt
+            cat /tmp/salteados.txt
+            echo "CANTIDAD_SALTEADOS=$(wc -l < /tmp/salteados.txt)"
+            echo
+            echo "=== control del sujeto: los saltea DE VERDAD? ==="
+            go test -short -race -v -count=1 -timeout 15m ./... 2>&1 | grep -E '^ *--- SKIP' | sort > /tmp/skips.txt
+            cat /tmp/skips.txt
+            echo "SKIPS_OBSERVADOS=$(wc -l < /tmp/skips.txt)"
+            echo "(SKIPS_OBSERVADOS tiene que igualar CANTIDAD_SALTEADOS)"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 2 - enumerar la superficie de estado compartido
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/carreras-2-vars-de-paquete.txt"
+          # R1: el contador se calcula SOBRE EL FUENTE y se emite como numero.
+          HITS_PAR=$(grep -rn 'Parallel()' --include='*_test.go' . | wc -l)
+          {
+            echo "=== POR QUE ESTE PASO ==="
+            echo "El bug de hace dos horas era exactamente esto: un var de paquete"
+            echo "escrito por 8 goroutines. Asi que la lente no es solo correr el"
+            echo "detector: es enumerar la SUPERFICIE de estado compartido y"
+            echo "clasificar cada pieza a mano."
+            echo
+            echo "=== vars de paquete en los TESTS ==="
+            grep -rn '^var ' --include='*_test.go' . | sort
+            echo
+            echo "=== vars de paquete en PRODUCCION ==="
+            grep -rn '^var ' --include='*.go' . | grep -v '_test.go' | sort
+            echo
+            echo "=== contenido del bloque var() de produccion ==="
+            sed -n '/^var (/,/^)/p' gateway/gateway.go
+            echo
+            echo "=== quien toca cada identificador compartido ==="
+            for ident in sumideros contadorSinProteccion candadoGlobal; do
+              echo "--- $ident ---"
+              grep -rn "$ident" --include='*.go' . | sort
+            done
+            echo
+            echo "=== tests en paralelo (grep del fuente, no de esta prosa) ==="
+            grep -rn 'Parallel()' --include='*_test.go' . | sort
+            echo "T_PARALLEL_HITS=$HITS_PAR"
+            echo "(0 = los tests corren secuenciales, asi que un var de paquete"
+            echo " compartido ENTRE tests no puede correr contra otro test)"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 3 - los salteados, SOLOS, bajo -race y repetidos 5 veces
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/carreras-3-salteados-con-race.txt"
+          PATRON=$(paste -sd'|' /tmp/salteados.txt)
+          {
+            echo "=== go test -race -count=5 -cpu=4 -run '^($PATRON)\$' ==="
+            echo "Cinco repeticiones a proposito: el detector reporta lo que OBSERVA,"
+            echo "asi que mas corridas = mas chances de ver un interleaving malo."
+            echo "Estos cuatro tests son justo los que nunca habian visto el detector."
+            echo
+            go test -race -v -count=5 -cpu=4 -timeout 30m -run "^($PATRON)\$" ./... 2>&1
+            echo "EXIT_salteados=$?"
+          } > "$OUT" 2>&1
+          {
+            echo "RACES_EN_PROCESO_SALTEADOS=$(grep -c 'race detected during execution of test' "$OUT")"
+            echo "TESTS_EN_FAIL_SALTEADOS=$(grep -cE '^ *--- FAIL' "$OUT")"
+            echo "TESTS_EN_PASS_SALTEADOS=$(grep -cE '^ *--- PASS' "$OUT")"
+          } >> "$OUT"
+          tail -6 "$OUT"
+
+      - name: 4 - la suite COMPLETA, el comando de main, repetido 3 veces
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/carreras-4-suite-completa.txt"
+          {
+            echo "=== go test -race -count=3 -cpu=4 ./...   (sin -short, como main) ==="
+            echo "Incluye TODO: los salteados, los que no, y los benchmarks compilados."
+            echo
+            go test -race -count=3 -cpu=4 -timeout 30m ./... 2>&1
+            echo "EXIT_suite=$?"
+          } > "$OUT" 2>&1
+          {
+            echo "RACES_EN_PROCESO_SUITE=$(grep -c 'race detected during execution of test' "$OUT")"
+            echo "TESTS_EN_FAIL_SUITE=$(grep -cE '^ *--- FAIL' "$OUT")"
+          } >> "$OUT"
+          cat "$OUT"
+
+      - name: 5 - MUTACION DEL PROPIO FIX (lo que hace que el verde valga)
+        if: always()
+        run: |
+          set +e
+          # R2: rutas ABSOLUTAS, porque abajo hay un cd a la copia mutada.
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/carreras-5-mutacion.txt"
+          LOG=/tmp/mutacion.log
+          COPIA=/tmp/mut/repo
+          {
+            echo "=== CONTROL POR MUTACION ==="
+            echo "Se copia el paquete a /tmp y se REVIERTE el fix de hace dos horas:"
+            echo "  sumideros[ranura&63].valor   ->   sumideros[0].valor"
+            echo "o sea las 8 goroutines escribiendo la MISMA ranura, que es el bug"
+            echo "exacto que puso rojo el porton. La suite TIENE que dar rojo."
+            echo "Si no lo agarra, este arnes no ve carreras en proceso y ningun"
+            echo "verde de los pasos 3 y 4 significa nada."
+            echo
+            rm -rf /tmp/mut && mkdir -p /tmp/mut
+            cp -r "$GITHUB_WORKSPACE" "$COPIA"
+            rm -rf "$COPIA/.git"
+            echo "--- la linea ANTES de mutar ---"
+            grep -n 'sumideros\[' "$COPIA/gateway/latencia_test.go"
+            sed -i 's/sumideros\[ranura&63\]/sumideros[0]/' "$COPIA/gateway/latencia_test.go"
+            echo "--- la linea DESPUES de mutar ---"
+            grep -n 'sumideros\[' "$COPIA/gateway/latencia_test.go"
+            echo "MUTACION_APLICADA=$(grep -c 'sumideros\[0\]' "$COPIA/gateway/latencia_test.go")"
+            echo
+            echo "--- go test -race -run TestLatenciaP99DeLaEspera sobre la copia ---"
+            # subshell: el cd NO se filtra al resto del paso
+            ( cd "$COPIA" && go test -race -v -count=1 -cpu=4 -timeout 15m \
+                -run '^TestLatenciaP99DeLaEspera$' ./gateway/... > "$LOG" 2>&1 )
+            echo "EXIT_mutado=$?"
+            tail -40 "$LOG"
+          } > "$OUT" 2>&1
+          {
+            echo "MUTACION_DETECTADA=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "MUTACION_HIZO_CAER=$(grep -cE '^ *--- FAIL: TestLatenciaP99DeLaEspera' "$LOG")"
+          } >> "$OUT"
+          tail -8 "$OUT"
+
+      - name: 6 - veredicto (compara NUMEROS, no palabras)
+        if: always()
+        run: |
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          S1=$D/carreras-1-sujeto.txt
+          S2=$D/carreras-2-vars-de-paquete.txt
+          S3=$D/carreras-3-salteados-con-race.txt
+          S4=$D/carreras-4-suite-completa.txt
+          S5=$D/carreras-5-mutacion.txt
+          OUT=$D/carreras-6-veredicto.txt
+          FALLAS=0
+
+          # leer(archivo, CLAVE) -> valor del contador, o NA. Lee CLAVE=valor al
+          # principio de linea: no se puede confundir con prosa (R1).
+          leer() {
+            V=$(grep -oE "^$2=[0-9]+" "$1" 2>/dev/null | tail -1 | cut -d= -f2)
+            [ -n "$V" ] && echo "$V" || echo NA
+          }
+
+          comparar() {
+            if [ "$2" = "$3" ]; then
+              printf 'PASS  %-54s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-54s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          SALTEADOS=$(leer "$S1" CANTIDAD_SALTEADOS)
+          SKIPS=$(leer "$S1" SKIPS_OBSERVADOS)
+          PAR=$(leer "$S2" T_PARALLEL_HITS)
+          R3=$(leer "$S3" RACES_EN_PROCESO_SALTEADOS)
+          F3=$(leer "$S3" TESTS_EN_FAIL_SALTEADOS)
+          P3=$(leer "$S3" TESTS_EN_PASS_SALTEADOS)
+          R4=$(leer "$S4" RACES_EN_PROCESO_SUITE)
+          F4=$(leer "$S4" TESTS_EN_FAIL_SUITE)
+          MA=$(leer "$S5" MUTACION_APLICADA)
+          MD=$(leer "$S5" MUTACION_DETECTADA)
+          MC=$(leer "$S5" MUTACION_HIZO_CAER)
+          E3=$(grep -oE 'EXIT_salteados=[0-9]+' "$S3" | tail -1 | cut -d= -f2)
+          E4=$(grep -oE 'EXIT_suite=[0-9]+' "$S4" | tail -1 | cut -d= -f2)
+
+          # R3: se TRUNCA. Dos veredictos en un archivo es peor que ninguno.
+          {
+            echo "Veredicto de la corrida ${GITHUB_SHA}"
+            echo "Fecha: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "=== EL SUJETO, medido ==="
+            echo "tests que -short saltea: $SALTEADOS   |   SKIP observados: $SKIPS"
+            sed -n '/los tests que -short SALTEA/,/CANTIDAD_SALTEADOS/p' "$S1" | grep -E '^(Test|Benchmark)'
+            echo
+            echo "=== CARRERAS EN PROCESO ENCONTRADAS ==="
+            echo "en los 4 salteados, x5 repeticiones : $R3"
+            echo "en la suite completa, x3            : $R4"
+            echo "tests que quedaron en FAIL          : $F3 (salteados) / $F4 (suite)"
+            echo "tests en PASS en los salteados      : $P3   (4 tests x 5 corridas = 20)"
+            echo
+            echo "=== LA MUTACION, el control que hace que el verde valga ==="
+            echo "la mutacion se aplico (lineas)        : $MA"
+            echo "carreras detectadas al revertir el fix : $MD"
+            echo "el test cayo                          : $MC"
+            echo
+            echo "=== VEREDICTO (numeros calculados, no palabras) ==="
+            comparar 'el sujeto se enumero y son 4'                "$SALTEADOS" 4
+            comparar 'los 4 se saltean de verdad con -short'       "$SKIPS"     "$SALTEADOS"
+            comparar 'no hay Parallel() en el fuente'              "$PAR"       0
+            comparar 'CERO carreras en proceso en los salteados'   "$R3"        0
+            comparar 'CERO carreras en proceso en la suite'        "$R4"        0
+            comparar 'ningun salteado en FAIL'                     "$F3"        0
+            comparar 'ningun test de la suite en FAIL'             "$F4"        0
+            comparar 'los 20 PASS de los salteados estan'          "$P3"        20
+            comparar 'los salteados salieron en 0'                 "$E3"        0
+            comparar 'la suite completa salio en 0'                "$E4"        0
+            comparar 'la mutacion se aplico'                       "$MA"        1
+            comparar 'la MUTACION fue detectada'                   "$MD"        1
+            comparar 'la MUTACION hizo caer el test'               "$MC"        1
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+            echo
+            echo "LECTURA OBLIGATORIA: verde aca significa NO OBSERVADA EN 8 CORRIDAS"
+            echo "(5 de los salteados + 3 de la suite completa), no 'no existe'. El"
+            echo "detector de Go reporta lo que ve. La mutacion prueba que este arnes"
+            echo "SI ve una carrera cuando la hay, y eso es lo maximo que se puede"
+            echo "afirmar sin analisis estatico."
+          } > "$OUT"
+          cat "$OUT"
+
+      - name: Commitear todo
+        if: always()
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/carreras-*.txt
+          git commit -m 'evidencia: barrido de carreras en lo que -short saltea, con mutacion [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          V="$GITHUB_WORKSPACE/verificacion/resultados-actions/carreras-6-veredicto.txt"
+          grep -q 'RESULTADO=VERDE' "$V" || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
