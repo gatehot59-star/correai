@@ -1,278 +1,281 @@
 === go test -race -count=5 -cpu=4 -run '^(TestControlDeContencion_ElArnesVeLaDiferencia|TestControlPositivoDeCola_CandadoGlobal|TestCostoDelCandado_ContraElHMAC|TestLatenciaP99DeLaEspera)$' ===
 Cinco repeticiones a proposito: el detector reporta lo que OBSERVA,
-asi que mas corridas = mas chances de observar un interleaving malo.
-Los tests SALTEADOS son justo los que nunca vieron el detector.
+asi que mas corridas = mas chances de ver un interleaving malo.
+Estos cuatro tests son justo los que nunca habian visto el detector.
 
 === RUN   TestControlDeContencion_ElArnesVeLaDiferencia
     candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
-          candado por agente       648.45 ns/op     1.542 Mop/s
-          candado global          1682.76 ns/op     0.594 Mop/s
-          factor global/porAgente = 2.60x (minimo exigido 1.20x)
---- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (0.95s)
+          candado por agente       861.77 ns/op     1.160 Mop/s
+          candado global          2341.92 ns/op     0.427 Mop/s
+          factor global/porAgente = 2.72x (minimo exigido 1.20x)
+--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (1.30s)
 === RUN   TestCostoDelCandado_ContraElHMAC
     candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
-          con candado (serial)      1348.21 ns/op
-          sin candado (serial)       633.72 ns/op
-          sobrecosto de 2 Lock/Unlock = 714.49 ns por paquete
---- PASS: TestCostoDelCandado_ContraElHMAC (0.44s)
+          con candado (serial)      1846.57 ns/op
+          sin candado (serial)       913.64 ns/op
+          sobrecosto de 2 Lock/Unlock = 932.93 ns por paquete
+--- PASS: TestCostoDelCandado_ContraElHMAC (0.60s)
 === RUN   TestLatenciaP99DeLaEspera
     latencia_test.go:319: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
     latencia_test.go:325: 
         === PISO DE RUIDO DEL INSTRUMENTO ===
-        PISO: par time.Now() (g=8)                     n=800000    media=     85.7  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=   3696721
-    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 3696721 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
+        PISO: par time.Now() (g=8)                     n=800000    media=    117.7  p50=    90  p90=    100  p99=     111  p99.9=     2033  max=  13480978
+    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 13480978 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
     latencia_test.go:371: 
         === DISTRIBUCIONES (ns) ===
-    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=     85.7  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=   3696721
-    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    356.6  p50=   260  p90=    301  p99=     421  p99.9=     1913  max=  21979171
-    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   4160.5  p50=   280  p90=   1442  p99=    4296  p99.9=   930748  max=   4201379
-    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1421.9  p50=  1362  p90=   1412  p99=    2844  p99.9=     8723  max=     23845
-    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   4678.7  p50=  2524  p90=   2684  p99=    4367  p99.9=    13320  max=  40319646
-    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  15266.9  p50=  3575  p90=   4296  p99=   80549  p99.9=  2769309  max=  12073200
+    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=    117.7  p50=    90  p90=    100  p99=     111  p99.9=     2033  max=  13480978
+    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    611.4  p50=   340  p90=    421  p99=     631  p99.9=     2594  max=  21943613
+    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   5722.3  p50=   380  p90=   2574  p99=    6400  p99.9=  1190179  max=   6676737
+    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1805.7  p50=  1773  p90=   1832  p99=    2073  p99.9=    11127  max=     38248
+    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   6015.0  p50=  3235  p90=   3445  p99=    5649  p99.9=    16606  max=  41937052
+    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  20060.5  p50=  4597  p90=   5529  p99=  134418  p99.9=  3416922  max=  12613674
+    latencia_test.go:376: 
+        === CLASIFICACION CONTRA EL PISO ===
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (5.7x sobre el piso)
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (57.7x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (18.7x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (50.9x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (1211.0x sobre el piso)
+    latencia_test.go:383: 
+        GUARD 1  p99 patologico / p99 del piso = 57.7x (minimo exigido 3.0x)
+    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 10.1x
+    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (5.7x sobre el piso)
+    latencia_test.go:408: 
+        === RESPUESTA ===
+        p99 ESPERA caso real (1 candado por agente):        631 ns   [MEDIDO (5.7x sobre el piso)]
+        p99 ESPERA caso patologico (1 candado, 8 gor):     6400 ns   [MEDIDO (57.7x sobre el piso)]
+        p99.9 patologico:                               1190179 ns
+        p99 PAQUETE completo, caso real:                   5649 ns   [MEDIDO (50.9x sobre el piso)]
+        p99 PAQUETE completo, caso patologico:           134418 ns   [MEDIDO (1211.0x sobre el piso)]
+        piso del reloj (p99):                               111 ns
+        max: NO SE REPORTA como cola del candado (el max del piso fue 13480978 ns)
+--- PASS: TestLatenciaP99DeLaEspera (5.17s)
+=== RUN   TestControlPositivoDeCola_CandadoGlobal
+    latencia_test.go:489: 
+        === CONTROL POSITIVO DE COLA (ns) ===
+        candado por agente (N agentes aislados)        n=800000    media=   6849.1  p50=  3405  p90=   3685  p99=    5878  p99.9=    18839  max=  43191649
+        candado GLOBAL (N agentes aislados)            n=800000    media=  21095.8  p50=  1993  p90=   6590  p99=  651095  p99.9=  1533935  max=   5168631
+    latencia_test.go:497: factor p99 global/porAgente = 110.8x   |   factor p99.9 = 81.4x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (3.61s)
+=== RUN   TestControlDeContencion_ElArnesVeLaDiferencia
+    candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
+          candado por agente       854.35 ns/op     1.170 Mop/s
+          candado global          2244.66 ns/op     0.446 Mop/s
+          factor global/porAgente = 2.63x (minimo exigido 1.20x)
+--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (1.26s)
+=== RUN   TestCostoDelCandado_ContraElHMAC
+    candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
+          con candado (serial)      1691.79 ns/op
+          sin candado (serial)       919.87 ns/op
+          sobrecosto de 2 Lock/Unlock = 771.92 ns por paquete
+--- PASS: TestCostoDelCandado_ContraElHMAC (0.58s)
+=== RUN   TestLatenciaP99DeLaEspera
+    latencia_test.go:319: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
+    latencia_test.go:325: 
+        === PISO DE RUIDO DEL INSTRUMENTO ===
+        PISO: par time.Now() (g=8)                     n=800000    media=    101.6  p50=    90  p90=    100  p99=     111  p99.9=     2073  max=    166232
+    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 166232 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
+    latencia_test.go:371: 
+        === DISTRIBUCIONES (ns) ===
+    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=    101.6  p50=    90  p90=    100  p99=     111  p99.9=     2073  max=    166232
+    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    622.7  p50=   331  p90=    391  p99=     661  p99.9=     4006  max=  31353412
+    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   5489.7  p50=   361  p90=   2564  p99=    6419  p99.9=  1144590  max=   5799534
+    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1836.0  p50=  1793  p90=   1863  p99=    3486  p99.9=    11397  max=     68007
+    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   6330.5  p50=  3235  p90=   3395  p99=    5658  p99.9=    16806  max=  60739821
+    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  19780.8  p50=  4587  p90=   5519  p99=  135605  p99.9=  3368638  max=  13884464
+    latencia_test.go:376: 
+        === CLASIFICACION CONTRA EL PISO ===
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (6.0x sobre el piso)
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (57.8x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (31.4x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (51.0x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (1221.7x sobre el piso)
+    latencia_test.go:383: 
+        GUARD 1  p99 patologico / p99 del piso = 57.8x (minimo exigido 3.0x)
+    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 9.7x
+    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (6.0x sobre el piso)
+    latencia_test.go:408: 
+        === RESPUESTA ===
+        p99 ESPERA caso real (1 candado por agente):        661 ns   [MEDIDO (6.0x sobre el piso)]
+        p99 ESPERA caso patologico (1 candado, 8 gor):     6419 ns   [MEDIDO (57.8x sobre el piso)]
+        p99.9 patologico:                               1144590 ns
+        p99 PAQUETE completo, caso real:                   5658 ns   [MEDIDO (51.0x sobre el piso)]
+        p99 PAQUETE completo, caso patologico:           135605 ns   [MEDIDO (1221.7x sobre el piso)]
+        piso del reloj (p99):                               111 ns
+        max: NO SE REPORTA como cola del candado (el max del piso fue 166232 ns)
+--- PASS: TestLatenciaP99DeLaEspera (5.09s)
+=== RUN   TestControlPositivoDeCola_CandadoGlobal
+    latencia_test.go:489: 
+        === CONTROL POSITIVO DE COLA (ns) ===
+        candado por agente (N agentes aislados)        n=800000    media=   6580.9  p50=  3395  p90=   3576  p99=    5829  p99.9=    18127  max=  43207927
+        candado GLOBAL (N agentes aislados)            n=800000    media=  21252.9  p50=  1973  p90=   6430  p99=  668205  p99.9=  1507204  max=   4338961
+    latencia_test.go:497: factor p99 global/porAgente = 114.6x   |   factor p99.9 = 83.1x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (3.59s)
+=== RUN   TestControlDeContencion_ElArnesVeLaDiferencia
+    candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
+          candado por agente       854.20 ns/op     1.171 Mop/s
+          candado global          2260.33 ns/op     0.442 Mop/s
+          factor global/porAgente = 2.65x (minimo exigido 1.20x)
+--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (1.26s)
+=== RUN   TestCostoDelCandado_ContraElHMAC
+    candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
+          con candado (serial)      1831.40 ns/op
+          sin candado (serial)       796.26 ns/op
+          sobrecosto de 2 Lock/Unlock = 1035.14 ns por paquete
+--- PASS: TestCostoDelCandado_ContraElHMAC (0.58s)
+=== RUN   TestLatenciaP99DeLaEspera
+    latencia_test.go:319: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
+    latencia_test.go:325: 
+        === PISO DE RUIDO DEL INSTRUMENTO ===
+        PISO: par time.Now() (g=8)                     n=800000    media=    102.7  p50=    90  p90=    100  p99=     110  p99.9=     2053  max=   3023332
+    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 3023332 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
+    latencia_test.go:371: 
+        === DISTRIBUCIONES (ns) ===
+    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=    102.7  p50=    90  p90=    100  p99=     110  p99.9=     2053  max=   3023332
+    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    548.1  p50=   331  p90=    381  p99=     500  p99.9=     2554  max=  40319783
+    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   5493.1  p50=   361  p90=   1862  p99=    7892  p99.9=  1084430  max=   5062545
+    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1802.9  p50=  1763  p90=   1842  p99=    2073  p99.9=    11216  max=     37627
+    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   6208.2  p50=  3245  p90=   3415  p99=    5678  p99.9=    17126  max=  42101295
+    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  20140.5  p50=  4597  p90=   5538  p99=  141920  p99.9=  3383166  max=  15138718
+    latencia_test.go:376: 
+        === CLASIFICACION CONTRA EL PISO ===
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (4.5x sobre el piso)
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (71.7x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (18.8x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (51.6x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (1290.2x sobre el piso)
+    latencia_test.go:383: 
+        GUARD 1  p99 patologico / p99 del piso = 71.7x (minimo exigido 3.0x)
+    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 15.8x
+    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (4.5x sobre el piso)
+    latencia_test.go:408: 
+        === RESPUESTA ===
+        p99 ESPERA caso real (1 candado por agente):        500 ns   [MEDIDO (4.5x sobre el piso)]
+        p99 ESPERA caso patologico (1 candado, 8 gor):     7892 ns   [MEDIDO (71.7x sobre el piso)]
+        p99.9 patologico:                               1084430 ns
+        p99 PAQUETE completo, caso real:                   5678 ns   [MEDIDO (51.6x sobre el piso)]
+        p99 PAQUETE completo, caso patologico:           141920 ns   [MEDIDO (1290.2x sobre el piso)]
+        piso del reloj (p99):                               110 ns
+        max: NO SE REPORTA como cola del candado (el max del piso fue 3023332 ns)
+--- PASS: TestLatenciaP99DeLaEspera (5.09s)
+=== RUN   TestControlPositivoDeCola_CandadoGlobal
+    latencia_test.go:489: 
+        === CONTROL POSITIVO DE COLA (ns) ===
+        candado por agente (N agentes aislados)        n=800000    media=   6446.0  p50=  3385  p90=   3726  p99=    5829  p99.9=    17376  max=  40359992
+        candado GLOBAL (N agentes aislados)            n=800000    media=  21196.7  p50=  1963  p90=   6419  p99=  661164  p99.9=  1530275  max=   4503695
+    latencia_test.go:497: factor p99 global/porAgente = 113.4x   |   factor p99.9 = 88.1x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (3.53s)
+=== RUN   TestControlDeContencion_ElArnesVeLaDiferencia
+    candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
+          candado por agente       816.60 ns/op     1.225 Mop/s
+          candado global          2222.56 ns/op     0.450 Mop/s
+          factor global/porAgente = 2.72x (minimo exigido 1.20x)
+--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (1.23s)
+=== RUN   TestCostoDelCandado_ContraElHMAC
+    candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
+          con candado (serial)      1728.99 ns/op
+          sin candado (serial)       814.00 ns/op
+          sobrecosto de 2 Lock/Unlock = 914.99 ns por paquete
+--- PASS: TestCostoDelCandado_ContraElHMAC (0.56s)
+=== RUN   TestLatenciaP99DeLaEspera
+    latencia_test.go:319: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
+    latencia_test.go:325: 
+        === PISO DE RUIDO DEL INSTRUMENTO ===
+        PISO: par time.Now() (g=8)                     n=800000    media=    178.1  p50=    90  p90=    100  p99=     120  p99.9=     2053  max=  20162017
+    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 20162017 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
+    latencia_test.go:371: 
+        === DISTRIBUCIONES (ns) ===
+    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=    178.1  p50=    90  p90=    100  p99=     120  p99.9=     2053  max=  20162017
+    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    695.7  p50=   341  p90=    410  p99=     561  p99.9=     2574  max=  40326676
+    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   5599.5  p50=   370  p90=   2554  p99=    7201  p99.9=  1105247  max=   4430038
+    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1803.9  p50=  1772  p90=   1823  p99=    2093  p99.9=    11107  max=     41093
+    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   6123.0  p50=  3225  p90=   3355  p99=    5658  p99.9=    16415  max=  63324124
+    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  19793.0  p50=  4597  p90=   5528  p99=  138194  p99.9=  3301777  max=  13627275
     latencia_test.go:376: 
         === CLASIFICACION CONTRA EL PISO ===
     latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (4.7x sobre el piso)
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (47.7x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (31.6x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (48.5x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (895.0x sobre el piso)
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (60.0x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (17.4x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (47.1x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (1151.6x sobre el piso)
     latencia_test.go:383: 
-        GUARD 1  p99 patologico / p99 del piso = 47.7x (minimo exigido 3.0x)
-    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 10.2x
+        GUARD 1  p99 patologico / p99 del piso = 60.0x (minimo exigido 3.0x)
+    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 12.8x
     latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (4.7x sobre el piso)
     latencia_test.go:408: 
         === RESPUESTA ===
-        p99 ESPERA caso real (1 candado por agente):        421 ns   [MEDIDO (4.7x sobre el piso)]
-        p99 ESPERA caso patologico (1 candado, 8 gor):     4296 ns   [MEDIDO (47.7x sobre el piso)]
-        p99.9 patologico:                                930748 ns
-        p99 PAQUETE completo, caso real:                   4367 ns   [MEDIDO (48.5x sobre el piso)]
-        p99 PAQUETE completo, caso patologico:            80549 ns   [MEDIDO (895.0x sobre el piso)]
-        piso del reloj (p99):                                90 ns
-        max: NO SE REPORTA como cola del candado (el max del piso fue 3696721 ns)
---- PASS: TestLatenciaP99DeLaEspera (3.89s)
+        p99 ESPERA caso real (1 candado por agente):        561 ns   [MEDIDO (4.7x sobre el piso)]
+        p99 ESPERA caso patologico (1 candado, 8 gor):     7201 ns   [MEDIDO (60.0x sobre el piso)]
+        p99.9 patologico:                               1105247 ns
+        p99 PAQUETE completo, caso real:                   5658 ns   [MEDIDO (47.1x sobre el piso)]
+        p99 PAQUETE completo, caso patologico:           138194 ns   [MEDIDO (1151.6x sobre el piso)]
+        piso del reloj (p99):                               120 ns
+        max: NO SE REPORTA como cola del candado (el max del piso fue 20162017 ns)
+--- PASS: TestLatenciaP99DeLaEspera (5.07s)
 === RUN   TestControlPositivoDeCola_CandadoGlobal
     latencia_test.go:489: 
         === CONTROL POSITIVO DE COLA (ns) ===
-        candado por agente (N agentes aislados)        n=800000    media=   5036.7  p50=  2614  p90=   2784  p99=    4437  p99.9=    13040  max=  40358243
-        candado GLOBAL (N agentes aislados)            n=800000    media=  15491.2  p50=  1512  p90=   4387  p99=  533559  p99.9=  1314103  max=   4327989
-    latencia_test.go:497: factor p99 global/porAgente = 120.3x   |   factor p99.9 = 100.8x
---- PASS: TestControlPositivoDeCola_CandadoGlobal (2.62s)
+        candado por agente (N agentes aislados)        n=800000    media=   6435.2  p50=  3385  p90=   3646  p99=    5818  p99.9=    16665  max=  41159170
+        candado GLOBAL (N agentes aislados)            n=800000    media=  21272.5  p50=  1983  p90=   6590  p99=  663332  p99.9=  1516363  max=   3778699
+    latencia_test.go:497: factor p99 global/porAgente = 114.0x   |   factor p99.9 = 91.0x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (3.55s)
 === RUN   TestControlDeContencion_ElArnesVeLaDiferencia
     candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
-          candado por agente       667.52 ns/op     1.498 Mop/s
-          candado global          1668.98 ns/op     0.599 Mop/s
-          factor global/porAgente = 2.50x (minimo exigido 1.20x)
---- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (0.95s)
+          candado por agente       845.88 ns/op     1.182 Mop/s
+          candado global          2223.64 ns/op     0.450 Mop/s
+          factor global/porAgente = 2.63x (minimo exigido 1.20x)
+--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (1.25s)
 === RUN   TestCostoDelCandado_ContraElHMAC
     candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
-          con candado (serial)      1344.05 ns/op
-          sin candado (serial)      1211.63 ns/op
-          sobrecosto de 2 Lock/Unlock = 132.42 ns por paquete
---- PASS: TestCostoDelCandado_ContraElHMAC (0.55s)
+          con candado (serial)      1735.73 ns/op
+          sin candado (serial)       814.56 ns/op
+          sobrecosto de 2 Lock/Unlock = 921.17 ns por paquete
+--- PASS: TestCostoDelCandado_ContraElHMAC (0.56s)
 === RUN   TestLatenciaP99DeLaEspera
     latencia_test.go:319: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
     latencia_test.go:325: 
         === PISO DE RUIDO DEL INSTRUMENTO ===
-        PISO: par time.Now() (g=8)                     n=800000    media=     95.5  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=  11697499
-    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 11697499 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
+        PISO: par time.Now() (g=8)                     n=800000    media=    180.2  p50=    90  p90=    100  p99=     110  p99.9=     2073  max=  33288946
+    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 33288946 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
     latencia_test.go:371: 
         === DISTRIBUCIONES (ns) ===
-    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=     95.5  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=  11697499
-    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    503.2  p50=   251  p90=    301  p99=     490  p99.9=     1933  max=  32293903
-    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   4169.2  p50=   280  p90=   1803  p99=    4326  p99.9=   944034  max=   4739120
-    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1418.4  p50=  1392  p90=   1442  p99=    1642  p99.9=     8773  max=     27330
-    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   4802.8  p50=  2524  p90=   2654  p99=    4316  p99.9=    12519  max=  60441861
-    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  15198.9  p50=  3556  p90=   4286  p99=   90414  p99.9=  2678857  max=   9843310
+    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=    180.2  p50=    90  p90=    100  p99=     110  p99.9=     2073  max=  33288946
+    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    599.2  p50=   330  p90=    381  p99=     641  p99.9=     2564  max=  40321380
+    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   5594.7  p50=   370  p90=   2604  p99=    6836  p99.9=  1129528  max=   4470220
+    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1858.8  p50=  1803  p90=   1872  p99=    3455  p99.9=    11197  max=     28022
+    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   6445.4  p50=  3235  p90=   3365  p99=    5618  p99.9=    17276  max=  61951685
+    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  20098.5  p50=  4607  p90=   5538  p99=  143217  p99.9=  3353376  max=  11115769
     latencia_test.go:376: 
         === CLASIFICACION CONTRA EL PISO ===
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (5.4x sobre el piso)
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (48.1x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (18.2x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (48.0x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (1004.6x sobre el piso)
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (5.8x sobre el piso)
+    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (62.1x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (31.4x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (51.1x sobre el piso)
+    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (1302.0x sobre el piso)
     latencia_test.go:383: 
-        GUARD 1  p99 patologico / p99 del piso = 48.1x (minimo exigido 3.0x)
-    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 8.8x
-    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (5.4x sobre el piso)
-    latencia_test.go:408: 
-        === RESPUESTA ===
-        p99 ESPERA caso real (1 candado por agente):        490 ns   [MEDIDO (5.4x sobre el piso)]
-        p99 ESPERA caso patologico (1 candado, 8 gor):     4326 ns   [MEDIDO (48.1x sobre el piso)]
-        p99.9 patologico:                                944034 ns
-        p99 PAQUETE completo, caso real:                   4316 ns   [MEDIDO (48.0x sobre el piso)]
-        p99 PAQUETE completo, caso patologico:            90414 ns   [MEDIDO (1004.6x sobre el piso)]
-        piso del reloj (p99):                                90 ns
-        max: NO SE REPORTA como cola del candado (el max del piso fue 11697499 ns)
---- PASS: TestLatenciaP99DeLaEspera (3.86s)
-=== RUN   TestControlPositivoDeCola_CandadoGlobal
-    latencia_test.go:489: 
-        === CONTROL POSITIVO DE COLA (ns) ===
-        candado por agente (N agentes aislados)        n=800000    media=   4913.9  p50=  2613  p90=   2784  p99=    4467  p99.9=    12779  max=  60467820
-        candado GLOBAL (N agentes aislados)            n=800000    media=  15503.3  p50=  1522  p90=   4547  p99=  532417  p99.9=  1305450  max=   4015607
-    latencia_test.go:497: factor p99 global/porAgente = 119.2x   |   factor p99.9 = 102.2x
---- PASS: TestControlPositivoDeCola_CandadoGlobal (2.63s)
-=== RUN   TestControlDeContencion_ElArnesVeLaDiferencia
-    candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
-          candado por agente       662.05 ns/op     1.510 Mop/s
-          candado global          1666.21 ns/op     0.600 Mop/s
-          factor global/porAgente = 2.52x (minimo exigido 1.20x)
---- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (0.95s)
-=== RUN   TestCostoDelCandado_ContraElHMAC
-    candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
-          con candado (serial)      1384.68 ns/op
-          sin candado (serial)       584.78 ns/op
-          sobrecosto de 2 Lock/Unlock = 799.90 ns por paquete
---- PASS: TestCostoDelCandado_ContraElHMAC (0.44s)
-=== RUN   TestLatenciaP99DeLaEspera
-    latencia_test.go:319: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
-    latencia_test.go:325: 
-        === PISO DE RUIDO DEL INSTRUMENTO ===
-        PISO: par time.Now() (g=8)                     n=800000    media=     76.6  p50=    70  p90=     80  p99=      90  p99.9=     1572  max=     41601
-    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 41601 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
-    latencia_test.go:371: 
-        === DISTRIBUCIONES (ns) ===
-    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=     76.6  p50=    70  p90=     80  p99=      90  p99.9=     1572  max=     41601
-    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    544.9  p50=   260  p90=    310  p99=     451  p99.9=     1923  max=  41883549
-    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   4158.5  p50=   280  p90=   1322  p99=    4487  p99.9=   886100  max=   4972421
-    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1387.0  p50=  1362  p90=   1402  p99=    1783  p99.9=     8643  max=     31427
-    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   4816.6  p50=  2514  p90=   2634  p99=    4317  p99.9=    12939  max=  43806481
-    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  15378.9  p50=  3565  p90=   4286  p99=   79207  p99.9=  2691929  max=  11336750
-    latencia_test.go:376: 
-        === CLASIFICACION CONTRA EL PISO ===
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (5.0x sobre el piso)
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (49.9x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (19.8x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (48.0x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (880.1x sobre el piso)
-    latencia_test.go:383: 
-        GUARD 1  p99 patologico / p99 del piso = 49.9x (minimo exigido 3.0x)
-    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 9.9x
-    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (5.0x sobre el piso)
-    latencia_test.go:408: 
-        === RESPUESTA ===
-        p99 ESPERA caso real (1 candado por agente):        451 ns   [MEDIDO (5.0x sobre el piso)]
-        p99 ESPERA caso patologico (1 candado, 8 gor):     4487 ns   [MEDIDO (49.9x sobre el piso)]
-        p99.9 patologico:                                886100 ns
-        p99 PAQUETE completo, caso real:                   4317 ns   [MEDIDO (48.0x sobre el piso)]
-        p99 PAQUETE completo, caso patologico:            79207 ns   [MEDIDO (880.1x sobre el piso)]
-        piso del reloj (p99):                                90 ns
-        max: NO SE REPORTA como cola del candado (el max del piso fue 41601 ns)
---- PASS: TestLatenciaP99DeLaEspera (3.81s)
-=== RUN   TestControlPositivoDeCola_CandadoGlobal
-    latencia_test.go:489: 
-        === CONTROL POSITIVO DE COLA (ns) ===
-        candado por agente (N agentes aislados)        n=800000    media=   4912.5  p50=  2643  p90=   2785  p99=    4427  p99.9=    12829  max=  63358416
-        candado GLOBAL (N agentes aislados)            n=800000    media=  15533.3  p50=  1512  p90=   4196  p99=  536914  p99.9=  1311089  max=   4770703
-    latencia_test.go:497: factor p99 global/porAgente = 121.3x   |   factor p99.9 = 102.2x
---- PASS: TestControlPositivoDeCola_CandadoGlobal (2.63s)
-=== RUN   TestControlDeContencion_ElArnesVeLaDiferencia
-    candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
-          candado por agente       647.85 ns/op     1.544 Mop/s
-          candado global          1674.71 ns/op     0.597 Mop/s
-          factor global/porAgente = 2.59x (minimo exigido 1.20x)
---- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (0.94s)
-=== RUN   TestCostoDelCandado_ContraElHMAC
-    candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
-          con candado (serial)      1374.52 ns/op
-          sin candado (serial)       608.28 ns/op
-          sobrecosto de 2 Lock/Unlock = 766.24 ns por paquete
---- PASS: TestCostoDelCandado_ContraElHMAC (0.44s)
-=== RUN   TestLatenciaP99DeLaEspera
-    latencia_test.go:319: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
-    latencia_test.go:325: 
-        === PISO DE RUIDO DEL INSTRUMENTO ===
-        PISO: par time.Now() (g=8)                     n=800000    media=     78.1  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=     64385
-    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 64385 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
-    latencia_test.go:371: 
-        === DISTRIBUCIONES (ns) ===
-    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=     78.1  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=     64385
-    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    523.8  p50=   260  p90=    290  p99=     411  p99.9=     1913  max=  40240296
-    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   4115.0  p50=   280  p90=   1632  p99=    4406  p99.9=   890836  max=   3777852
-    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1405.2  p50=  1362  p90=   1412  p99=    1613  p99.9=     8953  max=   1699391
-    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   4737.1  p50=  2523  p90=   2613  p99=    4287  p99.9=    12558  max=  42101517
-    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  15128.2  p50=  3576  p90=   4306  p99=   75842  p99.9=  2762602  max=  13599513
-    latencia_test.go:376: 
-        === CLASIFICACION CONTRA EL PISO ===
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (4.6x sobre el piso)
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (49.0x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (17.9x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (47.6x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (842.7x sobre el piso)
-    latencia_test.go:383: 
-        GUARD 1  p99 patologico / p99 del piso = 49.0x (minimo exigido 3.0x)
+        GUARD 1  p99 patologico / p99 del piso = 62.1x (minimo exigido 3.0x)
     latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 10.7x
-    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (4.6x sobre el piso)
+    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (5.8x sobre el piso)
     latencia_test.go:408: 
         === RESPUESTA ===
-        p99 ESPERA caso real (1 candado por agente):        411 ns   [MEDIDO (4.6x sobre el piso)]
-        p99 ESPERA caso patologico (1 candado, 8 gor):     4406 ns   [MEDIDO (49.0x sobre el piso)]
-        p99.9 patologico:                                890836 ns
-        p99 PAQUETE completo, caso real:                   4287 ns   [MEDIDO (47.6x sobre el piso)]
-        p99 PAQUETE completo, caso patologico:            75842 ns   [MEDIDO (842.7x sobre el piso)]
-        piso del reloj (p99):                                90 ns
-        max: NO SE REPORTA como cola del candado (el max del piso fue 64385 ns)
---- PASS: TestLatenciaP99DeLaEspera (3.84s)
+        p99 ESPERA caso real (1 candado por agente):        641 ns   [MEDIDO (5.8x sobre el piso)]
+        p99 ESPERA caso patologico (1 candado, 8 gor):     6836 ns   [MEDIDO (62.1x sobre el piso)]
+        p99.9 patologico:                               1129528 ns
+        p99 PAQUETE completo, caso real:                   5618 ns   [MEDIDO (51.1x sobre el piso)]
+        p99 PAQUETE completo, caso patologico:           143217 ns   [MEDIDO (1302.0x sobre el piso)]
+        piso del reloj (p99):                               110 ns
+        max: NO SE REPORTA como cola del candado (el max del piso fue 33288946 ns)
+--- PASS: TestLatenciaP99DeLaEspera (5.10s)
 === RUN   TestControlPositivoDeCola_CandadoGlobal
     latencia_test.go:489: 
         === CONTROL POSITIVO DE COLA (ns) ===
-        candado por agente (N agentes aislados)        n=800000    media=   4840.6  p50=  2624  p90=   2734  p99=    4467  p99.9=    12839  max=  43164296
-        candado GLOBAL (N agentes aislados)            n=800000    media=  15706.4  p50=  1512  p90=   4356  p99=  539638  p99.9=  1363666  max=   5516095
-    latencia_test.go:497: factor p99 global/porAgente = 120.8x   |   factor p99.9 = 106.2x
---- PASS: TestControlPositivoDeCola_CandadoGlobal (2.63s)
-=== RUN   TestControlDeContencion_ElArnesVeLaDiferencia
-    candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
-          candado por agente       656.30 ns/op     1.524 Mop/s
-          candado global          1674.40 ns/op     0.597 Mop/s
-          factor global/porAgente = 2.55x (minimo exigido 1.20x)
---- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (0.95s)
-=== RUN   TestCostoDelCandado_ContraElHMAC
-    candado_bench_test.go:393: COSTO DEL CANDADO SIN DISPUTA (ops=200000, 1 goroutine)
-          con candado (serial)      1323.47 ns/op
-          sin candado (serial)       613.30 ns/op
-          sobrecosto de 2 Lock/Unlock = 710.17 ns por paquete
---- PASS: TestCostoDelCandado_ContraElHMAC (0.43s)
-=== RUN   TestLatenciaP99DeLaEspera
-    latencia_test.go:319: GOMAXPROCS=4 NumCPU=4 muestras=800000 (8 goroutines x 100000)
-    latencia_test.go:325: 
-        === PISO DE RUIDO DEL INSTRUMENTO ===
-        PISO: par time.Now() (g=8)                     n=800000    media=     78.1  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=     27390
-    latencia_test.go:330: MAX INUTILIZABLE: el max del propio piso es 27390 ns. Cualquier max de este archivo es preempcion del scheduler o robo de CPU de la VM, no espera de candado.
-    latencia_test.go:371: 
-        === DISTRIBUCIONES (ns) ===
-    latencia_test.go:373: PISO: par time.Now() (g=8)                     n=800000    media=     78.1  p50=    70  p90=     80  p99=      90  p99.9=     1563  max=     27390
-    latencia_test.go:373: ESPERA: 1 candado por goroutine (caso real)    n=800000    media=    538.0  p50=   251  p90=    281  p99=     370  p99.9=     1923  max=  40294651
-    latencia_test.go:373: ESPERA: 1 candado, 8 goroutines (patologico)   n=800000    media=   4261.9  p50=   281  p90=   1633  p99=    4597  p99.9=   898709  max=   3199389
-    latencia_test.go:373: PAQUETE: 1 goroutine, sin disputa              n=100000    media=   1407.7  p50=  1382  p90=   1432  p99=    1663  p99.9=     8733  max=     21642
-    latencia_test.go:373: PAQUETE: 1 AgentState por goroutine (caso real) n=800000    media=   4858.9  p50=  2514  p90=   2614  p99=    4296  p99.9=    12719  max=  40330593
-    latencia_test.go:373: PAQUETE: 1 AgentState compartido (patologico)  n=800000    media=  15271.6  p50=  3575  p90=   4296  p99=   85747  p99.9=  2638860  max=  11675731
-    latencia_test.go:376: 
-        === CLASIFICACION CONTRA EL PISO ===
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado por goroutine (caso real)    MEDIDO (4.1x sobre el piso)
-    latencia_test.go:378: CLASIF  ESPERA: 1 candado, 8 goroutines (patologico)   MEDIDO (51.1x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 goroutine, sin disputa              MEDIDO (18.5x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState por goroutine (caso real) MEDIDO (47.7x sobre el piso)
-    latencia_test.go:378: CLASIF  PAQUETE: 1 AgentState compartido (patologico)  MEDIDO (952.7x sobre el piso)
-    latencia_test.go:383: 
-        GUARD 1  p99 patologico / p99 del piso = 51.1x (minimo exigido 3.0x)
-    latencia_test.go:398: GUARD 2  p99 espera compartida / aislada = 12.4x
-    latencia_test.go:405: GUARD 3  el caso real contra el piso -> MEDIDO (4.1x sobre el piso)
-    latencia_test.go:408: 
-        === RESPUESTA ===
-        p99 ESPERA caso real (1 candado por agente):        370 ns   [MEDIDO (4.1x sobre el piso)]
-        p99 ESPERA caso patologico (1 candado, 8 gor):     4597 ns   [MEDIDO (51.1x sobre el piso)]
-        p99.9 patologico:                                898709 ns
-        p99 PAQUETE completo, caso real:                   4296 ns   [MEDIDO (47.7x sobre el piso)]
-        p99 PAQUETE completo, caso patologico:            85747 ns   [MEDIDO (952.7x sobre el piso)]
-        piso del reloj (p99):                                90 ns
-        max: NO SE REPORTA como cola del candado (el max del piso fue 27390 ns)
---- PASS: TestLatenciaP99DeLaEspera (3.85s)
-=== RUN   TestControlPositivoDeCola_CandadoGlobal
-    latencia_test.go:489: 
-        === CONTROL POSITIVO DE COLA (ns) ===
-        candado por agente (N agentes aislados)        n=800000    media=   5020.4  p50=  2614  p90=   3124  p99=    4417  p99.9=    13240  max=  40322411
-        candado GLOBAL (N agentes aislados)            n=800000    media=  15650.7  p50=  1542  p90=   4497  p99=  540018  p99.9=  1303106  max=   3686080
-    latencia_test.go:497: factor p99 global/porAgente = 122.3x   |   factor p99.9 = 98.4x
---- PASS: TestControlPositivoDeCola_CandadoGlobal (2.67s)
+        candado por agente (N agentes aislados)        n=800000    media=   6808.5  p50=  3405  p90=   3716  p99=    5849  p99.9=    16816  max=  60490831
+        candado GLOBAL (N agentes aislados)            n=800000    media=  21316.7  p50=  2003  p90=   6701  p99=  660723  p99.9=  1530480  max=   4382086
+    latencia_test.go:497: factor p99 global/porAgente = 113.0x   |   factor p99.9 = 91.0x
+--- PASS: TestControlPositivoDeCola_CandadoGlobal (3.58s)
 PASS
-ok  	github.com/gatehot59-star/kampe-ir/gateway	40.456s
+ok  	github.com/gatehot59-star/kampe-ir/gateway	53.582s
 EXIT_salteados=0
+RACES_EN_PROCESO_SALTEADOS=0
+TESTS_EN_FAIL_SALTEADOS=0
+TESTS_EN_PASS_SALTEADOS=20

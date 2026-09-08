@@ -1,8 +1,8 @@
 === POR QUE ESTE PASO ===
 El bug de hace dos horas era exactamente esto: un var de paquete
-(sumidero float64) escrito por 8 goroutines. Asi que la lente no es
-solo correr el detector: es enumerar la SUPERFICIE de estado
-compartido y clasificar cada pieza.
+escrito por 8 goroutines. Asi que la lente no es solo correr el
+detector: es enumerar la SUPERFICIE de estado compartido y
+clasificar cada pieza a mano.
 
 === vars de paquete en los TESTS ===
 ./gateway/candado_bench_test.go:50:var candadoGlobal sync.Mutex
@@ -12,11 +12,26 @@ compartido y clasificar cada pieza.
 === vars de paquete en PRODUCCION ===
 ./gateway/gateway.go:34:var (
 
-=== bloques var( ) de paquete, que el grep de arriba no ve ===
-./gateway/gateway.go:34:var (
-(vacio = no hay bloques var agrupados)
+=== contenido del bloque var() de produccion ===
+var (
+	bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := make([]byte, maxBufferedBytes)
+			return &buf
+		},
+	}
 
-=== escrituras a esos identificadores desde dentro de un go func ===
+	packetPool = sync.Pool{
+		New: func() interface{} {
+			return &PerimeterPacket{}
+		},
+	}
+
+	ackBytes    = []byte{0x00}
+	rejectBytes = []byte{0xFF}
+)
+
+=== quien toca cada identificador compartido ===
 --- sumideros ---
 ./gateway/latencia_test.go:214:// sumideros evita que el compilador elimine el trabajo sintetico. Hay UNO POR
 ./gateway/latencia_test.go:221:var sumideros [64]ranuraSumidero
@@ -34,6 +49,7 @@ compartido y clasificar cada pieza.
 ./gateway/candado_bench_test.go:69:	candadoGlobal.Lock()
 ./gateway/candado_bench_test.go:70:	defer candadoGlobal.Unlock()
 
-=== hay t.Parallel() en algun lado? ===
-(vacio = los tests corren secuenciales, asi que un var de paquete
- compartido ENTRE tests no puede correr en paralelo con otro test)
+=== tests en paralelo (el fuente, no esta prosa) ===
+T_PARALLEL_HITS=0
+(0 = los tests corren secuenciales, asi que un var de paquete
+ compartido ENTRE tests no puede correr contra otro test)
