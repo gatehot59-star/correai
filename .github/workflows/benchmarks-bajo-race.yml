@@ -29,21 +29,24 @@
 # Y UN DETALLE MEDIDO, no supuesto: el brazo B ejecuta MENOS sub-benchmarks que
 # los otros. El detector corre con halt_on_error=1 por default, asi que aborta el
 # proceso al primer reporte y un brazo RACY no llega a terminar sus 5 niveles de
-# concurrencia. En la primera corrida: A/C/D hicieron 5, B hizo 2. Eso es
-# esperado y esta declarado, no es una anomalia.
+# concurrencia. Primera corrida: A/C/D hicieron 5, B hizo 2. Es esperado.
 # ============================================================================
 #
-# LAS CUATRO REGLAS DE ESCRITURA DE EVIDENCIA, cada una aprendida a los golpes:
+# LAS CINCO REGLAS DE ESCRITURA DE EVIDENCIA, cada una aprendida a los golpes:
 #   R1. Un guard no busca una palabra: lee un NUMERO calculado (`^CLAVE=[0-9]+`).
 #       Tres veces conto mis propios echos.
 #   R2. Rutas ABSOLUTAS con $GITHUB_WORKSPACE. Un `cd` filtrado ya mando los
 #       contadores adentro de una copia de /tmp.
 #   R3. El veredicto se TRUNCA, no se acumula.
-#   R4. NUEVA, y de otra familia: el VALOR ESPERADO de un guard tambien es una
-#       medicion. Puse `esperado=1` para "cuantos sub-benchmarks corrio cada
-#       brazo" sin abrir el fuente, y cada brazo tiene CINCO niveles de
-#       concurrencia: 3 FAIL sobre datos perfectos. Ahora el esperado se DERIVA
-#       contando la lista de goroutines del propio archivo de test.
+#   R4. El VALOR ESPERADO de un guard tambien es una medicion. Puse `esperado=1`
+#       para "cuantos sub-benchmarks corrio cada brazo" sin abrir el fuente, y
+#       cada brazo tiene CINCO niveles: 3 FAIL sobre datos perfectos.
+#   R5. UN WORKFLOW QUE NO PARSEA ES INVISIBLE: no falla, no existe. La version
+#       anterior de este archivo tenia un string multilinea con menos indentacion
+#       que su bloque `run: |`, YAML cerro el bloque ahi, se crearon CERO jobs, y
+#       el resultado commiteado siguio siendo el de la corrida anterior con sus
+#       3 FAIL. Por eso el primer paso de aca valida los 6 workflows con un
+#       parser: convierte ese silencio en un rojo explicito.
 name: benchmarks-bajo-race
 
 on:
@@ -65,14 +68,44 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: 0 - enumerar los benchmarks, el entorno y DERIVAR los esperados
+      - name: 0a - VALIDAR que todos los workflows parsean (R5)
         if: always()
         run: |
           set +e
           mkdir -p "$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/bench-race-0a-yaml.txt"
+          {
+            echo "=== POR QUE ESTE PASO EXISTE ==="
+            echo "La version anterior de este mismo archivo NO PARSEABA: un string"
+            echo "multilinea con menos indentacion que su bloque 'run: |'. GitHub"
+            echo "creo CERO jobs, nada fallo, y el resultado commiteado siguio siendo"
+            echo "el de la corrida anterior. Un workflow roto es INVISIBLE."
+            echo
+            echo "=== los workflows del repo ==="
+            ls -1 .github/workflows/
+            echo "WORKFLOWS_ENCONTRADOS=$(ls -1 .github/workflows/*.yml 2>/dev/null | wc -l)"
+            echo
+            echo "=== parseo, uno por uno ==="
+            ROTOS=0
+            for f in .github/workflows/*.yml; do
+              if python3 -c "import yaml,sys; yaml.safe_load(open('$f'))" 2>/tmp/err; then
+                echo "OK    $f"
+              else
+                echo "ROTO  $f"
+                sed 's/^/        /' /tmp/err | head -6
+                ROTOS=$((ROTOS+1))
+              fi
+            done
+            echo "WORKFLOWS_ROTOS=$ROTOS"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 0b - enumerar los benchmarks y DERIVAR los esperados
+        if: always()
+        run: |
+          set +e
           OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/bench-race-0-sujeto.txt"
           # R4: el esperado se DERIVA del fuente, no de mi memoria.
-          # La linea es:  for _, g := range []int{1, 2, 4, 8, 16} {
           NIVELES=$(grep -oE 'range \[\]int\{[0-9, ]+\}' gateway/candado_bench_test.go \
                     | head -1 | grep -oE '[0-9]+' | wc -l)
           {
@@ -89,22 +122,18 @@ jobs:
             echo "BENCHMARKS_DECLARADOS=$(grep -rh '^func Benchmark' --include='*_test.go' . | wc -l)"
             echo
             echo "=== DERIVAR el esperado: niveles de concurrencia del fuente ==="
-            echo "la linea que los define:"
             grep -n 'range \[\]int{' gateway/candado_bench_test.go
             echo "NIVELES_DE_CONCURRENCIA=$NIVELES"
-            echo "(cada brazo corre un sub-benchmark por nivel, asi que -bench de un"
-            echo " brazo ejecuta ESE numero de sub-benchmarks, no 1. Esto lo derivo"
-            echo " del archivo porque poner el numero de memoria ya me dio 3 FAIL"
-            echo " sobre datos perfectos.)"
+            echo "(cada brazo corre un sub-benchmark por nivel. Este numero sale del"
+            echo " archivo porque ponerlo de memoria ya me dio 3 FAIL sobre datos"
+            echo " perfectos.)"
             echo
-            echo "=== los sub-brazos de BenchmarkCandado, del fuente ==="
+            echo "=== los sub-brazos, del fuente ==="
             grep -n 'b.Run(fmt.Sprintf' gateway/candado_bench_test.go
             echo
             echo "=== control: go test SIN -bench ejecuta los cuerpos? ==="
-            echo "Si NO aparece ninguna linea BenchmarkCandado con iteraciones, solo"
-            echo "los compila, y ese es exactamente el hueco que este job cierra."
-            go test -race -run 'XXX_NO_EXISTE' -count=1 -timeout 10m -v ./gateway/... 2>&1 | tail -8
             echo "BENCH_EJECUTADOS_SIN_FLAG=$(go test -race -run 'XXX_NO_EXISTE' -count=1 -timeout 10m ./gateway/... 2>&1 | grep -cE '^BenchmarkCandado')"
+            echo "(0 = los compila y no los corre: ese era el hueco)"
           } > "$OUT" 2>&1
           cat "$OUT"
 
@@ -124,8 +153,7 @@ jobs:
               echo
               echo "go test -race -run '^\$' -bench '$2' -benchtime=20000x -cpu=4"
               echo "(carga chica a proposito: bajo -race cada acceso se instrumenta."
-              echo " Aca NO se miden tiempos, se busca si el detector observa una"
-              echo " carrera.)"
+              echo " Aca NO se miden tiempos, se busca si el detector ve una carrera.)"
               echo
             } > "$OUT"
             go test -race -run '^$' -bench "$2" -benchtime=20000x -cpu=4 \
@@ -148,9 +176,7 @@ jobs:
 
           brazo 2-brazoB-sin-candado-RACY \
                 'BenchmarkCandado/B_1agente_sinCandado_RACY' \
-                'AL MENOS UNA carrera: es el control positivo, gemelos sin mutex.
-         Y va a correr MENOS sub-benchmarks que los otros, porque el
-         detector aborta el proceso al primer reporte.'
+                'AL MENOS UNA carrera (control positivo, gemelos sin mutex), y MENOS sub-benchmarks que los otros porque el detector aborta al primer reporte'
 
           brazo 3-brazoC-agentes-aislados \
                 'BenchmarkCandado/C_NagentesAislados_candadoPorAgente' \
@@ -168,10 +194,9 @@ jobs:
           LOG=/tmp/hmac.log
           {
             echo "=== BenchmarkVerifyPacketHMAC bajo -race ==="
-            echo "Es serial (un solo goroutine) y no tiene sub-brazos, asi que se"
-            echo "espera 1 linea de benchmark y 0 carreras. Sirve de contraste: si"
-            echo "ESTE reportara, el problema no seria de los filtros sino del"
-            echo "gateway."
+            echo "Es serial y no tiene sub-brazos: se espera 1 linea y 0 carreras."
+            echo "Sirve de contraste: si ESTE reportara, el problema no seria de los"
+            echo "filtros sino del gateway."
             echo
           } > "$OUT"
           go test -race -run '^$' -bench 'BenchmarkVerifyPacketHMAC' \
@@ -194,7 +219,7 @@ jobs:
           {
             echo "=== go test -race -bench . -benchtime=10000x ==="
             echo "Este numero SIRVE PARA UNA SOLA COSA: mostrar que contar en bloque"
-            echo "es enganoso, porque el brazo B (RACY, deliberado) contamina el total."
+            echo "engana, porque el brazo B (RACY, deliberado) contamina el total."
             echo "El veredicto NO usa este conteo: usa el de cada brazo por separado."
             echo
           } > "$OUT"
@@ -243,6 +268,7 @@ jobs:
             fi
           }
 
+          Y=$D/bench-race-0a-yaml.txt
           S=$D/bench-race-0-sujeto.txt
           A=$D/bench-race-1-brazoA-candado-por-agente.txt
           B=$D/bench-race-2-brazoB-sin-candado-RACY.txt
@@ -251,7 +277,8 @@ jobs:
           H=$D/bench-race-5-hmac.txt
           T=$D/bench-race-6-todos-juntos.txt
 
-          # R4: el esperado sale del fuente
+          ROTOS=$(leer "$Y" WORKFLOWS_ROTOS)
+          WF=$(leer "$Y" WORKFLOWS_ENCONTRADOS)
           NIV=$(leer "$S" NIVELES_DE_CONCURRENCIA)
           SINFLAG=$(leer "$S" BENCH_EJECUTADOS_SIN_FLAG)
 
@@ -270,12 +297,15 @@ jobs:
             echo "Veredicto de la corrida ${GITHUB_SHA}"
             echo "Fecha: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo
+            echo "=== R5: los workflows parsean? ==="
+            echo "workflows encontrados: $WF   |   rotos: $ROTOS"
+            echo "(la version anterior de ESTE archivo no parseaba, se crearon cero"
+            echo " jobs, y el resultado commiteado siguio siendo el viejo)"
+            echo
             echo "=== EL HUECO QUE SE CIERRA, medido ==="
             echo "benchmarks ejecutados por 'go test' SIN -bench : $SINFLAG"
-            echo "(0 = los compila y no los corre. Ese era el hueco: las 8 goroutines"
-            echo " de cada brazo nunca vieron el detector completo.)"
             grep 'BENCHMARKS_DECLARADOS=' "$S"
-            echo "niveles de concurrencia por brazo (derivado del fuente): $NIV"
+            echo "niveles de concurrencia por brazo (derivado): $NIV"
             echo
             echo "=== REPORTES DEL DETECTOR, POR BRAZO ==="
             printf '%-46s subbench=%-4s reportes=%-5s cita filters.go=%s\n' \
@@ -294,12 +324,13 @@ jobs:
             echo
             echo "=== POR QUE CONTAR EN BLOQUE ENGANA ==="
             echo "todos los benchmarks juntos -> reportes=$RT"
-            echo "  de esos, citando huberSinMutex (el brazo RACY) : $TSM"
-            echo "  citando filters.go (los filtros REALES)        : $TF"
+            echo "  citando huberSinMutex (el brazo RACY) : $TSM"
+            echo "  citando filters.go (los REALES)       : $TF"
             echo "Un lector que solo mire el $RT concluye que hay un defecto."
             echo "El desglose muestra que TODO viene del control deliberado."
             echo
-            echo "=== VEREDICTO (por brazo, esperados DERIVADOS del fuente) ==="
+            echo "=== VEREDICTO (esperados DERIVADOS del fuente) ==="
+            comparar 'CERO workflows rotos (R5)'               "$ROTOS" 0
             comparar 'el hueco existia: 0 bench sin el flag'   "$SINFLAG" 0
             comparar 'brazo A corrio sus N niveles'            "$SA"  "$NIV"
             comparar 'brazo A: CERO carreras'                  "$RA"  0
