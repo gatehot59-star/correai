@@ -1,0 +1,241 @@
+# Rehace el experimento de 4 brazos con el contador corregido.
+#
+# ===========================================================================
+# POR QUE EXISTE ESTE ARCHIVO. El veredicto del job `fix-huber-medicion` dio
+# ACK=0 en los CUATRO brazos, incluido el brazo A, que la suite E2E del mismo job
+# ya habia probado que funciona (13/13 PASS, con E0 exigiendo los 11 ACK). Dos
+# resultados contradictorios en la misma corrida: el contador estaba roto, no el
+# fix.
+#
+# LA CAUSA, medida:
+#
+#   el test emite  :  '  payload=8     B  espera=0s       ->  ACK'   (DOS espacios)
+#   mi grep buscaba:  '-> ACK'                                       (UN espacio)
+#
+# CUARTA vez que un guard mio lee un patron que el instrumento no emite:
+#   1. 'DATA RACE'    -> conto MI PROPIO echo               (verde falso)
+#   2. 'Total:'       -> cadena que pprof -top no imprime   (rojo falso)
+#   3. 't.Parallel()' -> matcheo MI PROPIO encabezado       (rojo falso)
+#   4. '-> ACK'       -> un espacio de menos en mi printf   (rojo falso)
+#
+# Escribi la regla R1 ('un guard lee un NUMERO calculado, no busca una palabra') y
+# despues segui contando con grep de cadenas, que es exactamente lo que R1
+# prohibe. LA VERSION FUERTE DE R1: EL QUE PRODUCE EL NUMERO TIENE QUE SER EL
+# INSTRUMENTO, NO EL LECTOR.
+#
+# Aca el N y los conteos salen de la salida del propio test ('de N casos', y el
+# conteo de ACK restringido a las lineas del barrido). El lector solo compara.
+# ===========================================================================
+name: huber-cuatro-brazos
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/fix-huber-primer-paquete
+    paths:
+      - '.github/workflows/huber-cuatro-brazos.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cuatro-brazos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 1 - los cuatro brazos
+        if: always()
+        run: |
+          set +e
+          mkdir -p "$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/brazos-1-medicion.txt"
+          SOLO='^TestE2E_00_ElGatewayAceptaElPrimerPaquete$'
+
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            go version
+            echo "sha256 gateway.go: $(sha256sum gateway/gateway.go | cut -d' ' -f1)"
+            echo "sha256 filters.go: $(sha256sum gateway/filters.go | cut -d' ' -f1)"
+            echo
+            echo "El repo ya viene con LOS DOS fixes aplicados, asi que los brazos que"
+            echo "no los quieren los REVIERTEN con sed, y cada brazo verifica su propio"
+            echo "sujeto contando las lineas del fix en su copia."
+            echo
+          } > "$OUT"
+
+          brazo() {
+            # $1 etiqueta, $2 filters_fix(si|no), $3 gateway_fix(si|no)
+            COPIA=/tmp/br$1/repo
+            LOG=/tmp/br$1.log
+            rm -rf /tmp/br$1 && mkdir -p /tmp/br$1
+            cp -r "$GITHUB_WORKSPACE" "$COPIA"
+            rm -rf "$COPIA/.git"
+
+            if [ "$3" = "no" ]; then
+              # revertir el fix de gateway.go: primero los usos, despues la
+              # declaracion, para que no quede una variable sin usar.
+              sed -i 's|nowNs := uint64(llegada\.UnixNano())|nowNs := uint64(now.UnixNano())|' "$COPIA/gateway/gateway.go"
+              sed -i 's|dt := llegada\.Sub(lastSeen)\.Seconds()|dt := now.Sub(lastSeen).Seconds()|' "$COPIA/gateway/gateway.go"
+              sed -i 's|^\(\s*\)lastSeen = llegada$|\1lastSeen = now|' "$COPIA/gateway/gateway.go"
+              sed -i '/llegada := time\.Now()/d' "$COPIA/gateway/gateway.go"
+            fi
+            if [ "$2" = "no" ]; then
+              sed -i 's|if !f\.visto {|if false {|' "$COPIA/gateway/filters.go"
+            fi
+
+            # el sujeto de ESTE brazo, contado sobre su propia copia
+            SUJ_F=$(grep -c 'if !f\.visto {' "$COPIA/gateway/filters.go")
+            SUJ_G=$(grep -c 'llegada := time\.Now()' "$COPIA/gateway/gateway.go")
+            SUJ_DT=$(grep -c 'dt := llegada\.Sub' "$COPIA/gateway/gateway.go")
+
+            ( cd "$COPIA" && go build ./... 2>&1 )
+            BUILD=$?
+            ( cd "$COPIA" && go test -count=1 -timeout 20m -v -run "$SOLO" ./gateway/... > "$LOG" 2>&1 )
+
+            # R1 FUERTE: el N lo dice el propio test, y los ACK se cuentan SOLO
+            # sobre las lineas del barrido de este log.
+            N=$(grep -oE 'de [0-9]+ casos' "$LOG" | tail -1 | grep -oE '[0-9]+')
+            [ -n "$N" ] || N=NA
+            TABLA=$(grep -E '^[[:space:]]+payload=' "$LOG")
+            A=$(printf '%s\n' "$TABLA" | grep -c 'ACK')
+            R=$(printf '%s\n' "$TABLA" | grep -c 'RECHAZO')
+            C=$(printf '%s\n' "$TABLA" | grep -c 'CERRADA')
+
+            {
+              echo "### BRAZO $1   filters_fix=$2  gateway_fix=$3"
+              echo "    sujeto verificado en la copia: visto=$SUJ_F  llegada=$SUJ_G  dt_llegada=$SUJ_DT  build=$BUILD"
+              printf '%s\n' "$TABLA"
+              echo "BRAZO_$1_N=$N"
+              echo "BRAZO_$1_ACK=$A"
+              echo "BRAZO_$1_RECHAZO=$R"
+              echo "BRAZO_$1_CERRADA=$C"
+              echo "BRAZO_$1_BUILD=$BUILD"
+              echo "BRAZO_$1_SUJETO_FILTERS=$SUJ_F"
+              echo "BRAZO_$1_SUJETO_GATEWAY=$SUJ_G"
+              echo
+            } >> "$OUT"
+            echo "  brazo $1 (filters=$2 gateway=$3): N=$N ACK=$A RECHAZO=$R CERRADA=$C build=$BUILD"
+          }
+
+          brazo A si si
+          brazo B si no
+          brazo C no si
+          brazo D no no
+
+      - name: 2 - veredicto de los brazos
+        if: always()
+        run: |
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          M=$D/brazos-1-medicion.txt
+          OUT=$D/brazos-2-veredicto.txt
+          FALLAS=0
+
+          leer() {
+            V=$(grep -oE "$2=[0-9]+" "$M" 2>/dev/null | tail -1 | cut -d= -f2)
+            [ -n "$V" ] && echo "$V" || echo NA
+          }
+          comparar() {
+            if [ "$2" = "$3" ]; then
+              printf 'PASS  %-52s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-52s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          N=$(leer "" BRAZO_A_N)
+          AA=$(leer "" BRAZO_A_ACK); AB=$(leer "" BRAZO_B_ACK)
+          AC=$(leer "" BRAZO_C_ACK); AD=$(leer "" BRAZO_D_ACK)
+          RC=$(leer "" BRAZO_C_RECHAZO)
+          BA=$(leer "" BRAZO_A_BUILD); BB=$(leer "" BRAZO_B_BUILD)
+          BC=$(leer "" BRAZO_C_BUILD); BD=$(leer "" BRAZO_D_BUILD)
+          SFA=$(grep -oE 'BRAZO_A_SUJETO_FILTERS=[0-9]+' "$M" | cut -d= -f2)
+          SGA=$(grep -oE 'BRAZO_A_SUJETO_GATEWAY=[0-9]+' "$M" | cut -d= -f2)
+          SFD=$(grep -oE 'BRAZO_D_SUJETO_FILTERS=[0-9]+' "$M" | cut -d= -f2)
+          SGD=$(grep -oE 'BRAZO_D_SUJETO_GATEWAY=[0-9]+' "$M" | cut -d= -f2)
+
+          {
+            echo "Veredicto de los brazos, corrida ${GITHUB_SHA}"
+            echo "Fecha: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "El N lo reporta el propio test: $N casos por brazo."
+            echo
+            echo "=== TABLA ==="
+            printf '  %-24s %-14s %-14s ACK=%-5s RECHAZO=%s\n' 'A  los dos fixes'   'filters=si' 'gateway=si' "$AA" "$(leer '' BRAZO_A_RECHAZO)"
+            printf '  %-24s %-14s %-14s ACK=%-5s RECHAZO=%s\n' 'B  solo filters'    'filters=si' 'gateway=no' "$AB" "$(leer '' BRAZO_B_RECHAZO)"
+            printf '  %-24s %-14s %-14s ACK=%-5s RECHAZO=%s\n' 'C  solo gateway'    'filters=no' 'gateway=si' "$AC" "$RC"
+            printf '  %-24s %-14s %-14s ACK=%-5s RECHAZO=%s\n' 'D  ninguno'         'filters=no' 'gateway=no' "$AD" "$(leer '' BRAZO_D_RECHAZO)"
+            echo
+            echo "=== CONTROL DEL SUJETO (contado en cada copia) ==="
+            echo "brazo A  visto=$SFA (se espera 1)   llegada=$SGA (se espera 1)"
+            echo "brazo D  visto=$SFD (se espera 0)   llegada=$SGD (se espera 0)"
+            echo
+            echo "=== VEREDICTO ==="
+            comparar 'los 4 brazos compilan  A'          "$BA" 0
+            comparar 'los 4 brazos compilan  B'          "$BB" 0
+            comparar 'los 4 brazos compilan  C'          "$BC" 0
+            comparar 'los 4 brazos compilan  D'          "$BD" 0
+            comparar 'brazo A tiene el fix de filters'   "$SFA" 1
+            comparar 'brazo A tiene el fix de gateway'   "$SGA" 1
+            comparar 'brazo D no tiene el de filters'    "$SFD" 0
+            comparar 'brazo D no tiene el de gateway'    "$SGD" 0
+            comparar 'A  los dos fixes aceptan todo'     "$AA" "$N"
+            comparar 'B  solo filters acepta todo'       "$AB" "$N"
+            comparar 'D  ninguno reproduce el hallazgo'  "$AD" 0
+            echo
+            echo "=== EL BRAZO C, que es el interesante ==="
+            echo "Mi aritmetica refutada del turno pasado predecia 4 ACK sobre 11 casos:"
+            echo "los que esperaban mas que dt_min (8B/100ms, 8B/300ms, 64B/600ms,"
+            echo "256B/1900ms). Si el brazo C da 4, esa aritmetica nunca estuvo mal sobre"
+            echo "el FILTRO: estaba mal sobre quien calculaba dt."
+            if [ "$AC" = "4" ]; then
+              echo "MEDIDO: brazo C = 4 ACK. La prediccion queda VINDICADA como diagnostico"
+              echo "del filtro, y el error estaba en la plomeria de dt."
+              echo "BRAZO_C_COINCIDE=1"
+            else
+              echo "NO COINCIDE: brazo C dio $AC ACK y yo predecia 4. La prediccion sigue"
+              echo "refutada y hay un tercer mecanismo que no tengo medido. Se declara asi."
+              echo "BRAZO_C_COINCIDE=0"
+            fi
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+            echo
+            echo "NOTA. El brazo C NO tiene guard de igualdad a proposito: su valor es"
+            echo "informativo y sirve para decidir si mi prediccion era un diagnostico o"
+            echo "un error. Poner un guard sobre un numero que quiero AVERIGUAR seria"
+            echo "exigirle a la medicion que confirme lo que ya creo."
+          } > "$OUT"
+          cat "$OUT"
+
+      - name: Commitear
+        if: always()
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/brazos-*.txt
+          git commit -m 'evidencia: los 4 brazos del fix del Huber, con el contador corregido [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          V="$GITHUB_WORKSPACE/verificacion/resultados-actions/brazos-2-veredicto.txt"
+          grep -q 'RESULTADO=VERDE' "$V" || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=|BRAZO_C_COINCIDE=' "$V"
