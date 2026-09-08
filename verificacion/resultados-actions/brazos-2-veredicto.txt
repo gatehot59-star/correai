@@ -1,29 +1,29 @@
-Veredicto de los brazos, corrida 27287bece7c8fec993415719c89ae18c492ebae4
-Fecha: 2026-09-08T15:01:13Z
+Veredicto de los brazos, corrida 588c9629355d3a8483a0d97111ce7f324d19f0a4
+Fecha: 2026-09-08T15:05:02Z
 
-El N lo reporta el propio test: NA casos por brazo.
+El N lo reporta el propio test: 11 casos por brazo.
 
 === TABLA ===
-  A  los dos fixes         filters=si     gateway=si     ACK=0     RECHAZO=0
+  A  los dos fixes         filters=si     gateway=si     ACK=11    RECHAZO=0
   B  solo filters          filters=si     gateway=no     ACK=11    RECHAZO=0
-  C  solo gateway          filters=no     gateway=si     ACK=0     RECHAZO=0
+  C  solo gateway          filters=no     gateway=si     ACK=4     RECHAZO=7
   D  ninguno               filters=no     gateway=no     ACK=0     RECHAZO=11
 
 === CONTROL DEL SUJETO (contado en cada copia) ===
-brazo A  visto=1 (se espera 1)   llegada=2 (se espera 1)
+brazo A  visto=1 (se espera 1)   llegada=1 (se espera 1)
 brazo D  visto=0 (se espera 0)   llegada=0 (se espera 0)
 
 === VEREDICTO ===
-FAIL  los 4 brazos compilan  A                             obtenido=1      esperado=0
+PASS  los 4 brazos compilan  A                             obtenido=0      esperado=0
 PASS  los 4 brazos compilan  B                             obtenido=0      esperado=0
-FAIL  los 4 brazos compilan  C                             obtenido=1      esperado=0
+PASS  los 4 brazos compilan  C                             obtenido=0      esperado=0
 PASS  los 4 brazos compilan  D                             obtenido=0      esperado=0
 PASS  brazo A tiene el fix de filters                      obtenido=1      esperado=1
-FAIL  brazo A tiene el fix de gateway                      obtenido=2      esperado=1
+PASS  brazo A tiene el fix de gateway                      obtenido=1      esperado=1
 PASS  brazo D no tiene el de filters                       obtenido=0      esperado=0
 PASS  brazo D no tiene el de gateway                       obtenido=0      esperado=0
-FAIL  A  los dos fixes aceptan todo                        obtenido=0      esperado=NA
-FAIL  B  solo filters acepta todo                          obtenido=11     esperado=NA
+PASS  A  los dos fixes aceptan todo                        obtenido=11     esperado=11
+PASS  B  solo filters acepta todo                          obtenido=11     esperado=11
 PASS  D  ninguno reproduce el hallazgo                     obtenido=0      esperado=0
 
 === EL BRAZO C, que es el interesante ===
@@ -31,12 +31,12 @@ Mi aritmetica refutada del turno pasado predecia 4 ACK sobre 11 casos:
 los que esperaban mas que dt_min (8B/100ms, 8B/300ms, 64B/600ms,
 256B/1900ms). Si el brazo C da 4, esa aritmetica nunca estuvo mal sobre
 el FILTRO: estaba mal sobre quien calculaba dt.
-NO COINCIDE: brazo C dio 0 ACK y yo predecia 4. La prediccion sigue
-refutada y hay un tercer mecanismo que no tengo medido. Se declara asi.
-BRAZO_C_COINCIDE=0
+MEDIDO: brazo C = 4 ACK. La prediccion queda VINDICADA como diagnostico
+del filtro, y el error estaba en la plomeria de dt.
+BRAZO_C_COINCIDE=1
 
-FALLAS_DE_VEREDICTO=5
-RESULTADO=ROJO
+FALLAS_DE_VEREDICTO=0
+RESULTADO=VERDE
 
 NOTA. El brazo C NO tiene guard de igualdad a proposito: su valor es
 informativo y sirve para decidir si mi prediccion era un diagnostico o
