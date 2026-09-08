@@ -5,20 +5,19 @@
 # un proxy declarado del callsite. `handleConn`, `decodePerimeterPacket`, el
 # anti-replay y `verifyPacketHMAC` nunca habian sido ejercitados por un cliente.
 #
-# EL GUARD QUE MANDA SOBRE TODOS LOS DEMAS: E1. Si un paquete VALIDO no da ACK,
-# el codificador no coincide con el decoder, y entonces los rechazos de E2 a E8
-# son rechazos por paquete mal formado y no por lo que dicen medir. Un arnes que
-# solo puede producir rechazos no distingue nada.
+# EL GUARD QUE MANDA SOBRE TODOS LOS DEMAS: que EXISTA un ACK en algun punto. Si
+# el gateway nunca acepta nada, todos los rechazos son ambiguos y no se puede
+# distinguir "el filtro bloquea" de "el codificador esta mal".
 #
 # LAS CINCO REGLAS DE ESCRITURA DE EVIDENCIA, cada una aprendida a los golpes:
 #   R1. Un guard no busca una palabra: lee un NUMERO calculado (`^CLAVE=[0-9]+`).
 #   R2. Rutas ABSOLUTAS con $GITHUB_WORKSPACE.
 #   R3. El veredicto se TRUNCA, no se acumula.
-#   R4. El VALOR ESPERADO tambien es una medicion: se deriva del fuente.
+#   R4. El VALOR ESPERADO tambien es una medicion: se deriva del fuente. Y se
+#       deriva de TODOS los archivos, no de uno: contar los tests E2E en un solo
+#       archivo cuando viven en dos ya es el mismo error con otra ropa.
 #   R5. Un workflow que no parsea es INVISIBLE: se valida antes de correr nada.
-#       Y el nombre de un paso NO puede tener ": " adentro, porque YAML lo lee
-#       como un mapping anidado. Eso rompio la primera version de este archivo y
-#       el guard de R5 lo agarro antes de gastar un ciclo de CI.
+#       Y el nombre de un paso NO puede tener ": " adentro.
 name: handleconn-e2e
 
 on:
@@ -46,8 +45,8 @@ jobs:
           set +e
           mkdir -p "$GITHUB_WORKSPACE/verificacion/resultados-actions"
           OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-0-entorno.txt"
-          # R4: el esperado se DERIVA del fuente
-          TESTS_E2E=$(grep -c '^func TestE2E_' gateway/handleconn_e2e_test.go)
+          # R4: el esperado se DERIVA del fuente, y de TODOS los archivos.
+          TESTS_E2E=$(grep -rh '^func TestE2E_' gateway/ | wc -l)
           {
             echo "Maquina: Actions ubuntu-latest (VM limpia)"
             echo "Commit:  ${GITHUB_SHA}"
@@ -56,9 +55,11 @@ jobs:
             echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
             echo "nproc:   $(nproc)"
             go version
-            echo "sha256 cliente_mtls_test.go:   $(sha256sum gateway/cliente_mtls_test.go | cut -d' ' -f1)"
-            echo "sha256 handleconn_e2e_test.go: $(sha256sum gateway/handleconn_e2e_test.go | cut -d' ' -f1)"
-            echo "sha256 gateway.go (sin tocar): $(sha256sum gateway/gateway.go | cut -d' ' -f1)"
+            for f in gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go \
+                     gateway/huber_frontera_e2e_test.go gateway/gateway.go \
+                     gateway/filters.go; do
+              echo "sha256 $(basename $f): $(sha256sum $f | cut -d' ' -f1)"
+            done
             echo
             echo "=== R5: todos los workflows parsean? ==="
             ROTOS=0
@@ -71,13 +72,13 @@ jobs:
             done
             echo "WORKFLOWS_ROTOS=$ROTOS"
             echo
-            echo "=== R4: cuantos tests E2E hay, contados del fuente ==="
-            grep -n '^func TestE2E_' gateway/handleconn_e2e_test.go
+            echo "=== R4: cuantos tests E2E hay, contados de TODO gateway/ ==="
+            grep -rn '^func TestE2E_' gateway/
             echo "TESTS_E2E_DECLARADOS=$TESTS_E2E"
             echo
-            echo "=== gofmt de los dos archivos nuevos ==="
-            gofmt -l gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go
-            gofmt -w gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go
+            echo "=== gofmt de los tres archivos nuevos ==="
+            gofmt -l gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go gateway/huber_frontera_e2e_test.go
+            gofmt -w gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go gateway/huber_frontera_e2e_test.go
             echo "(vacio arriba = ya estaban formateados)"
             echo
             echo "=== go build ./... ==="
@@ -90,7 +91,7 @@ jobs:
           } > "$OUT" 2>&1
           cat "$OUT"
 
-      - name: 1 - los 9 tests E2E bajo -race
+      - name: 1 - los tests E2E bajo -race
         if: always()
         run: |
           set +e
@@ -99,11 +100,12 @@ jobs:
           {
             echo "=== go test -race -v -count=1 -run '^TestE2E_' ./gateway/... ==="
             echo
-            echo "E1 es el control del arnes. Si E1 no pasa, los rechazos de E2 a E8"
-            echo "son rechazos por paquete mal formado y no miden lo que dicen."
+            echo "E0 mide la frontera del HuberFilter y ademas contiene el control del"
+            echo "codificador: si en ningun punto del barrido hay un ACK, todos los"
+            echo "rechazos son ambiguos."
             echo
           } > "$OUT"
-          go test -race -v -count=1 -timeout 20m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1
+          go test -race -v -count=1 -timeout 25m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1
           EX=$?
           {
             cat "$LOG"
@@ -112,6 +114,11 @@ jobs:
             echo "TESTS_FAIL=$(grep -cE '^--- FAIL: TestE2E_' "$LOG")"
             echo "RACES_EN_PROCESO=$(grep -c 'race detected during execution of test' "$LOG")"
             echo "REPORTES_DETECTOR=$(grep -c 'WARNING: DATA RACE' "$LOG")"
+            echo "HUBER_BLOQUEA_PRIMERO=$(grep -c 'E0 HALLAZGO 1 MEDIDO' "$LOG")"
+            echo "HUBER_CONTROL_OK=$(grep -c 'E0 CONTROL OK' "$LOG")"
+            echo "HUBER_FRONTERA=$(grep -c 'E0 HALLAZGO 2 MEDIDO' "$LOG")"
+            echo "HUBER_FRONTERA_PREDICHA=$(grep -c 'E0 FRONTERA PREDICHA' "$LOG")"
+            echo "HUBER_DESACUERDOS=$(grep -oE 'desacuerdos entre medicion y prediccion: [0-9]+' "$LOG" | tail -1 | grep -oE '[0-9]+$')"
             echo "E1_ARNES_OK=$(grep -cE '^--- PASS: TestE2E_01_ElArnesFunciona' "$LOG")"
             echo "D46_MEDIDO=$(grep -c 'D-46 MEDIDO EN EL CAMINO REAL' "$LOG")"
             echo "D46_MECANISMO=$(grep -c 'E6 MECANISMO CONFIRMADO' "$LOG")"
@@ -135,7 +142,7 @@ jobs:
             echo "una sola corrida es una muestra. Tres dan una idea de estabilidad."
             echo
           } > "$OUT"
-          go test -race -count=3 -timeout 30m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1
+          go test -race -count=3 -timeout 40m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1
           EX=$?
           {
             cat "$LOG"
@@ -157,7 +164,7 @@ jobs:
             echo "porton compartido. Este paso mide si lo fortalecen o lo rompen."
             echo
           } > "$OUT"
-          go test -race ./... > "$LOG" 2>&1
+          go test -race -timeout 40m ./... > "$LOG" 2>&1
           EX=$?
           {
             cat "$LOG"
@@ -246,6 +253,11 @@ jobs:
           BUILD=$(leer "$E" EXIT_build);  VET=$(leer "$E" EXIT_vet)
           PASS=$(leer "$M" TESTS_PASS);   FAIL=$(leer "$M" TESTS_FAIL)
           RACES=$(leer "$M" RACES_EN_PROCESO)
+          HB=$(leer "$M" HUBER_BLOQUEA_PRIMERO)
+          HC=$(leer "$M" HUBER_CONTROL_OK)
+          HF=$(leer "$M" HUBER_FRONTERA)
+          HFP=$(leer "$M" HUBER_FRONTERA_PREDICHA)
+          HD=$(leer "$M" HUBER_DESACUERDOS)
           ARNES=$(leer "$M" E1_ARNES_OK)
           D46=$(leer "$M" D46_MEDIDO);    D46M=$(leer "$M" D46_MECANISMO)
           D47=$(leer "$M" D47_MEDIDO)
@@ -267,27 +279,28 @@ jobs:
             echo
             echo "=== EL HUECO QUE SE CIERRA ==="
             echo "Hasta este commit ningun test toco el camino de red del gateway."
-            echo "handleConn, el decoder, el anti-replay y verifyPacketHMAC nunca"
-            echo "habian sido ejercitados por un cliente."
-            echo "tests E2E declarados (del fuente): $DECL"
+            echo "tests E2E declarados (contados en gateway/): $DECL"
             echo
-            echo "=== EL CONTROL DEL ARNES ==="
-            echo "E1 (paquete valido -> ACK): $ARNES"
-            echo "(0 aca invalida TODO lo demas: los rechazos serian por paquete mal"
-            echo " formado y no por lo que dicen medir)"
+            echo "=== EL HALLAZGO DEL TURNO, el HuberFilter ==="
+            printf '  %-52s %s\n' 'el primer paquete SIN pausa es rechazado' "$HB"
+            printf '  %-52s %s\n' 'con pausa suficiente SI da ACK (control)' "$HC"
+            printf '  %-52s %s\n' 'hay payloads sin espera posible (frontera)' "$HF"
+            printf '  %-52s %s\n' 'la frontera quedo predicha con las constantes' "$HFP"
+            printf '  %-52s %s\n' 'casos que NO coincidieron con la prediccion' "$HD"
             echo
             echo "=== LO QUE SE MIDIO EN EL CAMINO REAL ==="
-            printf '  %-46s %s\n' 'D-46 (envenenamiento de la marca de agua)' "$D46"
-            printf '  %-46s %s\n' 'D-46 mecanismo confirmado por el otro lado' "$D46M"
-            printf '  %-46s %s\n' 'D-47 (context y payload sin firmar)' "$D47"
-            printf '  %-46s %s\n' 'los rechazos son indistinguibles (Testis)' "$INDIST"
-            printf '  %-46s %s\n' 'D-26 en el CALLSITE real, no en el proxy' "$D26"
-            printf '  %-46s %s\n' 'hallazgo de conexiones concurrentes' "$HALL"
+            printf '  %-52s %s\n' 'E1 el arnes funciona punta a punta' "$ARNES"
+            printf '  %-52s %s\n' 'D-46 envenenamiento de la marca de agua' "$D46"
+            printf '  %-52s %s\n' 'D-46 mecanismo confirmado por el otro lado' "$D46M"
+            printf '  %-52s %s\n' 'D-47 context y payload sin firmar' "$D47"
+            printf '  %-52s %s\n' 'los rechazos son indistinguibles (Testis)' "$INDIST"
+            printf '  %-52s %s\n' 'D-26 en el CALLSITE real, no en el proxy' "$D26"
+            printf '  %-52s %s\n' 'hallazgo de conexiones concurrentes' "$HALL"
             echo
             echo "=== CARRERAS ==="
-            echo "en los 9 tests E2E        : $RACES"
-            echo "en 3 repeticiones         : $RRACES"
-            echo "en el porton de main      : $PRACES"
+            echo "en los tests E2E     : $RACES"
+            echo "en 3 repeticiones    : $RRACES"
+            echo "en el porton de main : $PRACES"
             echo
             echo "=== LA MUTACION, sin el mutex el arnes ve la carrera? ==="
             echo "candados comentados en la copia : $MCAND"
@@ -298,7 +311,7 @@ jobs:
             comparar 'CERO workflows rotos (R5)'                "$ROTOS" 0
             comparar 'compila'                                  "$BUILD" 0
             comparar 'go vet limpio'                            "$VET"   0
-            comparar 'EL ARNES FUNCIONA (E1 da ACK)'            "$ARNES" 1
+            al_menos 'EL CONTROL DEL CODIFICADOR (hay un ACK)'  "$HC"    1
             comparar 'pasaron los N tests E2E declarados'       "$PASS"  "$DECL"
             comparar 'ningun test E2E en FAIL'                  "$FAIL"  0
             comparar 'la corrida E2E salio en 0'                "$EX1"   0
@@ -308,21 +321,25 @@ jobs:
             comparar 'la repeticion salio en 0'                 "$EXR"   0
             comparar 'el porton de main sigue verde'            "$EXP"   0
             comparar 'CERO carreras en el porton de main'       "$PRACES" 0
+            al_menos 'HUBER el primer paquete se bloquea'       "$HB"    1
+            al_menos 'HUBER la frontera esta medida'            "$HF"    1
+            comparar 'HUBER cero desacuerdos con la prediccion' "$HD"    0
+            al_menos 'E1 el arnes funciona'                     "$ARNES" 1
             al_menos 'D-46 medido en el camino real'            "$D46"   1
             al_menos 'D-47 medido en el camino real'            "$D47"   1
             al_menos 'los rechazos son indistinguibles'         "$INDIST" 1
             al_menos 'D-26 medido en el callsite real'          "$D26"   1
             comparar 'la mutacion comento los 4 candados'       "$MCAND" 4
-            al_menos 'MUTACION: el arnes SI ve la carrera'      "$MREP"  1
-            al_menos 'MUTACION: y la atribuye a filters.go'     "$MFIL"  1
+            al_menos 'MUTACION el arnes SI ve la carrera'       "$MREP"  1
+            al_menos 'MUTACION y la atribuye a filters.go'      "$MFIL"  1
             echo
             echo "FALLAS_DE_VEREDICTO=$FALLAS"
             if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
             echo
-            echo "LECTURA: el cero de carreras en el camino real vale porque la"
-            echo "mutacion (sacarle los candados a filters.go) SI produce reporte"
-            echo "citando filters.go. Sin ese control, cero seria indistinguible de un"
-            echo "arnes que no llega a los filtros."
+            echo "LECTURA: el cero de carreras vale porque la mutacion (sacarle los"
+            echo "candados a filters.go) SI produce reporte citando filters.go. Y los"
+            echo "rechazos son atribuibles porque el barrido de E0 encontro al menos un"
+            echo "ACK: sin eso, 'rechazado' no distinguiria el filtro del formato."
           } > "$OUT"
           cat "$OUT"
 
@@ -333,7 +350,7 @@ jobs:
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git pull --rebase origin "${GITHUB_REF_NAME}" || true
-          git add verificacion/resultados-actions/e2e-*.txt gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go
+          git add verificacion/resultados-actions/e2e-*.txt gateway/*_test.go
           git commit -m 'evidencia: handleConn medido punta a punta con cliente mTLS [skip ci]' || echo 'sin cambios'
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
