@@ -1,43 +1,31 @@
 // Copyright (c) 2026 Jorge Abraham Mendieta.
 // Computational Substrate Theory. Todos los derechos reservados.
 
-// EL GATEWAY NO ACEPTA NINGUN PAQUETE. Medido, no deducido.
+// EL PRIMER PAQUETE, DESPUES DEL FIX. Y lo que el fix NO arregla.
 //
 // ===========================================================================
-// COMO APARECIO. El control del arnes del cliente mTLS (un paquete perfectamente
-// formado y bien firmado) fue RECHAZADO. Antes de tocar el arnes reproduje la
-// aritmetica del HuberFilter y saque una hipotesis con numero: en el primer
-// paquete lastV=0, asi que `derivative = v/dt`, y con dt chico eso queda muy sobre
-// el umbral. De ahi predije que bastaba con que el cliente PAUSARA antes de
-// mandar: ~7,2 s por KB de payload.
+// HISTORIA, para que nadie la reconstruya:
 //
-// LA MEDICION REFUTO ESA PREDICCION. 11 de 11 casos dieron RECHAZO, incluidos los
-// 4 en los que yo predecia ACK. Gana la medicion.
+// La version anterior de este archivo afirmaba el DEFECTO: "el gateway rechaza
+// todo primer paquete", medido con 0 de 11 combinaciones de payload y espera
+// logrando un ACK. Era un test de caracterizacion, y su comentario decia que
+// cuando el defecto se arreglara TENIA que dar rojo. Se cumplio, y por eso este
+// archivo esta invertido.
 //
-// LA CAUSA REAL, leida en handleConn despues de que el barrido me contradijo:
+// EL FIX fueron dos cambios, y el experimento de cuatro brazos del job mide cual
+// carga el peso:
 //
-//	lastSeen := time.Now()
-//	for {
-//	    now := time.Now()          // <- se captura ANTES de leer del socket
-//	    ...
-//	    io.ReadFull(conn, ...)     // <- ACA se espera el paquete del cliente
-//	    ...
-//	    dt := now.Sub(lastSeen).Seconds()
+//   1. gateway/filters.go: la primera muestra INICIALIZA el filtro y devuelve
+//      false. No se puede detectar un CAMBIO de varianza con n=1.
+//   2. gateway/gateway.go: `llegada := time.Now()` DESPUES del io.ReadFull, y de
+//      ahi salen `dt` y el reloj del anti-replay. Antes los dos usaban un `now`
+//      capturado ANTES de esperar el paquete, asi que `dt` media el tiempo entre
+//      dos inicios de iteracion del servidor y no entre paquetes.
 //
-// `dt` no mide el tiempo entre paquetes: mide el tiempo entre dos INICIOS de
-// iteracion del loop del servidor. En la primera iteracion `lastSeen` y `now` se
-// tomaron a microsegundos de distancia, con el ReadFull todavia por delante. La
-// pausa del cliente NO ENTRA EN dt, y por eso mi "esperar 7,2 s por KB" era falso.
-//
-// CONSECUENCIA, y es de producto, no de test:
-//
-//	EL GATEWAY RECHAZA EL PRIMER PAQUETE DE TODA CONEXION, SIEMPRE, con
-//	cualquier payload y sin importar lo que haga el cliente. Y como el rechazo
-//	hace TriggerBlock + writeReject + return, ninguna conexion pasa nunca de
-//	un paquete. HiperSec no puede procesar un solo paquete de ningun agente.
-//
-// Nadie lo sabia porque nadie habia mandado un paquete: hasta este commit el repo
-// no tenia cliente.
+// LO QUE EL FIX NO ARREGLA, y este archivo lo afirma en E0c: D-48 sigue vivo.
+// Con payloads VARIABLES el filtro bloquea igual, y la tolerancia depende de dt
+// (a 40 ms basta un +11% de cambio de tamano). Eso necesita reemplazar el
+// algoritmo por Page-Hinkley, que es decision de producto.
 // ===========================================================================
 
 package gateway
@@ -56,13 +44,14 @@ const (
 	resCerrada = "CERRADA"
 )
 
-// dtMinimoPredicho es LA PREDICCION QUE LA MEDICION REFUTO. Queda en el archivo a
-// proposito: sirve para mostrar en la tabla la distancia entre lo que calcule y lo
-// que paso, y es la unica forma de que el proximo que lea esto no repita el
-// razonamiento.
+// dtMinimoPredicho es LA PREDICCION QUE LA MEDICION REFUTO en el turno anterior,
+// y queda en el archivo a proposito.
 //
 // El despeje es correcto PARA EL FILTRO: dt > v/umbral. Lo que estaba mal era la
-// premisa de que el cliente pudiera influir en ese dt.
+// premisa de que el cliente pudiera influir en ese dt, porque `dt` no se medida
+// entre paquetes. Con el fix de gateway.go ahora SI se mide entre paquetes, asi
+// que esta funcion pasa de ser una prediccion falsa a ser la cota real de
+// tolerancia del filtro una vez que hay historia.
 func dtMinimoPredicho(bytes int) float64 {
 	x := float64(bytes) / 1024.0
 
@@ -113,11 +102,10 @@ func intentarUnPaquete(t *testing.T, addr string, clave []byte, p *pki, nombre s
 
 // elGatewayAceptaAlgo prueba si ESTE gateway acepta un primer paquete.
 //
-// Existe porque el gateway real NO acepta ninguno, y los tests que necesitan un
-// ACK para medir su hallazgo (el replay, D-46, D-47, D-26 en el callsite) tienen
-// que poder declarar NO MEDIDO en vez de fallar. Sobre un gateway con el bloque
-// del HuberFilter desactivado esos mismos tests SI miden, y el sujeto queda
-// declarado en el nombre de la corrida.
+// Con el fix puesto devuelve true siempre, asi que ningun test se saltea. Se
+// conserva porque los tests que necesitan un ACK previo tienen que poder declarar
+// NO MEDIDO en vez de fallar si alguien revierte el fix o corre el arnes contra
+// una version vieja.
 func elGatewayAceptaAlgo(t *testing.T, addr string, clave []byte, p *pki) bool {
 	t.Helper()
 	return intentarUnPaquete(t, addr, clave, p,
@@ -130,23 +118,19 @@ func saltearSiElGatewayNoAcepta(t *testing.T, addr string, clave []byte, p *pki)
 	if elGatewayAceptaAlgo(t, addr, clave, p) {
 		return
 	}
-	t.Skipf("NO MEDIDO: este gateway no acepta NINGUN primer paquete (ver E0), asi " +
-		"que no hay forma de llegar al estado que este test necesita medir. El " +
-		"hallazgo se puede medir sobre una copia con el bloque del HuberFilter " +
-		"desactivado; ese sujeto es OTRO y el job lo corre aparte.")
+	t.Skipf("NO MEDIDO: este gateway no acepta NINGUN primer paquete, asi que no hay "+
+		"forma de llegar al estado que este test necesita. Con el fix de E0 puesto "+
+		"esto no deberia pasar: si aparece, el fix se revirtio o se esta corriendo el "+
+		"arnes contra una version vieja del gateway.")
 }
 
 // ---------------------------------------------------------------------------
-// E0 · EL BARRIDO
+// E0 · EL BARRIDO, INVERTIDO
 // ---------------------------------------------------------------------------
 
-// TestE2E_00_ElGatewayRechazaTodoPrimerPaquete barre el espacio (payload x espera)
-// y afirma lo que la medicion mostro: no hay combinacion que el gateway acepte.
-//
-// ES UN TEST DE CARACTERIZACION. Afirma el defecto tal como esta hoy, asi que
-// cuando el HuberFilter se arregle este test DEBE dar rojo. Ese rojo es la senal
-// de borrarlo y cerrar el hallazgo, no un test que se rompio.
-func TestE2E_00_ElGatewayRechazaTodoPrimerPaquete(t *testing.T) {
+// TestE2E_00_ElGatewayAceptaElPrimerPaquete es el mismo barrido de antes con el
+// veredicto dado vuelta. Antes del fix: 0 ACK de 11. Se espera 11 de 11.
+func TestE2E_00_ElGatewayAceptaElPrimerPaquete(t *testing.T) {
 	addr, clave, p := arrancarGateway(t)
 
 	casos := []struct {
@@ -167,7 +151,7 @@ func TestE2E_00_ElGatewayRechazaTodoPrimerPaquete(t *testing.T) {
 	}
 
 	var filas []string
-	acks, rechazos, cerradas, desacuerdos := 0, 0, 0, 0
+	acks, rechazos, cerradas := 0, 0, 0
 
 	for i, caso := range casos {
 		nombre := fmt.Sprintf("agente-e0-%d-%dB-%dms", i, caso.bytes, caso.espera.Milliseconds())
@@ -182,64 +166,246 @@ func TestE2E_00_ElGatewayRechazaTodoPrimerPaquete(t *testing.T) {
 			cerradas++
 		}
 
-		dtMin := dtMinimoPredicho(caso.bytes)
-		predicho := resRechazo
-		if caso.espera.Seconds() > dtMin {
-			predicho = resAck
-		}
-		marca := "  "
-		if got != predicho {
-			marca = "<< mi prediccion FALLO"
-			desacuerdos++
-		}
-
 		filas = append(filas, fmt.Sprintf(
-			"  payload=%-5d B  espera=%-7v  dt_min que yo predije=%7.3f s  ->  MEDIDO=%-8s predije=%-8s %s",
-			caso.bytes, caso.espera, dtMin, got, predicho, marca))
+			"  payload=%-5d B  espera=%-7v  ->  %s", caso.bytes, caso.espera, got))
 	}
 
-	t.Logf("E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline del gateway: %v)\n%s\n"+
-		"  ACK=%d  RECHAZO=%d  CERRADA=%d  de %d casos\n"+
-		"  casos en los que mi prediccion aritmetica FALLO: %d",
-		defaultReadDeadline, unirLineas(filas), acks, rechazos, cerradas, len(casos),
-		desacuerdos)
+	t.Logf("E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline: %v)\n%s\n"+
+		"  ACK=%d  RECHAZO=%d  CERRADA=%d  de %d casos",
+		defaultReadDeadline, unirLineas(filas), acks, rechazos, cerradas, len(casos))
 
-	// --- EL HALLAZGO ---
-	if acks > 0 {
-		t.Errorf("HALLAZGO CERRADO: el gateway acepto %d de %d primeros paquetes. Si el "+
-			"HuberFilter se arreglo, actualizar el contexto vivo, cerrar el hallazgo y "+
-			"borrar este test de caracterizacion", acks, len(casos))
+	if acks != len(casos) {
+		t.Fatalf("el fix NO cierra el hallazgo: solo %d de %d primeros paquetes fueron "+
+			"aceptados (rechazo=%d cerrada=%d). Antes del fix eran 0 de %d",
+			acks, len(casos), rechazos, cerradas, len(casos))
+	}
+
+	t.Logf("E0 FIX MEDIDO: %d de %d primeros paquetes ACEPTADOS, con cualquier "+
+		"payload y con o sin pausa. Antes del fix eran 0 de %d. El gateway puede "+
+		"atender a un agente por primera vez en la vida del proyecto.",
+		acks, len(casos), len(casos))
+}
+
+// ---------------------------------------------------------------------------
+// E0b · EL CONTROL QUE HACE QUE EL FIX VALGA
+// ---------------------------------------------------------------------------
+
+// TestE2E_00b_ControlPositivoLaRafagaSigueBloqueada es el control sin el cual el
+// fix seria indistinguible de haber desarmado la deteccion.
+//
+// Un filtro que acepta todo "arregla" el primer paquete y rompe el producto. Este
+// test manda paquetes estables y despues UNA rafaga grande sobre la MISMA
+// conexion, y exige que la rafaga sea bloqueada.
+func TestE2E_00b_ControlPositivoLaRafagaSigueBloqueada(t *testing.T) {
+	addr, clave, p := arrancarGateway(t)
+	ag := p.nuevoAgente(t, "agente-e0b")
+
+	c, err := ag.conectar(addr)
+	if err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	defer c.cerrar()
+
+	const estables = 8
+	const rafagaBytes = 16384
+
+	// Tramo estable: todos del mismo tamano, asi que la varianza no se mueve.
+	for i := 0; i < estables; i++ {
+		resp, err := c.enviar(paqueteConCarga(clave, ag, ahoraNs(), uint32(i+1), cargaChica))
+		if err != nil {
+			t.Fatalf("el gateway cerro en el paquete estable %d: %v", i+1, err)
+		}
+		if resp != respAck {
+			t.Fatalf("el paquete estable %d de %d B fue rechazado (%s): el fix no "+
+				"sostiene una conexion normal", i+1, cargaChica, nombreDeRespuesta(resp))
+		}
+	}
+	t.Logf("E0b los %d paquetes estables de %d B fueron ACK", estables, cargaChica)
+
+	// La rafaga: 2048 veces el tamano del tramo estable.
+	resp, err := c.enviar(paqueteConCarga(clave, ag, ahoraNs(), 999, rafagaBytes))
+	if err != nil {
+		t.Logf("E0b CONTROL OK: la rafaga de %d B hizo que el gateway CIERRE la "+
+			"conexion (%v). Tambien es un bloqueo.", rafagaBytes, err)
 		return
 	}
 
-	t.Logf("E0 HALLAZGO MEDIDO: %d de %d combinaciones de payload y espera, y NINGUNA "+
-		"logro que el gateway acepte un primer paquete. El gateway rechaza el primer "+
-		"paquete de TODA conexion.", len(casos), len(casos))
-
-	// --- LA CAUSA, y por que mi prediccion era falsa ---
-	if desacuerdos > 0 {
-		t.Logf("E0 MI PREDICCION QUEDA REFUTADA en %d casos, y la medicion gana. Yo "+
-			"habia despejado dt_min = v/umbral del HuberFilter y supuse que el cliente "+
-			"podia satisfacerlo pausando antes de mandar. Falso: en handleConn el "+
-			"`now := time.Now()` se captura ANTES del io.ReadFull que espera el paquete, "+
-			"asi que `dt = now - lastSeen` mide el tiempo entre dos INICIOS de iteracion "+
-			"del loop del servidor, no entre paquetes. En la primera iteracion son "+
-			"microsegundos con el ReadFull todavia por delante. La pausa del cliente no "+
-			"entra en dt: NO HAY NADA que el cliente pueda hacer.", desacuerdos)
-	} else {
-		t.Logf("E0 mi prediccion coincidio en los %d casos. Ojo: coincidir no la valida, "+
-			"porque todos los casos dieron el mismo resultado.", len(casos))
+	if resp == respAck {
+		t.Fatalf("CONTROL ROTO: una rafaga de %d B despues de %d paquetes de %d B fue "+
+			"ACEPTADA. El fix desarmo la deteccion: el filtro ya no bloquea nada y "+
+			"'arreglar el primer paquete' se convirtio en romper el producto.",
+			rafagaBytes, estables, cargaChica)
 	}
 
-	t.Logf("E0 CONSECUENCIA: como el rechazo hace TriggerBlock + writeReject + return, " +
-		"ninguna conexion pasa nunca de UN paquete, y ese paquete siempre se rechaza. " +
-		"HiperSec no puede procesar un solo paquete de ningun agente. Nadie lo sabia " +
-		"porque hasta este commit el repo no tenia cliente.")
+	t.Logf("E0b CONTROL POSITIVO OK: la rafaga de %d B (2048x el tramo estable) fue "+
+		"%s. El fix NO desarmo la deteccion: el filtro sigue bloqueando un cambio "+
+		"real de varianza.", rafagaBytes, nombreDeRespuesta(resp))
+}
 
-	t.Logf("E0 NO MEDIDO: cual es el fix. Reemplazar Huber por Page-Hinkley (D-48), " +
-		"inicializar lastV con la primera muestra, o mover el `now` despues del " +
-		"ReadFull son tres arreglos distintos con consecuencias distintas, y elegir " +
-		"es diseno del producto.")
+// ---------------------------------------------------------------------------
+// E0c · LO QUE EL FIX NO ARREGLA (D-48), CON NUMERO
+// ---------------------------------------------------------------------------
+
+// TestE2E_00c_D48_LosPayloadsVariablesSiguenBloqueados es un test de
+// CARACTERIZACION del defecto que queda abierto.
+//
+// El fix de E0 cura el primer paquete. NO cura D-48: la derivada esta en var/s y
+// el umbral en unidades de desvio, asi que la tolerancia a variacion de tamano
+// depende de dt. Modelado sobre la aritmetica del filtro, con historia ya hecha:
+//
+//	dt = 1 ms   -> bloquea con +1,6%  de cambio de tamano
+//	dt = 40 ms  -> bloquea con +10,9%
+//	dt = 1 s    -> bloquea con +243,8%
+//
+// Cuanto mas rapido habla el agente, MENOS variacion tolera. Este test lo mide
+// sobre el camino real: un cliente que manda tamanos variables a ritmo normal es
+// bloqueado.
+//
+// CUANDO D-48 SE ARREGLE, ESTE TEST DEBE DAR ROJO. Ese rojo es la senal de
+// borrarlo y cerrar D-48, no un test que se rompio.
+func TestE2E_00c_D48_LosPayloadsVariablesSiguenBloqueados(t *testing.T) {
+	addr, clave, p := arrancarGateway(t)
+	ag := p.nuevoAgente(t, "agente-e0c")
+
+	c, err := ag.conectar(addr)
+	if err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	defer c.cerrar()
+
+	// Tamanos que un cliente real tendria: un pedido chico, una respuesta mediana,
+	// otro pedido chico. Nada de esto es un ataque.
+	tamanos := []int{64, 96, 64, 128, 64, 192, 64}
+
+	ack, rechazo := 0, 0
+	var filas []string
+	primerRechazo := -1
+
+	for i, b := range tamanos {
+		resp, err := c.enviar(paqueteConCarga(clave, ag, ahoraNs(), uint32(i+1), b))
+		var got string
+		switch {
+		case err != nil:
+			got = resCerrada
+			rechazo++
+		case resp == respAck:
+			got = resAck
+			ack++
+		default:
+			got = resRechazo
+			rechazo++
+		}
+		if got != resAck && primerRechazo < 0 {
+			primerRechazo = i + 1
+		}
+		filas = append(filas, fmt.Sprintf("  paquete %d  payload=%-4d B  -> %s", i+1, b, got))
+		if err != nil {
+			break // el gateway cerro: no hay mas nada que mandar
+		}
+	}
+
+	t.Logf("E0c CLIENTE CON PAYLOADS VARIABLES (64 a 192 B, pausa de %v)\n%s\n"+
+		"  ACK=%d  no-ACK=%d   primer no-ACK en el paquete %d",
+		pausaEntrePaquetes, unirLineas(filas), ack, rechazo, primerRechazo)
+
+	if rechazo == 0 {
+		t.Errorf("D-48 parece CERRADO: un cliente con payloads variables completo los "+
+			"%d paquetes sin un solo rechazo. Si el filtro se reemplazo por "+
+			"Page-Hinkley, actualizar el contexto vivo, cerrar D-48 y borrar este test",
+			len(tamanos))
+		return
+	}
+
+	t.Logf("E0c D-48 SIGUE ABIERTO, medido en el camino real: un cliente que manda "+
+		"tamanos normales y variables es bloqueado en el paquete %d. El fix de E0 cura "+
+		"el PRIMER paquete y nada mas: el gateway sigue inutilizable para cualquier "+
+		"agente cuyo trafico no sea de tamano constante. La tolerancia depende de dt "+
+		"(a 40 ms alcanza un +11%% de cambio), y eso es la inconsistencia dimensional "+
+		"de D-48: hace falta Page-Hinkley, no un parche.", primerRechazo)
+}
+
+// ---------------------------------------------------------------------------
+// E0d · LA VENTANA ANTI-REPLAY, AHORA MEDIDA DESDE LA LLEGADA
+// ---------------------------------------------------------------------------
+
+// TestE2E_00d_LaVentanaSeMideDesdeLaLlegada mide el segundo efecto del fix de
+// gateway.go, que es de seguridad y no de disponibilidad.
+//
+// ANTES: `nowNs` salía de un `now` capturado ANTES del io.ReadFull, asi que un
+// cliente que se tomaba su tiempo hacia que el gateway comparara el timestamp del
+// paquete contra un reloj viejo. Con un read deadline de 2 s, la ventana efectiva
+// hacia atras era de hasta 30 s + 2 s = 32 s: un replay de 32 segundos de
+// antiguedad podia entrar.
+//
+// DOS BRAZOS, porque un solo resultado no distingue el fix del azar:
+//
+//	(a) pausa de 1,9 s y ts de 29,5 s de antiguedad -> RECHAZO (31,4 s en la
+//	    llegada, fuera de la ventana de 30 s)
+//	(b) sin pausa y el MISMO ts de 29,5 s          -> ACK (dentro de la ventana)
+//
+// Con el codigo viejo los dos daban ACK, porque los dos se comparaban contra el
+// mismo reloj pre-lectura.
+func TestE2E_00d_LaVentanaSeMideDesdeLaLlegada(t *testing.T) {
+	addr, clave, p := arrancarGateway(t)
+
+	const antiguedad = 29500 * time.Millisecond
+	const pausaLarga = 1900 * time.Millisecond
+
+	medir := func(nombre string, pausa time.Duration) string {
+		ag := p.nuevoAgente(t, nombre)
+		c, err := ag.conectar(addr)
+		if err != nil {
+			t.Fatalf("handshake de %q: %v", nombre, err)
+		}
+		defer c.cerrar()
+
+		// El timestamp se calcula AHORA, con el handshake recien terminado, que es
+		// aproximadamente cuando el gateway captura su `now` pre-lectura.
+		ts := ahoraNs() - uint64(antiguedad)
+
+		time.Sleep(pausa)
+
+		resp, err := c.enviarSinPausa(paqueteConCarga(clave, ag, ts, 1, cargaChica))
+		switch {
+		case err != nil:
+			return resCerrada
+		case resp == respAck:
+			return resAck
+		default:
+			return resRechazo
+		}
+	}
+
+	conPausa := medir("agente-e0d-con-pausa", pausaLarga)
+	sinPausa := medir("agente-e0d-sin-pausa", 0)
+
+	t.Logf("E0d VENTANA ANTI-REPLAY (declarada: %v)\n"+
+		"  ts de %v de antiguedad, pausa de %v antes de mandar -> %s\n"+
+		"  el MISMO ts, sin pausa                              -> %s",
+		time.Duration(maxTimestampDriftNs), antiguedad, pausaLarga, conPausa, sinPausa)
+
+	if sinPausa != resAck {
+		t.Fatalf("CONTROL ROTO: un ts de %v de antiguedad SIN pausa fue %s, y la "+
+			"ventana declarada es %v. Si esto no entra, el brazo con pausa no mide la "+
+			"ventana sino otra cosa", antiguedad, sinPausa, time.Duration(maxTimestampDriftNs))
+	}
+
+	if conPausa == resAck {
+		t.Errorf("la ventana NO se mide desde la llegada: con %v de pausa, un ts de %v "+
+			"de antiguedad (o sea %v en la llegada, fuera de la ventana de %v) fue "+
+			"ACEPTADO. El reloj del anti-replay sigue siendo el pre-lectura",
+			pausaLarga, antiguedad, antiguedad+pausaLarga,
+			time.Duration(maxTimestampDriftNs))
+		return
+	}
+
+	t.Logf("E0d FIX MEDIDO: el reloj del anti-replay es ahora el de la LLEGADA del "+
+		"paquete. Con el codigo viejo los dos brazos daban ACK, porque los dos se "+
+		"comparaban contra un `now` capturado antes de esperar el paquete: la ventana "+
+		"efectiva hacia atras era de hasta %v + %v = %v, no los %v declarados.",
+		time.Duration(maxTimestampDriftNs), defaultReadDeadline,
+		time.Duration(maxTimestampDriftNs)+defaultReadDeadline,
+		time.Duration(maxTimestampDriftNs))
 }
 
 func unirLineas(l []string) string {
