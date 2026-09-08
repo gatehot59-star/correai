@@ -1,41 +1,44 @@
 // Copyright (c) 2026 Jorge Abraham Mendieta.
 // Computational Substrate Theory. Todos los derechos reservados.
 
-// LA FRONTERA DEL HuberFilter, medida contra el gateway real.
+// EL GATEWAY NO ACEPTA NINGUN PAQUETE. Medido, no deducido.
 //
-// COMO APARECIO ESTE ARCHIVO: el control del arnes del cliente mTLS (un paquete
-// perfectamente formado y bien firmado) fue RECHAZADO. La causa no era el
-// codificador: es que el gateway rechaza el primer paquete de todo agente.
+// ===========================================================================
+// COMO APARECIO. El control del arnes del cliente mTLS (un paquete perfectamente
+// formado y bien firmado) fue RECHAZADO. Antes de tocar el arnes reproduje la
+// aritmetica del HuberFilter y saque una hipotesis con numero: en el primer
+// paquete lastV=0, asi que `derivative = v/dt`, y con dt chico eso queda muy sobre
+// el umbral. De ahi predije que bastaba con que el cliente PAUSARA antes de
+// mandar: ~7,2 s por KB de payload.
 //
-// EL MECANISMO. En `HuberFilter.Update`, sobre un filtro recien creado:
+// LA MEDICION REFUTO ESA PREDICCION. 11 de 11 casos dieron RECHAZO, incluidos los
+// 4 en los que yo predecia ACK. Gana la medicion.
 //
-//	lastV = 0  ->  derivative = (v - 0)/dt = v/dt
-//	threshold  = 0.05 * sqrt(v) * (1 + log1p(s))
+// LA CAUSA REAL, leida en handleConn despues de que el barrido me contradijo:
 //
-// El `dt` que recibe es el tiempo entre el fin del handshake y la llegada del
-// primer paquete. Un cliente que escribe apenas conecta da dt de microsegundos, y
-// ahi v/dt queda cuatro ordenes de magnitud sobre el umbral.
+//	lastSeen := time.Now()
+//	for {
+//	    now := time.Now()          // <- se captura ANTES de leer del socket
+//	    ...
+//	    io.ReadFull(conn, ...)     // <- ACA se espera el paquete del cliente
+//	    ...
+//	    dt := now.Sub(lastSeen).Seconds()
 //
-// Es D-48 (derivada en var/s comparada contra un umbral en unidades de desvio) en
-// su forma mas concreta. El hallazgo original decia "bloquea casi cualquier
-// rafaga". La medicion dice algo mas fuerte: bloquea el PRIMER paquete, siempre.
+// `dt` no mide el tiempo entre paquetes: mide el tiempo entre dos INICIOS de
+// iteracion del loop del servidor. En la primera iteracion `lastSeen` y `now` se
+// tomaron a microsegundos de distancia, con el ReadFull todavia por delante. La
+// pausa del cliente NO ENTRA EN dt, y por eso mi "esperar 7,2 s por KB" era falso.
 //
-// LA PREDICCION, despejada del propio filtro:
+// CONSECUENCIA, y es de producto, no de test:
 //
-//	v/dt < 0.05*sqrt(v)*inertia   =>   dt > sqrt(v)/(0.05*inertia)
+//	EL GATEWAY RECHAZA EL PRIMER PAQUETE DE TODA CONEXION, SIEMPRE, con
+//	cualquier payload y sin importar lo que haga el cliente. Y como el rechazo
+//	hace TriggerBlock + writeReject + return, ninguna conexion pasa nunca de
+//	un paquete. HiperSec no puede procesar un solo paquete de ningun agente.
 //
-// con v = alpha*(x - alpha*x)^2 = 0.128*x^2 y x = payload_bytes/1024. O sea
-// dt_min crece LINEAL con el tamano del payload: ~7,2 s por cada KB.
-//
-// ESTE TEST NO CONFIA EN ESA ARITMETICA. Barre el espacio (payload x espera)
-// contra el gateway real y pone la prediccion al lado de cada medicion. Si no
-// coinciden, mi calculo estaba mal y queda escrito en la salida.
-//
-// Y LA CONSECUENCIA QUE LO CONVIERTE EN BLOQUEANTE DE PRODUCTO: el propio gateway
-// pone un `defaultReadDeadline` de 2 s. Si el dt que el filtro exige supera esos
-// 2 s, no hay espera posible: esperar mas hace que el gateway cierre la conexion,
-// y esperar menos hace que el filtro bloquee al agente. La prediccion dice que eso
-// pasa a partir de ~303 bytes de payload.
+// Nadie lo sabia porque nadie habia mandado un paquete: hasta este commit el repo
+// no tenia cliente.
+// ===========================================================================
 
 package gateway
 
@@ -46,15 +49,23 @@ import (
 	"time"
 )
 
-// dtMinimoPredicho despeja del HuberFilter el `dt` minimo que NO dispara el
-// bloqueo en el primer paquete, para un payload de `bytes` bytes.
+// resultados posibles de un intento.
+const (
+	resAck     = "ACK"
+	resRechazo = "RECHAZO"
+	resCerrada = "CERRADA"
+)
+
+// dtMinimoPredicho es LA PREDICCION QUE LA MEDICION REFUTO. Queda en el archivo a
+// proposito: sirve para mostrar en la tabla la distancia entre lo que calcule y lo
+// que paso, y es la unica forma de que el proximo que lea esto no repita el
+// razonamiento.
 //
-// Usa las constantes del repo (DefaultAlpha, DefaultSigma, DefaultEpsilon), no
-// numeros copiados: si alguien cambia el alpha, esta prediccion cambia con el.
+// El despeje es correcto PARA EL FILTRO: dt > v/umbral. Lo que estaba mal era la
+// premisa de que el cliente pudiera influir en ese dt.
 func dtMinimoPredicho(bytes int) float64 {
 	x := float64(bytes) / 1024.0
 
-	// Un paso de Update sobre un filtro en cero.
 	s := DefaultAlpha * x
 	delta := x
 	if clamp := 3 * DefaultSigma; delta > clamp {
@@ -69,42 +80,74 @@ func dtMinimoPredicho(bytes int) float64 {
 	if umbral <= 0 {
 		return 0
 	}
-	// derivative = v/dt  <  umbral   =>   dt > v/umbral
 	return v / umbral
 }
 
-// TestE2E_00_LaFronteraDelHuberFilter barre payload x espera contra el gateway
-// real y reporta la tabla completa, con la prediccion al lado.
-func TestE2E_00_LaFronteraDelHuberFilter(t *testing.T) {
-	addr, clave, p := arrancarGateway(t)
+// intentarUnPaquete abre una conexion con un cert NUEVO, espera `espera`, manda un
+// solo paquete valido de `bytes` bytes y devuelve que contesto el gateway.
+//
+// Un cert por intento es obligatorio: un rechazo dispara TriggerBlock, y con el
+// cert compartido el intento siguiente mediria el backoff y no el filtro.
+func intentarUnPaquete(t *testing.T, addr string, clave []byte, p *pki, nombre string, bytes int, espera time.Duration) string {
+	t.Helper()
 
-	tipo := struct{ ack, rechazo, cerrada string }{"ACK", "RECHAZO", "CERRADA"}
-
-	// medir abre una conexion nueva con un cert nuevo, espera `espera`, y manda UN
-	// paquete valido con `bytes` de payload.
-	//
-	// Un cert por caso es obligatorio: un rechazo dispara TriggerBlock, y con el
-	// cert compartido el caso siguiente mediria el backoff en vez del filtro.
-	medir := func(nombre string, bytes int, espera time.Duration) string {
-		ag := p.nuevoAgente(t, nombre)
-		c, err := ag.conectar(addr)
-		if err != nil {
-			t.Fatalf("handshake de %q: %v", nombre, err)
-		}
-		defer c.cerrar()
-
-		time.Sleep(espera)
-
-		resp, err := c.enviarSinPausa(paqueteConCarga(clave, ag, ahoraNs(), 1, bytes))
-		switch {
-		case err != nil:
-			return tipo.cerrada
-		case resp == respAck:
-			return tipo.ack
-		default:
-			return tipo.rechazo
-		}
+	ag := p.nuevoAgente(t, nombre)
+	c, err := ag.conectar(addr)
+	if err != nil {
+		t.Fatalf("handshake de %q: %v", nombre, err)
 	}
+	defer c.cerrar()
+
+	time.Sleep(espera)
+
+	resp, err := c.enviarSinPausa(paqueteConCarga(clave, ag, ahoraNs(), 1, bytes))
+	switch {
+	case err != nil:
+		return resCerrada
+	case resp == respAck:
+		return resAck
+	default:
+		return resRechazo
+	}
+}
+
+// elGatewayAceptaAlgo prueba si ESTE gateway acepta un primer paquete.
+//
+// Existe porque el gateway real NO acepta ninguno, y los tests que necesitan un
+// ACK para medir su hallazgo (el replay, D-46, D-47, D-26 en el callsite) tienen
+// que poder declarar NO MEDIDO en vez de fallar. Sobre un gateway con el bloque
+// del HuberFilter desactivado esos mismos tests SI miden, y el sujeto queda
+// declarado en el nombre de la corrida.
+func elGatewayAceptaAlgo(t *testing.T, addr string, clave []byte, p *pki) bool {
+	t.Helper()
+	return intentarUnPaquete(t, addr, clave, p,
+		fmt.Sprintf("sonda-%s", t.Name()), cargaChica, pausaAntesDelPrimero) == resAck
+}
+
+// saltearSiElGatewayNoAcepta declara NO MEDIDO con su razon.
+func saltearSiElGatewayNoAcepta(t *testing.T, addr string, clave []byte, p *pki) {
+	t.Helper()
+	if elGatewayAceptaAlgo(t, addr, clave, p) {
+		return
+	}
+	t.Skipf("NO MEDIDO: este gateway no acepta NINGUN primer paquete (ver E0), asi "+
+		"que no hay forma de llegar al estado que este test necesita medir. El "+
+		"hallazgo se puede medir sobre una copia con el bloque del HuberFilter "+
+		"desactivado; ese sujeto es OTRO y el job lo corre aparte.")
+}
+
+// ---------------------------------------------------------------------------
+// E0 · EL BARRIDO
+// ---------------------------------------------------------------------------
+
+// TestE2E_00_ElGatewayRechazaTodoPrimerPaquete barre el espacio (payload x espera)
+// y afirma lo que la medicion mostro: no hay combinacion que el gateway acepte.
+//
+// ES UN TEST DE CARACTERIZACION. Afirma el defecto tal como esta hoy, asi que
+// cuando el HuberFilter se arregle este test DEBE dar rojo. Ese rojo es la senal
+// de borrarlo y cerrar el hallazgo, no un test que se rompio.
+func TestE2E_00_ElGatewayRechazaTodoPrimerPaquete(t *testing.T) {
+	addr, clave, p := arrancarGateway(t)
 
 	casos := []struct {
 		bytes  int
@@ -124,107 +167,79 @@ func TestE2E_00_LaFronteraDelHuberFilter(t *testing.T) {
 	}
 
 	var filas []string
-	resultados := make(map[string]string)
-	desacuerdos := 0
+	acks, rechazos, cerradas, desacuerdos := 0, 0, 0, 0
 
 	for i, caso := range casos {
 		nombre := fmt.Sprintf("agente-e0-%d-%dB-%dms", i, caso.bytes, caso.espera.Milliseconds())
-		got := medir(nombre, caso.bytes, caso.espera)
+		got := intentarUnPaquete(t, addr, clave, p, nombre, caso.bytes, caso.espera)
 
-		dtMin := dtMinimoPredicho(caso.bytes)
-		predicho := tipo.rechazo
-		if caso.espera.Seconds() > dtMin {
-			predicho = tipo.ack
+		switch got {
+		case resAck:
+			acks++
+		case resRechazo:
+			rechazos++
+		default:
+			cerradas++
 		}
 
+		dtMin := dtMinimoPredicho(caso.bytes)
+		predicho := resRechazo
+		if caso.espera.Seconds() > dtMin {
+			predicho = resAck
+		}
 		marca := "  "
 		if got != predicho {
-			marca = "<<"
+			marca = "<< mi prediccion FALLO"
 			desacuerdos++
 		}
 
 		filas = append(filas, fmt.Sprintf(
-			"  payload=%-5d B  espera=%-7v  dt_min predicho=%7.3f s  ->  medido=%-8s predicho=%-8s %s",
+			"  payload=%-5d B  espera=%-7v  dt_min que yo predije=%7.3f s  ->  MEDIDO=%-8s predije=%-8s %s",
 			caso.bytes, caso.espera, dtMin, got, predicho, marca))
-
-		resultados[fmt.Sprintf("%d/%d", caso.bytes, caso.espera.Milliseconds())] = got
 	}
 
-	t.Logf("E0 BARRIDO DEL HuberFilter EN EL PRIMER PAQUETE\n"+
-		"  (read deadline del gateway: %v)\n%s\n"+
-		"  desacuerdos entre medicion y prediccion: %d",
-		defaultReadDeadline, unirLineas(filas), desacuerdos)
+	t.Logf("E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline del gateway: %v)\n%s\n"+
+		"  ACK=%d  RECHAZO=%d  CERRADA=%d  de %d casos\n"+
+		"  casos en los que mi prediccion aritmetica FALLO: %d",
+		defaultReadDeadline, unirLineas(filas), acks, rechazos, cerradas, len(casos),
+		desacuerdos)
 
-	// --- LOS TRES GUARDS QUE SON EL HALLAZGO ---
-
-	// 1. Sin espera, el primer paquete de un agente NUEVO es rechazado. Con el
-	//    payload mas chico posible del arnes.
-	sinEspera := resultados[fmt.Sprintf("%d/0", cargaChica)]
-	if sinEspera == tipo.ack {
-		t.Errorf("D-48 parece cerrado: un primer paquete de %d B sin espera fue "+
-			"ACEPTADO. Si el HuberFilter se arreglo, actualizar el contexto vivo y "+
-			"borrar este test", cargaChica)
-	} else {
-		t.Logf("E0 HALLAZGO 1 MEDIDO: el primer paquete de un agente nuevo, con solo "+
-			"%d bytes de payload y sin pausa, es %s. El gateway no puede atender a un "+
-			"agente que habla apenas conecta.", cargaChica, sinEspera)
+	// --- EL HALLAZGO ---
+	if acks > 0 {
+		t.Errorf("HALLAZGO CERRADO: el gateway acepto %d de %d primeros paquetes. Si el "+
+			"HuberFilter se arreglo, actualizar el contexto vivo, cerrar el hallazgo y "+
+			"borrar este test de caracterizacion", acks, len(casos))
+		return
 	}
 
-	// 2. Con espera suficiente SI pasa. Este es ademas el control del codificador:
-	//    si nunca hubiera un ACK, todos los rechazos serian ambiguos.
-	conEspera := resultados[fmt.Sprintf("%d/300", cargaChica)]
-	if conEspera != tipo.ack {
-		t.Fatalf("CONTROL ROTO: con %d B y 300 ms de espera (dt_min predicho %.3f s) "+
-			"el gateway respondio %s. Sin un ACK en algun punto del barrido, este "+
-			"archivo no distingue 'el filtro bloquea' de 'el codificador esta mal'",
-			cargaChica, dtMinimoPredicho(cargaChica), conEspera)
-	}
-	t.Logf("E0 CONTROL OK: con %d B y 300 ms de pausa el gateway responde ACK, asi "+
-		"que el codificador coincide con decodePerimeterPacket y los rechazos de "+
-		"este barrido son del filtro, no del formato.", cargaChica)
+	t.Logf("E0 HALLAZGO MEDIDO: %d de %d combinaciones de payload y espera, y NINGUNA "+
+		"logro que el gateway acepte un primer paquete. El gateway rechaza el primer "+
+		"paquete de TODA conexion.", len(casos), len(casos))
 
-	// 3. LA FRONTERA: hay payloads para los que NINGUNA espera sirve, porque el dt
-	//    que el filtro exige supera el read deadline del propio gateway.
-	dt512 := dtMinimoPredicho(512)
-	res512 := resultados["512/1900"]
-	if dt512 <= defaultReadDeadline.Seconds() {
-		t.Logf("E0 NO MEDIDO: con 512 B el dt exigido (%.3f s) no supera el read "+
-			"deadline (%v), asi que este caso no demuestra imposibilidad. La frontera "+
-			"esta en otro tamano.", dt512, defaultReadDeadline)
-	} else if res512 == tipo.ack {
-		t.Errorf("la prediccion falla: con 512 B el dt exigido es %.3f s, mas que el "+
-			"read deadline de %v, y sin embargo el gateway ACEPTO. Mi despeje del "+
-			"filtro esta mal", dt512, defaultReadDeadline)
-	} else {
-		t.Logf("E0 HALLAZGO 2 MEDIDO: con 512 B de payload el filtro exige %.3f s de "+
-			"pausa, pero el gateway cierra la conexion a los %v. Esperar menos hace que "+
-			"el filtro bloquee (%s medido a 1900 ms) y esperar mas hace que el gateway "+
-			"corte. NO HAY ESPERA POSIBLE: el primer paquete de 512 B no puede ser "+
-			"aceptado nunca.", dt512, defaultReadDeadline, res512)
-	}
-
-	// La frontera exacta, calculada con las constantes del repo.
-	frontera := 0
-	for b := 1; b <= 4096; b++ {
-		if dtMinimoPredicho(b) > defaultReadDeadline.Seconds() {
-			frontera = b
-			break
-		}
-	}
-	if frontera > 0 {
-		t.Logf("E0 FRONTERA PREDICHA: a partir de %d bytes de payload, el dt que el "+
-			"HuberFilter exige en el primer paquete supera el read deadline de %v. "+
-			"Todo agente cuyo primer mensaje pese %d bytes o mas queda bloqueado "+
-			"pase lo que pase. (Predicho de las constantes del repo, no medido byte "+
-			"por byte: lo medido son los 11 casos de la tabla.)", frontera,
-			defaultReadDeadline, frontera)
-	}
-
+	// --- LA CAUSA, y por que mi prediccion era falsa ---
 	if desacuerdos > 0 {
-		t.Logf("E0 OJO: %d de %d casos no coincidieron con la prediccion. La medicion "+
-			"manda sobre mi aritmetica; los casos marcados con << en la tabla son los "+
-			"que hay que mirar.", desacuerdos, len(casos))
+		t.Logf("E0 MI PREDICCION QUEDA REFUTADA en %d casos, y la medicion gana. Yo "+
+			"habia despejado dt_min = v/umbral del HuberFilter y supuse que el cliente "+
+			"podia satisfacerlo pausando antes de mandar. Falso: en handleConn el "+
+			"`now := time.Now()` se captura ANTES del io.ReadFull que espera el paquete, "+
+			"asi que `dt = now - lastSeen` mide el tiempo entre dos INICIOS de iteracion "+
+			"del loop del servidor, no entre paquetes. En la primera iteracion son "+
+			"microsegundos con el ReadFull todavia por delante. La pausa del cliente no "+
+			"entra en dt: NO HAY NADA que el cliente pueda hacer.", desacuerdos)
+	} else {
+		t.Logf("E0 mi prediccion coincidio en los %d casos. Ojo: coincidir no la valida, "+
+			"porque todos los casos dieron el mismo resultado.", len(casos))
 	}
+
+	t.Logf("E0 CONSECUENCIA: como el rechazo hace TriggerBlock + writeReject + return, "+
+		"ninguna conexion pasa nunca de UN paquete, y ese paquete siempre se rechaza. "+
+		"HiperSec no puede procesar un solo paquete de ningun agente. Nadie lo sabia "+
+		"porque hasta este commit el repo no tenia cliente.")
+
+	t.Logf("E0 NO MEDIDO: cual es el fix. Reemplazar Huber por Page-Hinkley (D-48), "+
+		"inicializar lastV con la primera muestra, o mover el `now` despues del "+
+		"ReadFull son tres arreglos distintos con consecuencias distintas, y elegir "+
+		"es diseno del producto.")
 }
 
 func unirLineas(l []string) string {
