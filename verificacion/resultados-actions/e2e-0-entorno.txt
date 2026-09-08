@@ -1,8 +1,8 @@
 Maquina: Actions ubuntu-latest (VM limpia)
-Commit:  feac28bd2ef7d913cb55367c8a6c2fdd5304293d
+Commit:  1725164f7534be113e28eb9be816d81ba27bed15
 Rama:    titan/cliente-mtls-e2e
-Fecha:   2026-09-08T10:32:13Z
-cpu:     Intel(R) Xeon(R) 6973P-C
+Fecha:   2026-09-08T10:33:41Z
+cpu:     AMD EPYC 9V74 80-Core Processor
 nproc:   4
 go version go1.22.12 linux/amd64
 sha256 cliente_mtls_test.go:   c75d5cd3426aeb901abd816685be691e6c2d933e11917957a9aa5503196f959a
