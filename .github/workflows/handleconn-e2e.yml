@@ -1,0 +1,347 @@
+# Mide `handleConn` punta a punta con el cliente mTLS real.
+#
+# EL HUECO QUE CIERRA: hasta ahora ningun test toco el camino de red del gateway.
+# Todas las mediciones de concurrencia usaron el AgentState directamente, que es
+# un proxy declarado del callsite. `handleConn`, `decodePerimeterPacket`, el
+# anti-replay y `verifyPacketHMAC` nunca habian sido ejercitados por un cliente.
+#
+# EL GUARD QUE MANDA SOBRE TODOS LOS DEMAS: E1. Si un paquete VALIDO no da ACK,
+# el codificador no coincide con el decoder, y entonces los rechazos de E2 a E8
+# son rechazos por paquete mal formado y no por lo que dicen medir. Un arnes que
+# solo puede producir rechazos no distingue nada.
+#
+# LAS CINCO REGLAS DE ESCRITURA DE EVIDENCIA, cada una aprendida a los golpes:
+#   R1. Un guard no busca una palabra: lee un NUMERO calculado (`^CLAVE=[0-9]+`).
+#   R2. Rutas ABSOLUTAS con $GITHUB_WORKSPACE.
+#   R3. El veredicto se TRUNCA, no se acumula.
+#   R4. El VALOR ESPERADO tambien es una medicion: se deriva del fuente.
+#   R5. Un workflow que no parsea es INVISIBLE: se valida antes de correr nada.
+name: handleconn-e2e
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/cliente-mtls-e2e
+
+permissions:
+  contents: write
+
+jobs:
+  medir-handleconn:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 0 - validar YAML, entorno, build y vet
+        if: always()
+        run: |
+          set +e
+          mkdir -p "$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-0-entorno.txt"
+          # R4: el esperado se DERIVA del fuente
+          TESTS_E2E=$(grep -c '^func TestE2E_' gateway/handleconn_e2e_test.go)
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Rama:    ${GITHUB_REF_NAME}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            echo "nproc:   $(nproc)"
+            go version
+            echo "sha256 cliente_mtls_test.go:   $(sha256sum gateway/cliente_mtls_test.go | cut -d' ' -f1)"
+            echo "sha256 handleconn_e2e_test.go: $(sha256sum gateway/handleconn_e2e_test.go | cut -d' ' -f1)"
+            echo "sha256 gateway.go (sin tocar): $(sha256sum gateway/gateway.go | cut -d' ' -f1)"
+            echo
+            echo "=== R5: todos los workflows parsean? ==="
+            ROTOS=0
+            for f in .github/workflows/*.yml; do
+              if python3 -c "import yaml; yaml.safe_load(open('$f'))" 2>/tmp/err; then
+                echo "OK    $f"
+              else
+                echo "ROTO  $f"; sed 's/^/        /' /tmp/err | head -5; ROTOS=$((ROTOS+1))
+              fi
+            done
+            echo "WORKFLOWS_ROTOS=$ROTOS"
+            echo
+            echo "=== R4: cuantos tests E2E hay, contados del fuente ==="
+            grep -n '^func TestE2E_' gateway/handleconn_e2e_test.go
+            echo "TESTS_E2E_DECLARADOS=$TESTS_E2E"
+            echo
+            echo "=== gofmt de los dos archivos nuevos ==="
+            gofmt -l gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go
+            gofmt -w gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go
+            echo "(vacio arriba = ya estaban formateados)"
+            echo
+            echo "=== go build ./... ==="
+            go build ./... 2>&1
+            echo "EXIT_build=$?"
+            echo
+            echo "=== go vet ./... ==="
+            go vet ./... 2>&1
+            echo "EXIT_vet=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 1 - los 9 tests E2E bajo -race
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-1-mediciones.txt"
+          LOG=/tmp/e2e.log
+          {
+            echo "=== go test -race -v -count=1 -run '^TestE2E_' ./gateway/... ==="
+            echo
+            echo "E1 es el control del arnes. Si E1 no pasa, los rechazos de E2 a E8"
+            echo "son rechazos por paquete mal formado y no miden lo que dicen."
+            echo
+          } > "$OUT"
+          go test -race -v -count=1 -timeout 20m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1
+          EX=$?
+          {
+            cat "$LOG"
+            echo "EXIT_e2e=$EX"
+            echo "TESTS_PASS=$(grep -cE '^--- PASS: TestE2E_' "$LOG")"
+            echo "TESTS_FAIL=$(grep -cE '^--- FAIL: TestE2E_' "$LOG")"
+            echo "RACES_EN_PROCESO=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "REPORTES_DETECTOR=$(grep -c 'WARNING: DATA RACE' "$LOG")"
+            echo "E1_ARNES_OK=$(grep -cE '^--- PASS: TestE2E_01_ElArnesFunciona' "$LOG")"
+            echo "D46_MEDIDO=$(grep -c 'D-46 MEDIDO EN EL CAMINO REAL' "$LOG")"
+            echo "D46_MECANISMO=$(grep -c 'E6 MECANISMO CONFIRMADO' "$LOG")"
+            echo "D47_MEDIDO=$(grep -c 'D-47 MEDIDO EN EL CAMINO REAL' "$LOG")"
+            echo "RECHAZOS_INDISTINGUIBLES=$(grep -c 'UNA sola respuesta' "$LOG")"
+            echo "D26_CALLSITE_REAL=$(grep -c 'D-26 MEDIDO EN EL CALLSITE REAL' "$LOG")"
+            echo "E9_HALLAZGO=$(grep -c 'E9 HALLAZGO' "$LOG")"
+          } >> "$OUT"
+          echo "--- resumen ---"
+          grep -E '^(--- PASS|--- FAIL|ok|FAIL|EXIT_e2e)' "$LOG"
+
+      - name: 2 - repetir 3 veces, porque una corrida de concurrencia es una muestra
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-2-repeticion.txt"
+          LOG=/tmp/rep.log
+          {
+            echo "=== go test -race -count=3 -run '^TestE2E_' ==="
+            echo "E9 depende del interleaving de dos conexiones concurrentes, asi que"
+            echo "una sola corrida es una muestra. Tres dan una idea de estabilidad."
+            echo
+          } > "$OUT"
+          go test -race -count=3 -timeout 30m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1
+          EX=$?
+          {
+            cat "$LOG"
+            echo "EXIT_repeticion=$EX"
+            echo "RACES_EN_PROCESO=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "FAILS=$(grep -cE '^--- FAIL' "$LOG")"
+          } >> "$OUT"
+          tail -8 "$OUT"
+
+      - name: 3 - el porton de main, con los tests nuevos adentro
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-3-porton-de-main.txt"
+          LOG=/tmp/porton.log
+          {
+            echo "=== go test -race ./...   (el comando LITERAL del ci.yml de main) ==="
+            echo "Los tests E2E no se saltean con -short a proposito, asi que entran al"
+            echo "porton compartido. Este paso mide si lo fortalecen o lo rompen."
+            echo
+          } > "$OUT"
+          go test -race ./... > "$LOG" 2>&1
+          EX=$?
+          {
+            cat "$LOG"
+            echo "EXIT_porton=$EX"
+            echo "RACES_EN_PROCESO=$(grep -c 'race detected during execution of test' "$LOG")"
+          } >> "$OUT"
+          cat "$OUT"
+
+      - name: 4 - control por mutacion: sin el mutex, el camino real reporta?
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-4-mutacion.txt"
+          LOG=/tmp/mut-e2e.log
+          COPIA=/tmp/mut-e2e/repo
+          {
+            echo "=== CONTROL POR MUTACION SOBRE EL CAMINO REAL ==="
+            echo "E9 dice que cero reportes del detector significa que el mutex de"
+            echo "filters.go cubre el camino real. Eso solo vale si este arnes PUEDE"
+            echo "ver una carrera ahi. Asi que se copia el repo, se le SACAN los dos"
+            echo "Lock/Unlock a los filtros de produccion, y se corre E9: tiene que"
+            echo "reportar carrera CITANDO filters.go."
+            echo
+            rm -rf /tmp/mut-e2e && mkdir -p /tmp/mut-e2e
+            cp -r "$GITHUB_WORKSPACE" "$COPIA"
+            rm -rf "$COPIA/.git"
+            echo "--- las lineas del candado ANTES de mutar ---"
+            grep -n 'mtx.Lock()\|mtx.Unlock()' "$COPIA/gateway/filters.go"
+            sed -i 's/^\(\s*\)f\.mtx\.Lock()/\1\/\/ MUTADO: f.mtx.Lock()/' "$COPIA/gateway/filters.go"
+            sed -i 's/^\(\s*\)defer f\.mtx\.Unlock()/\1\/\/ MUTADO: defer f.mtx.Unlock()/' "$COPIA/gateway/filters.go"
+            sed -i 's/^\(\s*\)c\.mtx\.Lock()/\1\/\/ MUTADO: c.mtx.Lock()/' "$COPIA/gateway/filters.go"
+            sed -i 's/^\(\s*\)defer c\.mtx\.Unlock()/\1\/\/ MUTADO: defer c.mtx.Unlock()/' "$COPIA/gateway/filters.go"
+            echo "--- DESPUES de mutar ---"
+            grep -n 'MUTADO\|mtx.Lock()\|mtx.Unlock()' "$COPIA/gateway/filters.go"
+            echo "CANDADOS_COMENTADOS=$(grep -c 'MUTADO:' "$COPIA/gateway/filters.go")"
+            echo
+            echo "--- E9 sobre la copia mutada ---"
+            ( cd "$COPIA" && go test -race -v -count=1 -timeout 20m \
+                -run '^TestE2E_09_DosConexionesDelMismoCertificado$' ./gateway/... > "$LOG" 2>&1 )
+            echo "EXIT_mutado=$?"
+            grep -vE '^\s+(/opt/|/home/|testing\.|runtime|created by)' "$LOG" | head -70
+          } > "$OUT" 2>&1
+          {
+            echo "MUTACION_REPORTO=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "MUTACION_CITA_FILTERS=$(grep -c 'gateway/filters.go' "$LOG")"
+            echo "MUTACION_CITA_HANDLECONN=$(grep -c 'gateway.(\*Gateway).handleConn' "$LOG")"
+          } >> "$OUT"
+          tail -12 "$OUT"
+
+      - name: 5 - veredicto
+        if: always()
+        run: |
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT=$D/e2e-5-veredicto.txt
+          FALLAS=0
+
+          leer() {
+            V=$(grep -oE "^$2=[0-9]+" "$1" 2>/dev/null | tail -1 | cut -d= -f2)
+            [ -n "$V" ] && echo "$V" || echo NA
+          }
+          comparar() {
+            if [ "$2" = "$3" ]; then
+              printf 'PASS  %-54s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-54s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+          al_menos() {
+            if [ "$2" != "NA" ] && [ "$2" -ge "$3" ] 2>/dev/null; then
+              printf 'PASS  %-54s obtenido=%-6s esperado>=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-54s obtenido=%-6s esperado>=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          E=$D/e2e-0-entorno.txt
+          M=$D/e2e-1-mediciones.txt
+          R=$D/e2e-2-repeticion.txt
+          P=$D/e2e-3-porton-de-main.txt
+          T=$D/e2e-4-mutacion.txt
+
+          ROTOS=$(leer "$E" WORKFLOWS_ROTOS)
+          DECL=$(leer "$E" TESTS_E2E_DECLARADOS)
+          BUILD=$(leer "$E" EXIT_build);  VET=$(leer "$E" EXIT_vet)
+          PASS=$(leer "$M" TESTS_PASS);   FAIL=$(leer "$M" TESTS_FAIL)
+          RACES=$(leer "$M" RACES_EN_PROCESO)
+          ARNES=$(leer "$M" E1_ARNES_OK)
+          D46=$(leer "$M" D46_MEDIDO);    D46M=$(leer "$M" D46_MECANISMO)
+          D47=$(leer "$M" D47_MEDIDO)
+          INDIST=$(leer "$M" RECHAZOS_INDISTINGUIBLES)
+          D26=$(leer "$M" D26_CALLSITE_REAL)
+          HALL=$(leer "$M" E9_HALLAZGO)
+          EX1=$(leer "$M" EXIT_e2e)
+          RRACES=$(leer "$R" RACES_EN_PROCESO); RFAIL=$(leer "$R" FAILS)
+          EXR=$(leer "$R" EXIT_repeticion)
+          EXP=$(leer "$P" EXIT_porton); PRACES=$(leer "$P" RACES_EN_PROCESO)
+          MCAND=$(leer "$T" CANDADOS_COMENTADOS)
+          MREP=$(leer "$T" MUTACION_REPORTO)
+          MFIL=$(leer "$T" MUTACION_CITA_FILTERS)
+
+          # R3: se trunca
+          {
+            echo "Veredicto de la corrida ${GITHUB_SHA}"
+            echo "Fecha: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "=== EL HUECO QUE SE CIERRA ==="
+            echo "Hasta este commit ningun test toco el camino de red del gateway."
+            echo "handleConn, el decoder, el anti-replay y verifyPacketHMAC nunca"
+            echo "habian sido ejercitados por un cliente."
+            echo "tests E2E declarados (del fuente): $DECL"
+            echo
+            echo "=== EL CONTROL DEL ARNES ==="
+            echo "E1 (paquete valido -> ACK): $ARNES"
+            echo "(0 aca invalida TODO lo demas: los rechazos serian por paquete mal"
+            echo " formado y no por lo que dicen medir)"
+            echo
+            echo "=== LO QUE SE MIDIO EN EL CAMINO REAL ==="
+            printf '  %-46s %s\n' 'D-46 (envenenamiento de la marca de agua)' "$D46"
+            printf '  %-46s %s\n' 'D-46 mecanismo confirmado por el otro lado' "$D46M"
+            printf '  %-46s %s\n' 'D-47 (context y payload sin firmar)' "$D47"
+            printf '  %-46s %s\n' 'los rechazos son indistinguibles (Testis)' "$INDIST"
+            printf '  %-46s %s\n' 'D-26 en el CALLSITE real, no en el proxy' "$D26"
+            printf '  %-46s %s\n' 'hallazgo de conexiones concurrentes' "$HALL"
+            echo
+            echo "=== CARRERAS ==="
+            echo "en los 9 tests E2E        : $RACES"
+            echo "en 3 repeticiones         : $RRACES"
+            echo "en el porton de main      : $PRACES"
+            echo
+            echo "=== LA MUTACION (sin el mutex, el arnes ve la carrera?) ==="
+            echo "candados comentados en la copia : $MCAND"
+            echo "carreras reportadas             : $MREP"
+            echo "lineas citando filters.go       : $MFIL"
+            echo
+            echo "=== VEREDICTO (numeros calculados, esperados derivados) ==="
+            comparar 'CERO workflows rotos (R5)'                "$ROTOS" 0
+            comparar 'compila'                                  "$BUILD" 0
+            comparar 'go vet limpio'                            "$VET"   0
+            comparar 'EL ARNES FUNCIONA (E1 da ACK)'            "$ARNES" 1
+            comparar 'pasaron los N tests E2E declarados'       "$PASS"  "$DECL"
+            comparar 'ningun test E2E en FAIL'                  "$FAIL"  0
+            comparar 'la corrida E2E salio en 0'                "$EX1"   0
+            comparar 'CERO carreras en el camino real'          "$RACES" 0
+            comparar 'CERO carreras en 3 repeticiones'          "$RRACES" 0
+            comparar 'ningun FAIL en 3 repeticiones'            "$RFAIL" 0
+            comparar 'la repeticion salio en 0'                 "$EXR"   0
+            comparar 'el porton de main sigue verde'            "$EXP"   0
+            comparar 'CERO carreras en el porton de main'       "$PRACES" 0
+            al_menos 'D-46 medido en el camino real'            "$D46"   1
+            al_menos 'D-47 medido en el camino real'            "$D47"   1
+            al_menos 'los rechazos son indistinguibles'         "$INDIST" 1
+            al_menos 'D-26 medido en el callsite real'          "$D26"   1
+            comparar 'la mutacion comento los 4 candados'       "$MCAND" 4
+            al_menos 'MUTACION: el arnes SI ve la carrera'      "$MREP"  1
+            al_menos 'MUTACION: y la atribuye a filters.go'     "$MFIL"  1
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+            echo
+            echo "LECTURA: el cero de carreras en el camino real vale porque la"
+            echo "mutacion (sacarle los candados a filters.go) SI produce reporte"
+            echo "citando filters.go. Sin ese control, cero seria indistinguible de un"
+            echo "arnes que no llega a los filtros."
+          } > "$OUT"
+          cat "$OUT"
+
+      - name: Commitear todo
+        if: always()
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/e2e-*.txt gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go
+          git commit -m 'evidencia: handleConn medido punta a punta con cliente mTLS [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          V="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-5-veredicto.txt"
+          grep -q 'RESULTADO=VERDE' "$V" || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
