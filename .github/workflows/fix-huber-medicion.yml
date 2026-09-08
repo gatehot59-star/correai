@@ -1,0 +1,416 @@
+# Aplica el fix de `gateway.go` y lo mide con un experimento de cuatro brazos.
+#
+# ===========================================================================
+# POR QUE EL FIX DE gateway.go SE APLICA POR sed Y NO ESCRITO A MANO:
+#
+# El archivo tiene 15 KB e incluye el decodificador de protobuf completo.
+# Retipearlo entero para cambiar 4 lineas es la forma mas facil de meter un bug
+# peor que el que estoy arreglando, y en el decodificador seria silencioso. El sed
+# toca exactamente las 4 lineas, tiene guard de conteo, y el diff queda commiteado
+# como evidencia.
+#
+# EL CAMBIO son 4 lineas:
+#   + llegada := time.Now()          <- despues del io.ReadFull
+#   ~ nowNs := uint64(llegada.UnixNano())
+#   ~ dt := llegada.Sub(lastSeen).Seconds()
+#   ~ lastSeen = llegada
+#
+# `now` sigue usandose para FSM.Allow y SetReadDeadline, que SI deben mirar el
+# inicio de la iteracion. Lo que estaba mal era usarlo para `dt` y para el reloj
+# del anti-replay.
+# ===========================================================================
+#
+# EL EXPERIMENTO DE 4 BRAZOS existe porque entregar "dos fixes" sin medir cual
+# carga el peso es dejar la atribucion sin instrumento:
+#
+#   A  filters + gateway   se espera 11/11 ACK
+#   B  solo filters        se espera 11/11 ACK
+#   C  solo gateway        se espera 4/11, y esos 4 son EXACTAMENTE los que mi
+#                          aritmetica "refutada" predecia
+#   D  ninguno             se espera 0/11 (reproduce el hallazgo del turno pasado)
+#
+# Si el brazo C da 4, entonces mi prediccion nunca estuvo mal sobre el FILTRO:
+# estaba mal sobre QUIEN calculaba dt. Eso convierte una refutacion en un
+# diagnostico.
+#
+# LAS CINCO REGLAS DE ESCRITURA DE EVIDENCIA:
+#   R1. Un guard lee un NUMERO calculado, no busca una palabra.
+#   R2. Rutas ABSOLUTAS con $GITHUB_WORKSPACE.
+#   R3. El veredicto se TRUNCA.
+#   R4. El VALOR ESPERADO tambien es una medicion, se deriva del fuente.
+#   R5. Un workflow que no parsea es INVISIBLE, y el nombre de un paso no puede
+#       tener dos puntos seguidos de espacio.
+name: fix-huber-medicion
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/fix-huber-primer-paquete
+
+permissions:
+  contents: write
+
+jobs:
+  medir-el-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 0 - aplicar el fix de gateway.go por sed, con guard
+        if: always()
+        run: |
+          set +e
+          mkdir -p "$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/huber-0-parche.txt"
+          # copia pristina para armar los brazos B y D
+          cp "$GITHUB_WORKSPACE/gateway/gateway.go" /tmp/gateway.orig.go
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Rama:    ${GITHUB_REF_NAME}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            go version
+            echo "sha256 gateway.go ANTES: $(sha256sum gateway/gateway.go | cut -d' ' -f1)"
+            echo "sha256 filters.go      : $(sha256sum gateway/filters.go | cut -d' ' -f1)"
+            echo
+            echo "=== las 4 lineas ANTES del parche ==="
+            grep -n 'body := buf\[frameHeaderSize:bodyEnd\]\|nowNs := uint64\|dt := now\.Sub\|lastSeen = now' gateway/gateway.go
+            echo
+            echo "=== aplicando el sed ==="
+            sed -i 's|^\(\s*\)body := buf\[frameHeaderSize:bodyEnd\]|\1body := buf[frameHeaderSize:bodyEnd]\n\n\1// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo\n\1// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj\n\1// del anti-replay. `now` se sigue usando para FSM.Allow y para el read\n\1// deadline, que SI deben mirar el inicio de la iteracion.\n\1llegada := time.Now()|' gateway/gateway.go
+            sed -i 's|nowNs := uint64(now\.UnixNano())|nowNs := uint64(llegada.UnixNano())|' gateway/gateway.go
+            sed -i 's|dt := now\.Sub(lastSeen)\.Seconds()|dt := llegada.Sub(lastSeen).Seconds()|' gateway/gateway.go
+            sed -i 's|^\(\s*\)lastSeen = now$|\1lastSeen = llegada|' gateway/gateway.go
+            echo
+            echo "=== las lineas DESPUES del parche ==="
+            grep -n 'llegada\|nowNs := uint64\|dt := \|lastSeen = ' gateway/gateway.go
+            echo
+            echo "=== diff completo del parche ==="
+            diff -u /tmp/gateway.orig.go gateway/gateway.go
+            echo
+            echo "PARCHE_LLEGADA_DECLARADA=$(grep -c 'llegada := time.Now()' gateway/gateway.go)"
+            echo "PARCHE_ANTIREPLAY=$(grep -c 'nowNs := uint64(llegada.UnixNano())' gateway/gateway.go)"
+            echo "PARCHE_DT=$(grep -c 'dt := llegada.Sub(lastSeen).Seconds()' gateway/gateway.go)"
+            echo "PARCHE_LASTSEEN=$(grep -c 'lastSeen = llegada' gateway/gateway.go)"
+            echo "RESIDUO_NOW_EN_DT=$(grep -c 'dt := now.Sub' gateway/gateway.go)"
+            echo "RESIDUO_NOW_EN_ANTIREPLAY=$(grep -c 'nowNs := uint64(now.UnixNano())' gateway/gateway.go)"
+            echo "NOW_SIGUE_EN_FSM=$(grep -c 'agent.FSM.Allow(now)' gateway/gateway.go)"
+            echo "NOW_SIGUE_EN_DEADLINE=$(grep -c 'SetReadDeadline(now.Add' gateway/gateway.go)"
+            echo
+            gofmt -l gateway/gateway.go
+            gofmt -w gateway/gateway.go gateway/filters.go gateway/huber_frontera_e2e_test.go
+            echo "(vacio arriba = el parche quedo formateado)"
+            echo "sha256 gateway.go DESPUES: $(sha256sum gateway/gateway.go | cut -d' ' -f1)"
+            echo
+            go build ./... 2>&1
+            echo "EXIT_build=$?"
+            go vet ./... 2>&1
+            echo "EXIT_vet=$?"
+            echo
+            echo "=== R4, los esperados derivados del fuente ==="
+            echo "CASOS_DEL_BARRIDO=$(grep -c '{cargaChica, \|{64, \|{256, \|{512, ' gateway/huber_frontera_e2e_test.go)"
+            echo "TESTS_E2E_DECLARADOS=$(grep -rh '^func TestE2E_' gateway/ | wc -l)"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 1 - el experimento de 4 brazos
+        if: always()
+        run: |
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT=$D/huber-1-cuatro-brazos.txt
+          SOLO_BARRIDO='^TestE2E_00_ElGatewayAceptaElPrimerPaquete$'
+
+          brazo() {
+            # $1 etiqueta, $2 archivo, $3 filters_fix(si|no), $4 gateway_fix(si|no)
+            COPIA=/tmp/brazo-$1/repo
+            LOG=/tmp/brazo-$1.log
+            rm -rf /tmp/brazo-$1 && mkdir -p /tmp/brazo-$1
+            cp -r "$GITHUB_WORKSPACE" "$COPIA"
+            rm -rf "$COPIA/.git"
+            if [ "$4" = "no" ]; then cp /tmp/gateway.orig.go "$COPIA/gateway/gateway.go"; fi
+            if [ "$3" = "no" ]; then sed -i 's|if !f\.visto {|if false {|' "$COPIA/gateway/filters.go"; fi
+            ( cd "$COPIA" && go test -count=1 -timeout 20m -v -run "$SOLO_BARRIDO" ./gateway/... > "$LOG" 2>&1 )
+            A=$(grep -c -- '\-> ACK' "$LOG")
+            R=$(grep -c -- '\-> RECHAZO' "$LOG")
+            C=$(grep -c -- '\-> CERRADA' "$LOG")
+            {
+              echo "### BRAZO $1   filters_fix=$3  gateway_fix=$4"
+              echo "    guard del sujeto: visto_activo=$(grep -c 'if !f.visto {' "$COPIA/gateway/filters.go")  llegada_activa=$(grep -c 'llegada := time.Now()' "$COPIA/gateway/gateway.go")"
+              grep -E '^\s+payload=' "$LOG"
+              echo "BRAZO_${1}_ACK=$A"
+              echo "BRAZO_${1}_RECHAZO=$R"
+              echo "BRAZO_${1}_CERRADA=$C"
+              echo
+            } >> "$OUT"
+            echo "  brazo $1 (filters=$3 gateway=$4): ACK=$A RECHAZO=$R CERRADA=$C"
+          }
+
+          {
+            echo "=== EXPERIMENTO DE 4 BRAZOS ==="
+            echo "Los 11 casos del barrido, con cada combinacion de los dos fixes."
+            echo "Se corre SIN -race: aca se mide comportamiento, no carreras, y el"
+            echo "detector multiplica el tiempo por ~17x sin cambiar el resultado."
+            echo
+          } > "$OUT"
+
+          brazo A A si si
+          brazo B B si no
+          brazo C C no si
+          brazo D D no no
+
+          echo "--- tabla ---"
+          grep -E 'BRAZO_._ACK|BRAZO_._RECHAZO' "$OUT"
+
+      - name: 2 - la suite E2E completa sobre el fix, bajo -race
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/huber-2-suite-e2e.txt"
+          LOG=/tmp/suite.log
+          {
+            echo "=== go test -race -v -count=1 -run '^TestE2E_' ./gateway/... ==="
+            echo "Sobre el gateway REAL con los dos fixes. Ya no hace falta mutar nada"
+            echo "para medir D-46, D-47, el anti-replay ni D-26 en el callsite."
+            echo
+          } > "$OUT"
+          go test -race -v -count=1 -timeout 30m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1
+          EX=$?
+          {
+            cat "$LOG"
+            echo "EXIT_suite=$EX"
+            echo "TESTS_PASS=$(grep -cE '^--- PASS: TestE2E_' "$LOG")"
+            echo "TESTS_FAIL=$(grep -cE '^--- FAIL: TestE2E_' "$LOG")"
+            echo "TESTS_SKIP=$(grep -cE '^--- SKIP: TestE2E_' "$LOG")"
+            echo "RACES=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "FIX_MEDIDO=$(grep -c 'E0 FIX MEDIDO' "$LOG")"
+            echo "CONTROL_RAFAGA=$(grep -c 'E0b CONTROL POSITIVO OK' "$LOG")"
+            echo "D48_ABIERTO=$(grep -c 'E0c D-48 SIGUE ABIERTO' "$LOG")"
+            echo "VENTANA_DESDE_LLEGADA=$(grep -c 'E0d FIX MEDIDO' "$LOG")"
+            echo "ARNES_VALIDADO=$(grep -c 'E1 ARNES VALIDADO' "$LOG")"
+            echo "E3_REPLAY=$(grep -c 'E3 MEDIDO' "$LOG")"
+            echo "D46=$(grep -c 'D-46 MEDIDO EN EL CAMINO REAL' "$LOG")"
+            echo "D47=$(grep -c 'D-47 MEDIDO EN EL CAMINO REAL' "$LOG")"
+            echo "D26=$(grep -c 'D-26 MEDIDO EN EL CALLSITE REAL' "$LOG")"
+            echo "RECHAZOS_INDISTINGUIBLES=$(grep -c 'UNA sola respuesta' "$LOG")"
+          } >> "$OUT"
+          grep -E '^--- (PASS|FAIL|SKIP)' "$LOG"
+
+      - name: 3 - el porton de main y la suite entera
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/huber-3-porton.txt"
+          LOG=/tmp/porton.log
+          {
+            echo "=== go test -race ./...   (el comando LITERAL del ci.yml de main) ==="
+            echo "El fix toca codigo de produccion, asi que toda la suite tiene que"
+            echo "seguir verde: los tests de D-26, del candado y de latencia incluidos."
+            echo
+          } > "$OUT"
+          go test -race -timeout 40m ./... > "$LOG" 2>&1
+          EX=$?
+          {
+            cat "$LOG"
+            echo "EXIT_porton=$EX"
+            echo "RACES=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "FAILS=$(grep -cE '^--- FAIL' "$LOG")"
+          } >> "$OUT"
+          cat "$OUT"
+
+      - name: 4 - los verificadores que no son de Go
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/huber-4-otros.txt"
+          {
+            echo "=== el resto del CI de main, para que el fix no rompa un vecino ==="
+            g++ -std=c++17 -O2 -Wall -Wextra -Werror -o /tmp/t_engine verificacion/t_engine.cpp 2>&1
+            echo "EXIT_cpp_build=$?"
+            /tmp/t_engine > /dev/null 2>&1
+            echo "EXIT_cpp_run=$?"
+            gcc -O0 -Wall -Wextra -Werror -o /tmp/t_ts verificacion/t_ts.c 2>&1
+            echo "EXIT_c_build=$?"
+            /tmp/t_ts > /dev/null 2>&1
+            echo "EXIT_c_run=$?"
+            python3 verificacion/t_custos.py > /dev/null 2>&1
+            echo "EXIT_custos=$?"
+            python3 verificacion/t_fleet.py > /dev/null 2>&1
+            echo "EXIT_fleet=$?"
+            pip install --quiet cryptography 2>&1 | tail -1
+            python3 verificacion/t_testis.py > /dev/null 2>&1
+            echo "EXIT_testis=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 5 - veredicto
+        if: always()
+        run: |
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT=$D/huber-5-veredicto.txt
+          FALLAS=0
+
+          leer() {
+            V=$(grep -oE "^$2=[0-9]+" "$1" 2>/dev/null | tail -1 | cut -d= -f2)
+            [ -n "$V" ] && echo "$V" || echo NA
+          }
+          leerIndent() {
+            V=$(grep -oE "$2=[0-9]+" "$1" 2>/dev/null | tail -1 | cut -d= -f2)
+            [ -n "$V" ] && echo "$V" || echo NA
+          }
+          comparar() {
+            if [ "$2" = "$3" ]; then
+              printf 'PASS  %-56s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-56s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+          al_menos() {
+            if [ "$2" != "NA" ] && [ "$2" -ge "$3" ] 2>/dev/null; then
+              printf 'PASS  %-56s obtenido=%-6s esperado>=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-56s obtenido=%-6s esperado>=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          P=$D/huber-0-parche.txt
+          B=$D/huber-1-cuatro-brazos.txt
+          S=$D/huber-2-suite-e2e.txt
+          G=$D/huber-3-porton.txt
+          O=$D/huber-4-otros.txt
+
+          PL=$(leer "$P" PARCHE_LLEGADA_DECLARADA); PA=$(leer "$P" PARCHE_ANTIREPLAY)
+          PD=$(leer "$P" PARCHE_DT); PS=$(leer "$P" PARCHE_LASTSEEN)
+          R1=$(leer "$P" RESIDUO_NOW_EN_DT); R2=$(leer "$P" RESIDUO_NOW_EN_ANTIREPLAY)
+          NF=$(leer "$P" NOW_SIGUE_EN_FSM); ND=$(leer "$P" NOW_SIGUE_EN_DEADLINE)
+          BUILD=$(leer "$P" EXIT_build); VET=$(leer "$P" EXIT_vet)
+          CASOS=$(leer "$P" CASOS_DEL_BARRIDO); DECL=$(leer "$P" TESTS_E2E_DECLARADOS)
+
+          AA=$(leerIndent "$B" BRAZO_A_ACK); AB=$(leerIndent "$B" BRAZO_B_ACK)
+          AC=$(leerIndent "$B" BRAZO_C_ACK); AD=$(leerIndent "$B" BRAZO_D_ACK)
+
+          SP=$(leer "$S" TESTS_PASS); SF=$(leer "$S" TESTS_FAIL)
+          SS=$(leer "$S" TESTS_SKIP); SR=$(leer "$S" RACES); SE=$(leer "$S" EXIT_suite)
+          FM=$(leer "$S" FIX_MEDIDO); CR=$(leer "$S" CONTROL_RAFAGA)
+          D48=$(leer "$S" D48_ABIERTO); VL=$(leer "$S" VENTANA_DESDE_LLEGADA)
+          AV=$(leer "$S" ARNES_VALIDADO); E3=$(leer "$S" E3_REPLAY)
+          M46=$(leer "$S" D46); M47=$(leer "$S" D47); M26=$(leer "$S" D26)
+          IND=$(leer "$S" RECHAZOS_INDISTINGUIBLES)
+
+          GE=$(leer "$G" EXIT_porton); GR=$(leer "$G" RACES); GF=$(leer "$G" FAILS)
+
+          # R3: se trunca
+          {
+            echo "Veredicto de la corrida ${GITHUB_SHA}"
+            echo "Fecha: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "=== EL FIX, en dos cambios ==="
+            echo "filters.go  la primera muestra INICIALIZA el filtro y devuelve false"
+            echo "gateway.go  llegada := time.Now() despues del ReadFull, y de ahi salen"
+            echo "            dt y el reloj del anti-replay"
+            echo
+            echo "=== EL EXPERIMENTO DE 4 BRAZOS (ACK sobre $CASOS casos) ==="
+            printf '  A  filters + gateway   ACK=%-4s   (se espera %s)\n' "$AA" "$CASOS"
+            printf '  B  solo filters        ACK=%-4s   (se espera %s)\n' "$AB" "$CASOS"
+            printf '  C  solo gateway        ACK=%-4s   (se espera 4, los que mi aritmetica predecia)\n' "$AC"
+            printf '  D  ninguno             ACK=%-4s   (se espera 0, reproduce el hallazgo)\n' "$AD"
+            echo
+            echo "=== LA SUITE E2E SOBRE EL GATEWAY REAL ==="
+            echo "PASS=$SP  FAIL=$SF  SKIP=$SS  carreras=$SR   (declarados: $DECL)"
+            printf '  %-46s %s\n' 'E0  el fix cierra el hallazgo' "$FM"
+            printf '  %-46s %s\n' 'E0b CONTROL la rafaga sigue bloqueada' "$CR"
+            printf '  %-46s %s\n' 'E0c D-48 SIGUE ABIERTO (medido)' "$D48"
+            printf '  %-46s %s\n' 'E0d la ventana se mide desde la llegada' "$VL"
+            printf '  %-46s %s\n' 'E1  el arnes quedo validado' "$AV"
+            printf '  %-46s %s\n' 'E3  anti-replay medido' "$E3"
+            printf '  %-46s %s\n' 'D-46 medido en el camino real' "$M46"
+            printf '  %-46s %s\n' 'D-47 medido en el camino real' "$M47"
+            printf '  %-46s %s\n' 'D-26 medido en el CALLSITE real' "$M26"
+            printf '  %-46s %s\n' 'los rechazos son indistinguibles' "$IND"
+            echo
+            echo "=== VEREDICTO ==="
+            comparar 'el parche declaro llegada'                  "$PL"  1
+            comparar 'el parche cambio el reloj del anti-replay'  "$PA"  1
+            comparar 'el parche cambio el calculo de dt'          "$PD"  1
+            comparar 'el parche cambio lastSeen'                  "$PS"  1
+            comparar 'CERO residuo de now en dt'                  "$R1"  0
+            comparar 'CERO residuo de now en el anti-replay'      "$R2"  0
+            comparar 'now SIGUE en FSM.Allow (no se toco)'        "$NF"  1
+            comparar 'now SIGUE en el read deadline (no se toco)' "$ND"  1
+            comparar 'compila'                                    "$BUILD" 0
+            comparar 'go vet limpio'                              "$VET" 0
+            echo "  -- los 4 brazos --"
+            comparar 'brazo A (los dos fixes) acepta todo'        "$AA"  "$CASOS"
+            comparar 'brazo B (solo filters) acepta todo'         "$AB"  "$CASOS"
+            comparar 'brazo C (solo gateway) acepta 4'            "$AC"  4
+            comparar 'brazo D (ninguno) reproduce el hallazgo'    "$AD"  0
+            echo "  -- la suite sobre el gateway real --"
+            comparar 'pasaron los N tests declarados'             "$SP"  "$DECL"
+            comparar 'ningun test en FAIL'                        "$SF"  0
+            comparar 'NINGUN test se saltea ya'                   "$SS"  0
+            comparar 'CERO carreras'                              "$SR"  0
+            comparar 'la suite salio en 0'                        "$SE"  0
+            al_menos 'E0  el fix cierra el hallazgo'              "$FM"  1
+            al_menos 'E0b CONTROL la rafaga sigue bloqueada'      "$CR"  1
+            al_menos 'E0c D-48 declarado abierto con numero'      "$D48" 1
+            al_menos 'E0d la ventana se mide desde la llegada'    "$VL"  1
+            al_menos 'E1  el arnes quedo validado'                "$AV"  1
+            al_menos 'D-46 medido SIN mutar nada'                 "$M46" 1
+            al_menos 'D-47 medido SIN mutar nada'                 "$M47" 1
+            al_menos 'D-26 medido SIN mutar nada'                 "$M26" 1
+            echo "  -- el porton de main y los vecinos --"
+            comparar 'el porton de main sigue verde'              "$GE"  0
+            comparar 'CERO carreras en el porton'                 "$GR"  0
+            comparar 'ningun test en FAIL en el porton'           "$GF"  0
+            comparar 'dualbrain compila'                          "$(leer "$O" EXIT_cpp_build)" 0
+            comparar 'dualbrain corre'                            "$(leer "$O" EXIT_cpp_run)" 0
+            comparar 'anti-replay en C corre'                     "$(leer "$O" EXIT_c_run)" 0
+            comparar 'custos legis corre'                         "$(leer "$O" EXIT_custos)" 0
+            comparar 'fleet corre'                                "$(leer "$O" EXIT_fleet)" 0
+            comparar 'testis corre'                               "$(leer "$O" EXIT_testis)" 0
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+            echo
+            echo "LECTURA. El brazo D reproduce el hallazgo del turno pasado, asi que el"
+            echo "experimento tiene control negativo. El brazo B muestra que el init de"
+            echo "lastV alcanza solo para el primer paquete. Y si el brazo C da 4, mi"
+            echo "aritmetica 'refutada' nunca estuvo mal sobre el filtro: estaba mal sobre"
+            echo "quien calculaba dt, y el fix de gateway.go la vuelve cierta."
+            echo
+            echo "Y LO QUE SIGUE ROJO EN EL PRODUCTO: D-48. El fix cura el primer paquete"
+            echo "y NADA MAS. Con payloads variables el gateway sigue bloqueando, y eso"
+            echo "esta medido en E0c, no supuesto."
+          } > "$OUT"
+          cat "$OUT"
+
+      - name: Commitear el parche y la evidencia
+        if: always()
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/huber-*.txt gateway/gateway.go gateway/filters.go gateway/huber_frontera_e2e_test.go
+          git commit -m 'fix(E0)+evidencia: el reloj de dt y del anti-replay pasa a ser la llegada del paquete [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          V="$GITHUB_WORKSPACE/verificacion/resultados-actions/huber-5-veredicto.txt"
+          grep -q 'RESULTADO=VERDE' "$V" || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
