@@ -118,9 +118,9 @@ func saltearSiElGatewayNoAcepta(t *testing.T, addr string, clave []byte, p *pki)
 	if elGatewayAceptaAlgo(t, addr, clave, p) {
 		return
 	}
-	t.Skipf("NO MEDIDO: este gateway no acepta NINGUN primer paquete, asi que no hay "+
-		"forma de llegar al estado que este test necesita. Con el fix de E0 puesto "+
-		"esto no deberia pasar: si aparece, el fix se revirtio o se esta corriendo el "+
+	t.Skipf("NO MEDIDO: este gateway no acepta NINGUN primer paquete, asi que no hay " +
+		"forma de llegar al estado que este test necesita. Con el fix de E0 puesto " +
+		"esto no deberia pasar: si aparece, el fix se revirtio o se esta corriendo el " +
 		"arnes contra una version vieja del gateway.")
 }
 

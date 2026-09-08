@@ -70,10 +70,10 @@ const (
 // EL CONTROL QUE HACE QUE ESTO NO SEA ROMPER EL PRODUCTO: una ráfaga real sigue
 // bloqueada. Modelado sobre la aritmética del filtro, tras 30 paquetes estables:
 //
-//	 ráfaga  1 KB -> BLOQUEA (derivada 3,15 contra umbral 0,021)
-//	 ráfaga  4 KB -> BLOQUEA (57,5 contra 0,121)
-//	 ráfaga 16 KB -> BLOQUEA (1.184 contra 0,839)
-//	 ráfaga 64 KB -> BLOQUEA (20.093 contra 5,139)
+//	ráfaga  1 KB -> BLOQUEA (derivada 3,15 contra umbral 0,021)
+//	ráfaga  4 KB -> BLOQUEA (57,5 contra 0,121)
+//	ráfaga 16 KB -> BLOQUEA (1.184 contra 0,839)
+//	ráfaga 64 KB -> BLOQUEA (20.093 contra 5,139)
 //
 // LO QUE ESTE FIX NO ARREGLA, y está cuantificado: D-48 sigue vivo. Con payloads
 // VARIABLES el filtro bloquea 46 de 50 paquetes, antes y después del fix. La

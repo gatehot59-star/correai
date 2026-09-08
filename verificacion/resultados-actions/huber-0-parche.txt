@@ -1,0 +1,83 @@
+Maquina: Actions ubuntu-latest (VM limpia)
+Commit:  9ddbd9aedeab1a6d2ebd2b6c8e7fbba9ca004f3e
+Rama:    titan/fix-huber-primer-paquete
+Fecha:   2026-09-08T12:30:54Z
+cpu:     AMD EPYC 9V74 80-Core Processor
+go version go1.22.12 linux/amd64
+sha256 gateway.go ANTES: f9cfc0580a2ddc23ccda6f675ebfa6f0bade054b86eb816ee03ed32e4a252dc1
+sha256 filters.go      : 9fdd81a3c4c03da768adc1705bc4d3c72186047f7b3166291a31fe968f0a29e9
+
+=== las 4 lineas ANTES del parche ===
+266:		body := buf[frameHeaderSize:bodyEnd]
+286:		nowNs := uint64(now.UnixNano())
+316:		dt := now.Sub(lastSeen).Seconds()
+320:		lastSeen = now
+
+=== aplicando el sed ===
+
+=== las lineas DESPUES del parche ===
+268:		// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo
+272:		llegada := time.Now()
+292:		nowNs := uint64(llegada.UnixNano())
+322:		dt := llegada.Sub(lastSeen).Seconds()
+326:		lastSeen = llegada
+
+=== diff completo del parche ===
+--- /tmp/gateway.orig.go	2026-09-08 12:30:54.266727541 +0000
++++ gateway/gateway.go	2026-09-08 12:30:54.282178657 +0000
+@@ -265,6 +265,12 @@
+ 
+ 		body := buf[frameHeaderSize:bodyEnd]
+ 
++		// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo
++		// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj
++		// del anti-replay. `now` se sigue usando para FSM.Allow y para el read
++		// deadline, que SI deben mirar el inicio de la iteracion.
++		llegada := time.Now()
++
+ 		pkt.Reset()
+ 		if !decodePerimeterPacket(body, pkt) {
+ 			writeReject(conn)
+@@ -283,7 +289,7 @@
+ 		// FIX 2: Anti-replay — verificar ventana de timestamp.
+ 		// El timestamp del paquete no debe diferir más de ±30s del reloj
+ 		// del servidor, y debe ser mayor al último timestamp aceptado.
+-		nowNs := uint64(now.UnixNano())
++		nowNs := uint64(llegada.UnixNano())
+ 		if !validateTimestamp(nowNs, pkt.Timestamp, maxTimestampDriftNs) {
+ 			writeReject(conn)
+ 			agent.FSM.TriggerBlock(now)
+@@ -313,11 +319,11 @@
+ 		// FIX 4: Pasar bytes reales al HuberFilter en lugar del
+ 		// valor fijo 1.0. Usamos el tamaño del ciphertext normalizado
+ 		// a KB como métrica de volumen real.
+-		dt := now.Sub(lastSeen).Seconds()
++		dt := llegada.Sub(lastSeen).Seconds()
+ 		if dt <= 0 {
+ 			dt = 1e-9
+ 		}
+-		lastSeen = now
++		lastSeen = llegada
+ 
+ 		// Volumen normalizado: bytes del payload en KB.
+ 		volumeKB := float64(len(pkt.Ciphertext)) / 1024.0
+
+PARCHE_LLEGADA_DECLARADA=1
+PARCHE_ANTIREPLAY=1
+PARCHE_DT=1
+PARCHE_LASTSEEN=1
+RESIDUO_NOW_EN_DT=0
+RESIDUO_NOW_EN_ANTIREPLAY=0
+NOW_SIGUE_EN_FSM=1
+NOW_SIGUE_EN_DEADLINE=1
+
+gateway/gateway.go
+(vacio arriba = el parche quedo formateado)
+sha256 gateway.go DESPUES: 99cde2ff8717cc2e8d802b92803f4da6736da784e8f8f9781bab3038e195170c
+
+EXIT_build=0
+EXIT_vet=0
+
+=== R4, los esperados derivados del fuente ===
+CASOS_DEL_BARRIDO=12
+TESTS_E2E_DECLARADOS=13
