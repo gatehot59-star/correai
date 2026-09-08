@@ -1,0 +1,21 @@
+=== CONTROL DE CARRERAS SOBRE EL CAMINO REAL ===
+Cero reportes del detector solo significa algo si este arnes PUEDE ver
+una carrera en los filtros. Se copia el repo, se le saca el bloqueo del
+Huber (para que los paquetes lleguen a los filtros) Y los Lock/Unlock,
+y se corre E9: tiene que reportar carrera CITANDO filters.go.
+
+CANDADOS_COMENTADOS=4
+HUBER_DESACTIVADO=1
+
+EXIT_mutado=0
+=== RUN   TestE2E_09_DosConexionesDelMismoCertificado
+    handleconn_e2e_test.go:588: E9 DOS CONEXIONES CONCURRENTES, 20 paquetes por conexion
+          MISMO cert (comparten AgentState) : ack=3    rechazo=2    conexiones cerradas=2
+          certs DISTINTOS (control)         : ack=40   rechazo=0    conexiones cerradas=0
+    handleconn_e2e_test.go:598: E9 D-26 MEDIDO EN EL CALLSITE REAL: los filtros se ejercitaron desde dos conexiones TLS concurrentes sobre el mismo *AgentState, atravesando handleConn. Bajo -race, cero reportes = el mutex de filters.go cubre el camino real, no solo el proxy.
+    handleconn_e2e_test.go:604: E9 HALLAZGO: el caso compartido perdio 4 paquetes (rechazo+cerradas) contra 0 del aislado. La marca de agua anti-replay es POR AGENTE, asi que dos conexiones del mismo certificado se pisan los timestamps: la que llega tarde cae en el chequeo `<=` y arrastra un TriggerBlock. El gateway YA castiga las conexiones concurrentes del mismo cert, pero con bloqueos en vez de un rechazo limpio.
+--- PASS: TestE2E_09_DosConexionesDelMismoCertificado (1.81s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	2.818s
+MUTACION_REPORTO=0
+MUTACION_CITA_FILTERS=0

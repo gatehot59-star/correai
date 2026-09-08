@@ -1,12 +1,12 @@
 Maquina: Actions ubuntu-latest (VM limpia)
-Commit:  d7e5245dbd3b4bde15df99d6ad6880caf9e89f01
+Commit:  b276cac1c0a84f7b66015716c3a914f3305387c1
 Rama:    titan/cliente-mtls-e2e
-Fecha:   2026-09-08T10:47:43Z
-cpu:     AMD EPYC 9V74 80-Core Processor
+Fecha:   2026-09-08T10:49:57Z
+cpu:     Intel(R) Xeon(R) 6973P-C
 nproc:   4
 go version go1.22.12 linux/amd64
 sha256 cliente_mtls_test.go: c75d5cd3426aeb901abd816685be691e6c2d933e11917957a9aa5503196f959a
-sha256 handleconn_e2e_test.go: 1207888e35ee7534182ad99b03654e090265144f3fbcbd3410fa7bea7da7f2bf
+sha256 handleconn_e2e_test.go: ab7dc539d4daacf82987368421f546b148d08bff93686494bca1383ee4fbee04
 sha256 huber_frontera_e2e_test.go: bfacc6a942cfdf44cd1d50df4bb72d747f164e731791f3f49f73c1bbc47e02fd
 sha256 gateway.go: f9cfc0580a2ddc23ccda6f675ebfa6f0bade054b86eb816ee03ed32e4a252dc1
 sha256 filters.go: 2f277d71f51a0ab2ddb509f03521a4dca49e59282992fdea8e954a0afa94a335
@@ -22,7 +22,7 @@ OK    .github/workflows/handleconn-e2e.yml
 OK    .github/workflows/porton-rojo-quien-cae.yml
 WORKFLOWS_ROTOS=0
 
-=== R4: cuantos tests E2E hay, contados de TODO gateway/ ===
+=== R4: esperados derivados del fuente ===
 gateway/handleconn_e2e_test.go:73:func TestE2E_01_ElArnesYElPrimerPaquete(t *testing.T) {
 gateway/handleconn_e2e_test.go:118:func TestE2E_02_HMACInvalido(t *testing.T) {
 gateway/handleconn_e2e_test.go:142:func TestE2E_04_AgentIDQueNoCoincide(t *testing.T) {
@@ -34,9 +34,10 @@ gateway/handleconn_e2e_test.go:418:func TestE2E_08_TodosLosRechazosSonElMismoByt
 gateway/handleconn_e2e_test.go:575:func TestE2E_09_DosConexionesDelMismoCertificado(t *testing.T) {
 gateway/huber_frontera_e2e_test.go:149:func TestE2E_00_ElGatewayRechazaTodoPrimerPaquete(t *testing.T) {
 TESTS_E2E_DECLARADOS=10
+SKIPS_ESPERADOS=4
+(los skips son los tests que necesitan un ACK previo para medir)
 
-=== gofmt de los tres archivos nuevos ===
-gateway/handleconn_e2e_test.go
+=== gofmt de los tres archivos del arnes ===
 (vacio arriba = ya estaban formateados)
 
 === go build ./... ===
