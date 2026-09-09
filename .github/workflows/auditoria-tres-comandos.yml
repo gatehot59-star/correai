@@ -1,0 +1,92 @@
+# Los tres comandos que el auditor externo pidio, en un instrumento ajeno.
+# Ningun agente puede leer el TEXTO de un log de Actions, asi que este job
+# COMMITEA SU PROPIO RESULTADO. Si no lo commitea, es invisible.
+# `[skip ci]` en el commit de vuelta evita el bucle de disparo.
+name: auditoria-tres-comandos
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/auditoria-de-la-auditoria
+    paths-ignore:
+      - 'verificacion/resultados-actions/**'
+
+permissions:
+  contents: write
+
+jobs:
+  tres-comandos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Instalar mosquitto
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mosquitto mosquitto-clients
+
+      - name: Correr los tres comandos y capturar todo
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          OUT=verificacion/resultados-actions/tres-comandos.txt
+          {
+            echo "Maquina:  Actions ubuntu-latest (VM limpia, instrumento ajeno)"
+            echo "Commit:   ${GITHUB_SHA}"
+            echo "Fecha:    $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "runner:   $(uname -srm)"
+            echo
+            echo "=== versiones ==="
+            go version
+            g++ --version | head -1
+            mosquitto -h 2>&1 | head -2
+            echo
+            echo "=== COMANDO 1: go build ./... ==="
+            go build ./... 2>&1
+            echo "EXIT_go_build=$?"
+            echo
+            echo "=== COMANDO 1b: go vet ./... ==="
+            go vet ./... 2>&1
+            echo "EXIT_go_vet=$?"
+            echo
+            echo "=== COMANDO 1c: gofmt -l . ==="
+            gofmt -l . 2>&1
+            echo "EXIT_gofmt=$?"
+            echo
+            echo "=== COMANDO 2: g++ -std=c++17 -fsyntax-only dualbrain/engine.hpp ==="
+            g++ -std=c++17 -fsyntax-only dualbrain/engine.hpp 2>&1
+            echo "EXIT_gpp_syntax=$?"
+            echo
+            echo "=== COMANDO 2b: instrumento de auditoria compilado y corrido ==="
+            cp dualbrain/engine.hpp verificacion/engine.hpp
+            g++ -std=c++17 -O2 -I verificacion -o /tmp/t_engine verificacion/t_engine_audit.cpp 2>&1
+            echo "EXIT_gpp_build=$?"
+            /tmp/t_engine 2>&1
+            echo "EXIT_gpp_run=$?"
+            rm -f verificacion/engine.hpp
+            echo
+            echo "=== COMANDO 3: mosquitto -c contra mqtt/acl.conf ==="
+            mosquitto_passwd -b -c /tmp/mosq_pw probe probe 2>&1
+            printf 'listener 1883 127.0.0.1\nallow_anonymous false\npassword_file /tmp/mosq_pw\nacl_file %s/mqtt/acl.conf\n' "$PWD" > /tmp/mosq.conf
+            cat /tmp/mosq.conf
+            timeout 6 mosquitto -c /tmp/mosq.conf -v 2>&1 | head -40
+            echo "EXIT_mosquitto_pipeline=${PIPESTATUS[0]}"
+            echo
+            echo "=== COMANDO 3b: hash de los archivos medidos ==="
+            sha256sum go.mod gateway/gateway.go gateway/filters.go gateway/fsm.go dualbrain/engine.hpp mqtt/acl.conf
+          } > "$OUT" 2>&1
+          echo "--- resultado escrito en $OUT ---"
+          cat "$OUT"
+
+      - name: Commitear el resultado
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add verificacion/resultados-actions/tres-comandos.txt
+          git commit -m 'evidencia: los tres comandos del auditor, corridos en VM limpia [skip ci]' || echo 'sin cambios'
+          git push origin HEAD:titan/auditoria-de-la-auditoria
