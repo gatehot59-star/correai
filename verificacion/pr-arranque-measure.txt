@@ -1,0 +1,3 @@
+PR_ARRANQUE_MEASURE=1
+Este archivo solo mide cuanto tarda en arrancar el evento pull_request.
+No cambia codigo de produccion ni workflows.
