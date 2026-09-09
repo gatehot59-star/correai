@@ -1,0 +1,19 @@
+{
+  "instrument": "faiss.IndexHNSWFlat",
+  "faiss_version": "1.8.0",
+  "python": "3.12.14",
+  "platform": "Linux-4.19.0-27-amd64-x86_64-with-glibc2.41",
+  "seed": 20260907,
+  "sources": [
+    {"dataset":"iris_uci","url":"https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data","sha256":"6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0","bytes":4551},
+    {"dataset":"winequality_red_uci","url":"https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv","sha256":"4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e","bytes":84199}
+  ],
+  "rows": [
+    {"dataset":"iris_uci","metric":"l2","n_train":120,"n_query":30,"dim":4,"k":10,"ef_search":64,"M":16,"recall_at_k":0.9766666666666666,"build_ms":29.43264413625002,"latency_p50_ms":0.03728561569005251,"latency_p95_ms":17.21076543908565,"qps":254.56610938879302,"rss_delta_mb":0.0,"index_bytes":19354,"hubness_skew":0.5822156058258653},
+    {"dataset":"iris_uci","metric":"cosine","n_train":120,"n_query":30,"dim":4,"k":10,"ef_search":64,"M":16,"recall_at_k":1.0,"build_ms":4.61759208701551,"latency_p50_ms":0.03868713974952698,"latency_p95_ms":0.07214337820187197,"qps":23543.53209025217,"rss_delta_mb":0.0,"index_bytes":19354,"hubness_skew":0.6234940187351058},
+    {"dataset":"iris_uci","metric":"mahalanobis_diag","n_train":120,"n_query":30,"dim":4,"k":10,"ef_search":64,"M":16,"recall_at_k":1.0,"build_ms":12.973819160833955,"latency_p50_ms":0.03893650136888027,"latency_p95_ms":0.04727386403828858,"qps":14655.742004199637,"rss_delta_mb":0.0,"index_bytes":19354,"hubness_skew":0.5885561984553479},
+    {"dataset":"winequality_red_uci","metric":"l2","n_train":1279,"n_query":320,"dim":11,"k":10,"ef_search":64,"M":16,"recall_at_k":0.9984375,"build_ms":41.15635505877435,"latency_p50_ms":0.04473049193620682,"latency_p95_ms":1.032299653161317,"qps":5176.416977332202,"rss_delta_mb":0.0,"index_bytes":240386,"hubness_skew":0.714946082116456},
+    {"dataset":"winequality_red_uci","metric":"cosine","n_train":1279,"n_query":320,"dim":11,"k":10,"ef_search":64,"M":16,"recall_at_k":0.99875,"build_ms":54.18661283329129,"latency_p50_ms":0.04223443102091551,"latency_p95_ms":0.052742718253284714,"qps":6664.642276117582,"rss_delta_mb":0.0,"index_bytes":240386,"hubness_skew":0.5447623251945705},
+    {"dataset":"winequality_red_uci","metric":"mahalanobis_diag","n_train":1279,"n_query":320,"dim":11,"k":10,"ef_search":64,"M":16,"recall_at_k":0.9971875000000001,"build_ms":55.363496067002416,"latency_p50_ms":2.126086037606001,"latency_p95_ms":4.255980579182506,"qps":376.8899307432468,"rss_delta_mb":0.0,"index_bytes":240386,"hubness_skew":1.236428973464919}
+  ]
+}
