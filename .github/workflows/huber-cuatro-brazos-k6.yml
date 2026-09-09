@@ -29,7 +29,6 @@ jobs:
           git archive "$PRE" | tar -x -C "$PRE_DIR"
 
           # K6/A-10: los controles B y D parten del arbol PRE-FIX real.
-          # Si alguien mueve PRE, estos guards abortan antes de medir.
           llegada=$(grep -c 'llegada := time.Now()' "$PRE_DIR/gateway/gateway.go")
           dt_old=$(grep -c 'dt := now.Sub' "$PRE_DIR/gateway/gateway.go")
           filter_old=$(grep -c 'if !f.visto {' "$PRE_DIR/gateway/filters.go")
@@ -39,9 +38,7 @@ jobs:
           test "$filter_old" = 0
           echo GUARD_A10=OK
 
-          # El arbol actual es A: los dos fixes. B/C/D se construyen mezclando
-          # archivos del arbol actual con los dos archivos PRE-FIX, nunca usando
-          # una copia actual disfrazada de pristina.
+          # A: los dos fixes. B: solo filters. C: solo gateway. D: ninguno.
           for brazo in A B C D; do
             rm -rf "/tmp/$brazo"
             cp -a "$GITHUB_WORKSPACE" "/tmp/$brazo"
@@ -63,11 +60,12 @@ jobs:
             ack=$(grep -E '^\s+payload=' "/tmp/$brazo.log" | grep -c ACK || true)
             rechazo=$(grep -E '^\s+payload=' "/tmp/$brazo.log" | grep -c RECHAZO || true)
             echo "BRAZO=$brazo BUILD=0 RC=$rc ACK=$ack RECHAZO=$rechazo"
+            test "$rc" = 0
             case "$brazo" in
-              A) test "$ack" = 11; test "$rc" = 0 ;;
-              B) test "$ack" = 4; test "$rc" = 0 ;;
-              C) test "$ack" = 11; test "$rc" = 0 ;;
-              D) test "$ack" = 0; test "$rc" = 0 ;;
+              A) test "$ack" = 11 ;;
+              B) test "$ack" = 11 ;;
+              C) test "$ack" = 4 ;;
+              D) test "$ack" = 0 ;;
             esac
           done
           echo RESULTADO=VERDE
