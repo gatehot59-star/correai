@@ -42,11 +42,29 @@
 #       tener dos puntos seguidos de espacio.
 name: fix-huber-medicion
 
+# ===========================================================================
+# R8. EL TRIGGER DE `push` SE RETIRO, Y ESTE WORKFLOW YA NO ES UN INSTRUMENTO.
+#
+# Su funcion era APLICAR el fix E0. El fix ya esta en `main`, asi que cada
+# corrida nueva aplicaria un parche ya aplicado. Con el trigger de push sobre
+# titan/fix-huber-primer-paquete, cualquier push a esa rama lo disparaba: el
+# gatillo quedaba al alcance de cualquiera y la unica proteccion era una nota
+# que decia "no lo dispares". Una instruccion sostenida por la memoria de quien
+# la escribio no es un guard.
+#
+# A-10, DECLARADO Y NO ARREGLADO. El paso 0 hace `cp gateway.go gateway.orig.go`
+# ANTES del sed y llama a eso "copia pristina" para armar los brazos B y D.
+# Eso era cierto cuando el fix no estaba en el arbol. AHORA ESA COPIA CONTIENE
+# EL FIX, asi que los brazos que declaran gateway_fix=no lo tienen igual, y el
+# guard 'brazo D (ninguno) reproduce el hallazgo' va a dar FAIL: un rojo
+# correcto por un motivo equivocado. Quien lo dispare a mano tiene que saberlo.
+#
+# Leccion general: un instrumento que mide un antes/despues deja de poder medir
+# el "antes" el dia que el "despues" entra a la base. La reversion por `sed` de
+# huber-cuatro-brazos.yml sobrevive al merge; la copia pristina no.
+# ===========================================================================
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - titan/fix-huber-primer-paquete
 
 permissions:
   contents: write
