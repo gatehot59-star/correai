@@ -1,0 +1,44 @@
+Veredicto de la corrida 46dca0a6605924bdb1b37bfd939fca2665cdd9c9
+Fecha: 2026-09-08T01:33:14Z
+
+=== EL SUJETO, medido ===
+tests que -short saltea: 4   |   SKIP observados: 4
+TestControlDeContencion_ElArnesVeLaDiferencia
+TestControlPositivoDeCola_CandadoGlobal
+TestCostoDelCandado_ContraElHMAC
+TestLatenciaP99DeLaEspera
+
+=== CARRERAS EN PROCESO ENCONTRADAS ===
+en los 4 salteados, x5 repeticiones : 0
+en la suite completa, x3            : 0
+tests que quedaron en FAIL          : 0 (salteados) / 0 (suite)
+tests en PASS en los salteados      : 20   (4 tests x 5 corridas = 20)
+
+=== LA MUTACION, el control que hace que el verde valga ===
+la mutacion se aplico (lineas)        : 1
+carreras detectadas al revertir el fix : 1
+el test cayo                          : 1
+
+=== VEREDICTO (numeros calculados, no palabras) ===
+PASS  el sujeto se enumero y son 4                           obtenido=4      esperado=4
+PASS  los 4 se saltean de verdad con -short                  obtenido=4      esperado=4
+PASS  no hay Parallel() en el fuente                         obtenido=0      esperado=0
+PASS  CERO carreras en proceso en los salteados              obtenido=0      esperado=0
+PASS  CERO carreras en proceso en la suite                   obtenido=0      esperado=0
+PASS  ningun salteado en FAIL                                obtenido=0      esperado=0
+PASS  ningun test de la suite en FAIL                        obtenido=0      esperado=0
+PASS  los 20 PASS de los salteados estan                     obtenido=20     esperado=20
+PASS  los salteados salieron en 0                            obtenido=0      esperado=0
+PASS  la suite completa salio en 0                           obtenido=0      esperado=0
+PASS  la mutacion se aplico                                  obtenido=1      esperado=1
+PASS  la MUTACION fue detectada                              obtenido=1      esperado=1
+PASS  la MUTACION hizo caer el test                          obtenido=1      esperado=1
+
+FALLAS_DE_VEREDICTO=0
+RESULTADO=VERDE
+
+LECTURA OBLIGATORIA: verde aca significa NO OBSERVADA EN 8 CORRIDAS
+(5 de los salteados + 3 de la suite completa), no 'no existe'. El
+detector de Go reporta lo que ve. La mutacion prueba que este arnes
+SI ve una carrera cuando la hay, y eso es lo maximo que se puede
+afirmar sin analisis estatico.

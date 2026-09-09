@@ -1,0 +1,15 @@
+=== BenchmarkVerifyPacketHMAC bajo -race ===
+Es serial y no tiene sub-brazos: se espera 1 linea y 0 carreras.
+Sirve de contraste: si ESTE reportara, el problema no seria de los
+filtros sino del gateway.
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkVerifyPacketHMAC-4   	   20000	      7260 ns/op
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.157s
+EXIT_hmac=0
+REPORTES_DETECTOR=0
+SUBBENCH_CORRIDOS=1

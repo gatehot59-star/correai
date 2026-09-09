@@ -1,0 +1,40 @@
+Maquina: Actions ubuntu-latest (VM limpia)
+Commit:  46dca0a6605924bdb1b37bfd939fca2665cdd9c9
+Rama:    titan/carreras-que-short-tapa
+Fecha:   2026-09-08T01:31:12Z
+cpu:     AMD EPYC 9V74 80-Core Processor
+nproc:   4
+go version go1.22.12 linux/amd64
+
+=== TODOS los archivos de test del repo ===
+./gateway/candado_bench_test.go
+./gateway/latencia_test.go
+./gateway/race_test.go
+ARCHIVOS_DE_TEST=3
+
+=== toda aparicion del skip por -short, con su linea ===
+./gateway/candado_bench_test.go:311:	if testing.Short() {
+./gateway/candado_bench_test.go:368:	if testing.Short() {
+./gateway/latencia_test.go:310:	if testing.Short() {
+./gateway/latencia_test.go:437:	if testing.Short() {
+
+=== el TEST que envuelve cada skip ===
+./gateway/candado_bench_test.go linea 311    -> TestControlDeContencion_ElArnesVeLaDiferencia (declarado en 310)
+./gateway/candado_bench_test.go linea 368    -> TestCostoDelCandado_ContraElHMAC (declarado en 367)
+./gateway/latencia_test.go     linea 310    -> TestLatenciaP99DeLaEspera (declarado en 309)
+./gateway/latencia_test.go     linea 437    -> TestControlPositivoDeCola_CandadoGlobal (declarado en 436)
+
+=== los tests que -short SALTEA ===
+TestControlDeContencion_ElArnesVeLaDiferencia
+TestControlPositivoDeCola_CandadoGlobal
+TestCostoDelCandado_ContraElHMAC
+TestLatenciaP99DeLaEspera
+CANTIDAD_SALTEADOS=4
+
+=== control del sujeto: los saltea DE VERDAD? ===
+--- SKIP: TestControlDeContencion_ElArnesVeLaDiferencia (0.00s)
+--- SKIP: TestControlPositivoDeCola_CandadoGlobal (0.00s)
+--- SKIP: TestCostoDelCandado_ContraElHMAC (0.00s)
+--- SKIP: TestLatenciaP99DeLaEspera (0.00s)
+SKIPS_OBSERVADOS=4
+(SKIPS_OBSERVADOS tiene que igualar CANTIDAD_SALTEADOS)

@@ -1,0 +1,28 @@
+=== CONTROL POR MUTACION SOBRE EL CAMINO REAL ===
+E9 dice que cero reportes del detector significa que el mutex de
+filters.go cubre el camino real. Eso solo vale si este arnes PUEDE
+ver una carrera ahi. Asi que se copia el repo, se le SACAN los dos
+Lock/Unlock a los filtros de produccion, y se corre E9: tiene que
+reportar carrera CITANDO filters.go.
+
+--- las lineas del candado ANTES de mutar ---
+81:	f.mtx.Lock()
+82:	defer f.mtx.Unlock()
+167:	c.mtx.Lock()
+168:	defer c.mtx.Unlock()
+--- DESPUES de mutar ---
+81:	// MUTADO: f.mtx.Lock()
+82:	// MUTADO: defer f.mtx.Unlock()
+167:	// MUTADO: c.mtx.Lock()
+168:	// MUTADO: defer c.mtx.Unlock()
+CANDADOS_COMENTADOS=4
+
+--- E9 sobre la copia mutada ---
+EXIT_mutado=0
+=== RUN   TestE2E_09_DosConexionesDelMismoCertificado
+    handleconn_e2e_test.go:577: NO MEDIDO: este gateway no acepta NINGUN primer paquete (ver E0), asi que no hay forma de llegar al estado que este test necesita medir. El hallazgo se puede medir sobre una copia con el bloque del HuberFilter desactivado; ese sujeto es OTRO y el job lo corre aparte.
+--- SKIP: TestE2E_09_DosConexionesDelMismoCertificado (0.33s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.341s
+MUTACION_REPORTO=0
+MUTACION_CITA_FILTERS=0

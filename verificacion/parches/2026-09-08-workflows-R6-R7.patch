@@ -1,0 +1,140 @@
+From 0dd793b19f1ff6de751c1bf1b40bca05e28e5257 Mon Sep 17 00:00:00 2001
+From: "BRAIN (taller brain-env)" <brain@mudh.local>
+Date: Tue, 8 Sep 2026 17:01:14 +0000
+Subject: [PATCH] ci(R6+R7): serializar los dos workflows y cerrar las dos vias
+ por las que se publico un gateway.go roto
+
+R6. EL PUSH DEL RECIBO PERDIA UNA CARRERA Y NADIE SE ENTERABA.
+La corrida 34227120895 de huber-cuatro-brazos midio los 4 brazos y su paso
+Commitear FALLO: fix-huber-medicion arranco en el MISMO push (los dos con
+created_at 2026-09-08T12:37:23Z) y este perdio el push. Medicion sin recibo
+persistente es NO MEDIDO, no verde.
+  - concurrency group compartido en los dos workflows.
+  - el push del recibo reintenta 5 veces con fetch+rebase y, si no entra,
+    el paso FALLA. Un recibo perdido en silencio es peor que un rojo.
+
+R7. EL SED NO ERA IDEMPOTENTE Y EL COMMIT NO MIRABA SU PROPIO GUARD.
+fix-huber-medicion corrio dos veces sobre la misma rama (43ab1f0 y 27287be).
+La segunda pasada inserto el bloque de nuevo, `llegada := time.Now()` quedo
+declarado DOS veces y gateway.go dejo de compilar:
+  gateway/gateway.go:278:11: no new variables on left side of :=
+El guard del veredicto SI lo cazo (esperado=1 obtenido=2). Lo que fallo es que
+el paso de commit tiene `if: always()` y publico el archivo roto igual.
+  - la insercion solo corre si el bloque NO esta (BLOQUE_YA_PRESENTE_ANTES).
+  - la EVIDENCIA se commitea siempre (un recibo rojo es un recibo); el CODIGO
+    solo si PARCHE_LLEGADA_DECLARADA=1.
+
+--- METODO PROMETEO ---
+Maquina: brain-env (taller). Los dos archivos pasaron yaml.safe_load antes de
+generar el parche. Este commit NO se pudo pushear desde el taller: el PAT no
+tiene scope `workflow`, por eso el parche va como archivo y lo aplica un humano.
+---
+ .github/workflows/fix-huber-medicion.yml  | 33 +++++++++++++++++++++--
+ .github/workflows/huber-cuatro-brazos.yml | 24 +++++++++++++++--
+ 2 files changed, 53 insertions(+), 4 deletions(-)
+
+diff --git a/.github/workflows/fix-huber-medicion.yml b/.github/workflows/fix-huber-medicion.yml
+index 8a307b0..3d61ad4 100644
+--- a/.github/workflows/fix-huber-medicion.yml
++++ b/.github/workflows/fix-huber-medicion.yml
+@@ -51,6 +51,10 @@ on:
+ permissions:
+   contents: write
+ 
++concurrency:
++  group: evidencia-${{ github.ref }}
++  cancel-in-progress: false
++
+ jobs:
+   medir-el-fix:
+     runs-on: ubuntu-latest
+@@ -83,7 +87,21 @@ jobs:
+             grep -n 'body := buf\[frameHeaderSize:bodyEnd\]\|nowNs := uint64\|dt := now\.Sub\|lastSeen = now' gateway/gateway.go
+             echo
+             echo "=== aplicando el sed ==="
+-            sed -i 's|^\(\s*\)body := buf\[frameHeaderSize:bodyEnd\]|\1body := buf[frameHeaderSize:bodyEnd]\n\n\1// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo\n\1// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj\n\1// del anti-replay. `now` se sigue usando para FSM.Allow y para el read\n\1// deadline, que SI deben mirar el inicio de la iteracion.\n\1llegada := time.Now()|' gateway/gateway.go
++            # R7. EL SED NO ES IDEMPOTENTE Y ESTE WORKFLOW CORRIO DOS VECES SOBRE
++            # LA MISMA RAMA (43ab1f0 y 27287be). La segunda pasada inserto el
++            # bloque de nuevo, `llegada := time.Now()` quedo declarado DOS veces
++            # y gateway.go dejo de compilar:
++            #   gateway/gateway.go:278:11: no new variables on left side of :=
++            # El guard del veredicto SI lo cazo (esperado=1 obtenido=2), pero el
++            # paso de commit tiene `if: always()` y publico el archivo roto igual.
++            # Ahora la insercion solo corre si el bloque NO esta.
++            YA_ESTA=$(grep -c 'llegada := time.Now()' gateway/gateway.go)
++            echo "BLOQUE_YA_PRESENTE_ANTES=$YA_ESTA"
++            if [ "$YA_ESTA" = "0" ]; then
++              sed -i 's|^\(\s*\)body := buf\[frameHeaderSize:bodyEnd\]|\1body := buf[frameHeaderSize:bodyEnd]\n\n\1// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo\n\1// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj\n\1// del anti-replay. `now` se sigue usando para FSM.Allow y para el read\n\1// deadline, que SI deben mirar el inicio de la iteracion.\n\1llegada := time.Now()|' gateway/gateway.go
++            else
++              echo "IDEMPOTENCIA: el bloque ya estaba, NO lo inserto de nuevo"
++            fi
+             sed -i 's|nowNs := uint64(now\.UnixNano())|nowNs := uint64(llegada.UnixNano())|' gateway/gateway.go
+             sed -i 's|dt := now\.Sub(lastSeen)\.Seconds()|dt := llegada.Sub(lastSeen).Seconds()|' gateway/gateway.go
+             sed -i 's|^\(\s*\)lastSeen = now$|\1lastSeen = llegada|' gateway/gateway.go
+@@ -400,7 +418,18 @@ jobs:
+           git config user.name  'github-actions[bot]'
+           git config user.email 'github-actions[bot]@users.noreply.github.com'
+           git pull --rebase origin "${GITHUB_REF_NAME}" || true
+-          git add verificacion/resultados-actions/huber-*.txt gateway/gateway.go gateway/filters.go gateway/huber_frontera_e2e_test.go
++          # R7 (segunda mitad). La EVIDENCIA se commitea siempre: un recibo rojo
++          # es un recibo. El CODIGO solo se commitea si el guard del parche dio
++          # exactamente 1. Asi fue como se publico un gateway.go que no compila.
++          git add verificacion/resultados-actions/huber-*.txt
++          PL=$(grep -oE '^PARCHE_LLEGADA_DECLARADA=[0-9]+' verificacion/resultados-actions/huber-0-parche.txt | tail -1 | cut -d= -f2)
++          echo "guard del parche: PARCHE_LLEGADA_DECLARADA=$PL"
++          if [ "$PL" = "1" ]; then
++            git add gateway/gateway.go gateway/filters.go gateway/huber_frontera_e2e_test.go
++          else
++            echo 'EL PARCHE NO QUEDO EN 1: NO commiteo codigo, solo la evidencia.'
++            git checkout -- gateway/gateway.go || true
++          fi
+           git commit -m 'fix(E0)+evidencia: el reloj de dt y del anti-replay pasa a ser la llegada del paquete [skip ci]' || echo 'sin cambios'
+           git push origin "HEAD:${GITHUB_REF_NAME}"
+ 
+diff --git a/.github/workflows/huber-cuatro-brazos.yml b/.github/workflows/huber-cuatro-brazos.yml
+index 145f804..1e34264 100644
+--- a/.github/workflows/huber-cuatro-brazos.yml
++++ b/.github/workflows/huber-cuatro-brazos.yml
+@@ -39,6 +39,10 @@ on:
+ permissions:
+   contents: write
+ 
++concurrency:
++  group: evidencia-${{ github.ref }}
++  cancel-in-progress: false
++
+ jobs:
+   cuatro-brazos:
+     runs-on: ubuntu-latest
+@@ -224,10 +228,26 @@ jobs:
+           cd "$GITHUB_WORKSPACE"
+           git config user.name  'github-actions[bot]'
+           git config user.email 'github-actions[bot]@users.noreply.github.com'
+-          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+           git add verificacion/resultados-actions/brazos-*.txt
+           git commit -m 'evidencia: los 4 brazos del fix del Huber, con el contador corregido [skip ci]' || echo 'sin cambios'
+-          git push origin "HEAD:${GITHUB_REF_NAME}"
++          # R6. EL PUSH DEL RECIBO COMPITE CON OTROS WORKFLOWS DE LA MISMA RAMA.
++          # La corrida 34227120895 midio los 4 brazos y su paso Commitear FALLO:
++          # fix-huber-medicion arranco en el mismo push (los dos con created_at
++          # 2026-09-08T12:37:23Z) y este perdio la carrera. Medicion sin recibo
++          # persistente es NO MEDIDO, no verde. Ahora se reintenta con rebase y,
++          # si igual no entra, el paso FALLA: un recibo perdido en silencio es
++          # peor que un rojo.
++          OK=0
++          for i in 1 2 3 4 5; do
++            git fetch origin "${GITHUB_REF_NAME}"
++            git rebase "origin/${GITHUB_REF_NAME}" || git rebase --abort
++            if git push origin "HEAD:${GITHUB_REF_NAME}"; then OK=1; break; fi
++            echo "push intento $i rechazado, reintento"
++            sleep $((i * 7))
++          done
++          [ "$OK" = 1 ] || { echo 'EL RECIBO NO QUEDO COMMITEADO'; exit 1; }
++          git log --oneline -1
++          ls -l verificacion/resultados-actions/brazos-*.txt
+ 
+       - name: Fallar si el veredicto no es verde
+         if: always()
+-- 
+2.47.3
+

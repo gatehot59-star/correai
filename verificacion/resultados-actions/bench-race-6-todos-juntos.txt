@@ -1,0 +1,71 @@
+=== go test -race -bench . -benchtime=10000x ===
+Este numero SIRVE PARA UNA SOLA COSA: mostrar que contar en bloque
+engana, porque el brazo B (RACY, deliberado) contamina el total.
+El veredicto NO usa este conteo: usa el de cada brazo por separado.
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=1-4         	   10000	      2008 ns/op	         0.4980 Mop/s	         1.000 goroutines	      2008 ns/op-real
+BenchmarkCandado/B_1agente_sinCandado_RACY/g=1-4          	   10000	       926.4 ns/op	         1.080 Mop/s	         1.000 goroutines	       926.3 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=1-4         	   10000	      1959 ns/op	         0.5104 Mop/s	         1.000 goroutines	      1959 ns/op-real
+BenchmarkCandado/D_NagentesAislados_candadoGLOBAL/g=1-4            	   10000	      1845 ns/op	         0.5420 Mop/s	         1.000 goroutines	      1845 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=2-4                  	   10000	      1947 ns/op	         0.5136 Mop/s	         2.000 goroutines	      1947 ns/op-real
+==================
+WARNING: DATA RACE
+Read at 0x00c000022910 by goroutine 36:
+
+Previous write at 0x00c000022910 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000022918 by goroutine 36:
+
+Previous write at 0x00c000022918 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000022920 by goroutine 36:
+
+Previous write at 0x00c000022920 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000022928 by goroutine 36:
+
+Previous write at 0x00c000022928 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000120150 by goroutine 36:
+
+Previous write at 0x00c000120150 by goroutine 35:
+
+Goroutine 36 (running) created at:
+
+Goroutine 35 (finished) created at:
+==================
+==================
+...(pilas de goroutine recortadas)
+EXIT_todos=1
+REPORTES_DETECTOR=24
+CITA_FILTERS_GO=0
+CITA_HUBER_SIN_MUTEX=24
+CITA_COHERENCIA_SIN_MUTEX=24

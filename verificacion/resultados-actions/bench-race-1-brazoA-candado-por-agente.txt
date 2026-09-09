@@ -1,0 +1,24 @@
+=== brazo 1-brazoA-candado-por-agente ===
+regex : BenchmarkCandado/A_1agente_candadoPorAgente
+espera: CERO carreras: los filtros reales tienen su mutex
+
+go test -race -run '^$' -bench 'BenchmarkCandado/A_1agente_candadoPorAgente' -benchtime=20000x -cpu=4
+(carga chica a proposito: bajo -race cada acceso se instrumenta.
+ Aca NO se miden tiempos, se busca si el detector ve una carrera.)
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=1-4         	   20000	      1904 ns/op	         0.5252 Mop/s	         1.000 goroutines	      1904 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=2-4         	   20000	      2289 ns/op	         0.4368 Mop/s	         2.000 goroutines	      2289 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=4-4         	   20000	      2578 ns/op	         0.3880 Mop/s	         4.000 goroutines	      2578 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	   20000	      2501 ns/op	         0.3998 Mop/s	         8.000 goroutines	      2501 ns/op-real
+BenchmarkCandado/A_1agente_candadoPorAgente/g=16-4        	   20000	      2574 ns/op	         0.3885 Mop/s	        16.00 goroutines	      2574 ns/op-real
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.253s
+EXIT_brazo=0
+REPORTES_DETECTOR=0
+CITA_FILTERS_GO=0
+CITA_BENCH_TEST=0
+SUBBENCH_CORRIDOS=5

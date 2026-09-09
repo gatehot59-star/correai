@@ -1,0 +1,64 @@
+Maquina: Actions ubuntu-latest (VM limpia)
+Commit:  44e0b49aa315c3c288c653134194d80b36843c21
+Rama:    titan/fix-huber-primer-paquete
+Fecha:   2026-09-08T12:37:35Z
+cpu:     AMD EPYC 7763 64-Core Processor
+go version go1.22.12 linux/amd64
+sha256 gateway.go ANTES: 99cde2ff8717cc2e8d802b92803f4da6736da784e8f8f9781bab3038e195170c
+sha256 filters.go      : 652543a75435b24e6f94cfe6f4c509a21bb7104d3f00df0f32596c12e5fcfd7a
+
+=== las 4 lineas ANTES del parche ===
+266:		body := buf[frameHeaderSize:bodyEnd]
+292:		nowNs := uint64(llegada.UnixNano())
+
+=== aplicando el sed ===
+
+=== las lineas DESPUES del parche ===
+268:		// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo
+272:		llegada := time.Now()
+274:		// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo
+278:		llegada := time.Now()
+298:		nowNs := uint64(llegada.UnixNano())
+328:		dt := llegada.Sub(lastSeen).Seconds()
+332:		lastSeen = llegada
+
+=== diff completo del parche ===
+--- /tmp/gateway.orig.go	2026-09-08 12:37:35.476745182 +0000
++++ gateway/gateway.go	2026-09-08 12:37:35.505691768 +0000
+@@ -271,6 +271,12 @@
+ 		// deadline, que SI deben mirar el inicio de la iteracion.
+ 		llegada := time.Now()
+ 
++		// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo
++		// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj
++		// del anti-replay. `now` se sigue usando para FSM.Allow y para el read
++		// deadline, que SI deben mirar el inicio de la iteracion.
++		llegada := time.Now()
++
+ 		pkt.Reset()
+ 		if !decodePerimeterPacket(body, pkt) {
+ 			writeReject(conn)
+
+PARCHE_LLEGADA_DECLARADA=2
+PARCHE_ANTIREPLAY=1
+PARCHE_DT=1
+PARCHE_LASTSEEN=1
+RESIDUO_NOW_EN_DT=0
+RESIDUO_NOW_EN_ANTIREPLAY=0
+NOW_SIGUE_EN_FSM=1
+NOW_SIGUE_EN_DEADLINE=1
+
+(vacio arriba = el parche quedo formateado)
+sha256 gateway.go DESPUES: 1d2158c028caa43d7a049ffdee85b6028a85e270ff26a5edb1d6d9695824ce8b
+
+# github.com/gatehot59-star/kampe-ir/gateway
+gateway/gateway.go:278:11: no new variables on left side of :=
+EXIT_build=1
+# github.com/gatehot59-star/kampe-ir/gateway
+# [github.com/gatehot59-star/kampe-ir/gateway]
+vet: gateway/gateway.go:278:11: no new variables on left side of :=
+EXIT_vet=1
+
+=== R4, los esperados derivados del fuente ===
+CASOS_DEL_BARRIDO=12
+TESTS_E2E_DECLARADOS=13

@@ -1,0 +1,8 @@
+=== el resto del CI de main, para que el fix no rompa un vecino ===
+EXIT_cpp_build=0
+EXIT_cpp_run=0
+EXIT_c_build=0
+EXIT_c_run=0
+EXIT_custos=0
+EXIT_fleet=0
+EXIT_testis=0

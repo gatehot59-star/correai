@@ -1,0 +1,12 @@
+=== TestControlDeContencion_ElArnesVeLaDiferencia SOLO, con -race ===
+Si este es el que cae, aca esta su numero y su mensaje.
+
+=== RUN   TestControlDeContencion_ElArnesVeLaDiferencia
+    candado_bench_test.go:345: CONTROL DE CONTENCION (goroutines=8 ops=400000 GOMAXPROCS=4)
+          candado por agente       752.46 ns/op     1.329 Mop/s
+          candado global          2346.73 ns/op     0.426 Mop/s
+          factor global/porAgente = 3.12x (minimo exigido 1.20x)
+--- PASS: TestControlDeContencion_ElArnesVeLaDiferencia (1.26s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	2.265s
+EXIT=0

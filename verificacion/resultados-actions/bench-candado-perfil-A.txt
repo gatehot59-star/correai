@@ -1,0 +1,26 @@
+=== perfil de mutex: brazo A: 1 agente compartido, 8 goroutines (caso patologico) ===
+Type: delay del runtime. Contabiliza nanosegundos de BLOQUEO,
+no tiempo de pared. Instrumento independiente del cronometro.
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 9V74 80-Core Processor                
+BenchmarkCandado/A_1agente_candadoPorAgente/g=8-4         	  500000	       143.2 ns/op	         6.984 Mop/s	         8.000 goroutines	       143.2 ns/op-real
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	0.078s
+EXIT_bench=0
+
+--- go tool pprof -top ---
+File: gateway.test
+Type: delay
+Time: Sep 7, 2026 at 8:32pm (UTC)
+Showing nodes accounting for 77.72ms, 100% of 77.72ms total
+      flat  flat%   sum%        cum   cum%
+   74.63ms 96.03% 96.03%    74.63ms 96.03%  sync.(*Mutex).Unlock
+    3.09ms  3.97%   100%     3.09ms  3.97%  runtime._LostContendedRuntimeLock
+         0     0%   100%    49.21ms 63.32%  github.com/gatehot59-star/kampe-ir/gateway.(*CoherenceFilter).Update
+         0     0%   100%    25.42ms 32.71%  github.com/gatehot59-star/kampe-ir/gateway.(*HuberFilter).Update
+         0     0%   100%    74.63ms 96.03%  github.com/gatehot59-star/kampe-ir/gateway.BenchmarkCandado.func1.1
+         0     0%   100%    74.63ms 96.03%  github.com/gatehot59-star/kampe-ir/gateway.medirConcurrente.func1
+EXIT_pprof=0

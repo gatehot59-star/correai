@@ -1,0 +1,235 @@
+# Mide la cola de latencia de la espera del candado que cerro D-26.
+#
+# TRES DECISIONES DEL INSTRUMENTO:
+#
+#  1. SIN -race y SIN -bench. El detector multiplica el costo 16,9x (medido en
+#     bench-candado-vs-race.txt) y con eso los cuantiles serian del detector. Y
+#     el framework de benchmarks reporta promedios: para cuantiles hay que
+#     guardar cada muestra, que es lo que hace latencia_test.go.
+#
+#  2. -cpu=4 y GOMAXPROCS explicito. Un p99 sin decir cuantos cores habia no es
+#     recomputable.
+#
+#  3. Tres corridas independientes. Un p99 de una sola corrida en un runner
+#     compartido puede ser el vecino de VM, no el candado. Si las tres coinciden,
+#     el numero es del sistema medido.
+#
+# CADA SECCION ESCRIBE SU PROPIO ARCHIVO. Es la cuarta vez que un archivo
+# compartido produce un guard que mide otra cosa; ya es regla.
+name: go-latencia-p99
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/latencia-p99
+    paths:
+      - 'gateway/**'
+      - 'go.mod'
+      - '.github/workflows/go-latencia-p99.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  latencia:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Entorno, formato, build y vet
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          BASE=verificacion/resultados-actions/latencia-p99.txt
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia, instrumento ajeno)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Rama:    ${GITHUB_REF_NAME}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "runner:  $(uname -srm)"
+            go version
+            echo "nproc:   $(nproc)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            echo "mem:     $(free -h | awk 'NR==2{print $2}')"
+            echo "sha256 latencia_test.go: $(sha256sum gateway/latencia_test.go | cut -d' ' -f1)"
+            echo "sha256 filters.go:       $(sha256sum gateway/filters.go | cut -d' ' -f1)"
+            echo
+            echo "=== gofmt del archivo de este PR ==="
+            gofmt -l gateway/latencia_test.go
+            gofmt -w gateway/latencia_test.go
+            echo "(vacio arriba = ya estaba formateado)"
+            echo
+            echo "=== go build ./... ==="
+            go build ./... 2>&1
+            echo "EXIT_build=$?"
+            echo
+            echo "=== go vet ./... ==="
+            go vet ./... 2>&1
+            echo "EXIT_vet=$?"
+          } > "$BASE" 2>&1
+          cat "$BASE"
+
+      - name: La medicion, tres corridas independientes
+        if: always()
+        run: |
+          set +e
+          D=verificacion/resultados-actions
+          for n in 1 2 3; do
+            OUT=$D/latencia-p99-corrida-$n.txt
+            {
+              echo "=== corrida $n de 3: go test -run TestLatenciaP99DeLaEspera -v -cpu=4 ==="
+              echo "Sin -race (cuesta 16,9x, medido) y sin -bench (reporta promedios,"
+              echo "no cuantiles). GOMAXPROCS=4."
+              echo
+              go test -run 'TestLatenciaP99DeLaEspera' -v -count=1 -cpu=4 \
+                      -timeout 15m ./gateway/... 2>&1
+              echo "EXIT_latencia=$?"
+            } > "$OUT" 2>&1
+            echo "--- corrida $n ---"
+            cat "$OUT"
+          done
+
+      - name: Control positivo de cola
+        if: always()
+        run: |
+          set +e
+          OUT=verificacion/resultados-actions/latencia-p99-control.txt
+          {
+            echo "=== go test -run TestControlPositivoDeCola_CandadoGlobal -v -cpu=4 ==="
+            echo "FALLA si el p99 de un candado global no es peor que el del candado"
+            echo "por agente: sin eso, este arnes mide promedios disfrazados de"
+            echo "cuantiles y ningun p99 del archivo vale."
+            echo
+            go test -run 'TestControlPositivoDeCola_CandadoGlobal' -v -count=1 \
+                    -cpu=4 -timeout 15m ./gateway/... 2>&1
+            echo "EXIT_control=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: La suite de correctitud sigue verde
+        if: always()
+        run: |
+          set +e
+          OUT=verificacion/resultados-actions/latencia-p99-suite-corta.txt
+          {
+            echo "=== go test -short -race -v -count=1 ./gateway/... ==="
+            echo "Que agregar este archivo no rompio D-26, y que los tests de tiempo"
+            echo "de pared se SALTEAN con -short."
+            echo
+            go test -short -race -v -count=1 -timeout 15m ./gateway/... 2>&1
+            echo "EXIT_suite_corta=$?"
+          } > "$OUT" 2>&1
+          tail -40 "$OUT"
+
+      - name: Veredicto
+        if: always()
+        run: |
+          set +e
+          D=verificacion/resultados-actions
+          BASE=$D/latencia-p99.txt
+          C1=$D/latencia-p99-corrida-1.txt
+          C2=$D/latencia-p99-corrida-2.txt
+          C3=$D/latencia-p99-corrida-3.txt
+          CTRL=$D/latencia-p99-control.txt
+          CORTA=$D/latencia-p99-suite-corta.txt
+          FALLAS=0
+
+          esperar() {
+            if grep -q -- "$3" "$2"; then HAY=SI; else HAY=NO; fi
+            if [ "$HAY" = "$4" ]; then
+              printf 'PASS  %-56s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
+            else
+              printf 'FAIL  %-56s [%s] aparece=%s esperado=%s\n' "$1" "$(basename $2)" "$HAY" "$4"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          {
+            echo
+            echo "=== DISTRIBUCIONES, corrida 1 (la que se cita) ==="
+            grep -E 'PISO:|ESPERA:|PAQUETE:' "$C1"
+            echo
+            echo "=== EL NUMERO PEDIDO, las tres corridas ==="
+            for f in "$C1" "$C2" "$C3"; do
+              echo "--- $(basename $f) ---"
+              sed -n '/=== RESPUESTA ===/,/piso del reloj/p' "$f" | sed 's/^ *//'
+            done
+            echo
+            echo "=== GUARDS internos del test, por corrida ==="
+            grep -hE 'GUARD [12]' "$C1" "$C2" "$C3"
+            echo
+            echo "=== CONTROL POSITIVO DE COLA ==="
+            grep -E 'candado por agente|candado GLOBAL|factor p99' "$CTRL"
+            echo
+            echo "=== VEREDICTO ==="
+            esperar 'compila'                                  "$BASE" 'EXIT_build=0'                                  SI
+            esperar 'go vet limpio'                            "$BASE" 'EXIT_vet=0'                                    SI
+            esperar 'corrida 1 termino en 0'                   "$C1"   'EXIT_latencia=0'                               SI
+            esperar 'corrida 2 termino en 0'                   "$C2"   'EXIT_latencia=0'                               SI
+            esperar 'corrida 3 termino en 0'                   "$C3"   'EXIT_latencia=0'                               SI
+            esperar 'corrida 1 PASA'                           "$C1"   '--- PASS: TestLatenciaP99DeLaEspera'            SI
+            esperar 'corrida 2 PASA'                           "$C2"   '--- PASS: TestLatenciaP99DeLaEspera'            SI
+            esperar 'corrida 3 PASA'                           "$C3"   '--- PASS: TestLatenciaP99DeLaEspera'            SI
+            esperar 'el piso del reloj se midio'               "$C1"   'PISO: par time.Now()'                          SI
+            esperar 'sujeto 1 (espera) presente'               "$C1"   'ESPERA: 1 candado, 8 goroutines'               SI
+            esperar 'sujeto 2 (paquete) presente'              "$C1"   'PAQUETE: 1 AgentState compartido'               SI
+            esperar 'el guard del piso corrio'                 "$C1"   'GUARD 1'                                       SI
+            esperar 'el guard de la cola corrio'               "$C1"   'GUARD 2'                                       SI
+            esperar 'la seccion RESPUESTA se emitio'           "$C1"   '=== RESPUESTA ==='                              SI
+            esperar 'ningun test en FAIL en la corrida 1'      "$C1"   '^--- FAIL'                                     NO
+            esperar 'ningun test en FAIL en la corrida 2'      "$C2"   '^--- FAIL'                                     NO
+            esperar 'ningun test en FAIL en la corrida 3'      "$C3"   '^--- FAIL'                                     NO
+            esperar 'el control positivo de cola PASA'         "$CTRL" '--- PASS: TestControlPositivoDeCola_CandadoGlobal' SI
+            esperar 'el control termino en 0'                  "$CTRL" 'EXIT_control=0'                                SI
+            esperar 'el control reporto su factor'             "$CTRL" 'factor p99 global/porAgente'                    SI
+            esperar 'ningun FAIL en el control'               "$CTRL" '^--- FAIL'                                     NO
+            esperar 'la suite corta con -race sigue verde'      "$CORTA" 'EXIT_suite_corta=0'                           SI
+            esperar 'los tests de tiempo se saltean con -short' "$CORTA" 'SKIP'                                         SI
+            esperar 'ningun FAIL en la suite corta'            "$CORTA" '^--- FAIL'                                    NO
+
+            echo
+            echo "=== ESTABILIDAD ENTRE CORRIDAS ==="
+            echo "Un p99 de una sola corrida en un runner compartido puede ser el"
+            echo "vecino de VM. Estos son los tres p99 patologicos:"
+            P99S=$(grep -h 'p99 de la ESPERA, caso patologico' "$C1" "$C2" "$C3" \
+                   | grep -oE '[0-9]+ ns' | grep -oE '[0-9]+' | paste -sd' ' -)
+            echo "p99_patologico_por_corrida = $P99S"
+            echo "$P99S" | awk '{
+              if (NF < 3) { print "DISPERSION=NA (no se leyeron 3 valores)"; exit }
+              mn=$1; mx=$1
+              for (i=1;i<=NF;i++) { if ($i+0<mn+0) mn=$i; if ($i+0>mx+0) mx=$i }
+              if (mn+0 > 0) printf "min=%s max=%s DISPERSION=%.2fx\n", mn, mx, mx/mn
+              else print "DISPERSION=NA (minimo cero)"
+            }'
+
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+          } >> "$BASE"
+          tail -80 "$BASE"
+
+      - name: Commitear los resultados
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/latencia-p99*.txt gateway/latencia_test.go
+          git commit -m 'evidencia: cola de latencia de la espera, con piso de reloj y control de cola [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          grep -q 'RESULTADO=VERDE' verificacion/resultados-actions/latencia-p99.txt || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' verificacion/resultados-actions/latencia-p99.txt
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=|DISPERSION=' verificacion/resultados-actions/latencia-p99.txt

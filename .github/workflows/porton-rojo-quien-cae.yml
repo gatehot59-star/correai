@@ -1,0 +1,185 @@
+# Responde UNA pregunta: cual de los cuatro guards cae bajo `-race`.
+#
+# POR QUE NO SE BAJA EL LOG. Medido en este turno, no supuesto:
+#   GET /repos/.../actions/jobs/101865710233/logs  -> HTTP 403 sin token
+#   GET de la pagina web del job                   -> HTTP 200, 218.852 bytes,
+#                                                     y CERO texto de log adentro
+# El log lo carga el navegador por API autenticada. Ningun agente lo alcanza.
+#
+# LA VIA QUE SI FUNCIONA: reproducir el comando exacto en un job que commitea su
+# propia salida. Queda mejor que el log, porque cualquiera lo puede recomputar.
+#
+# Cada paso escribe SU archivo. Es la quinta vez que lo hago asi a proposito: un
+# archivo compartido ya me produjo cuatro guards que median otra cosa.
+name: porton-rojo-quien-cae
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/log-del-porton-rojo
+
+permissions:
+  contents: write
+
+jobs:
+  quien-cae:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 1 - el comando IDENTICO al ci.yml de main
+        if: always()
+        run: |
+          set +e
+          mkdir -p verificacion/resultados-actions
+          OUT=verificacion/resultados-actions/porton-rojo-1-igual-que-main.txt
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            echo "nproc:   $(nproc)"
+            go version
+            echo
+            echo "=== go test -race ./...   (el comando literal de main, SIN -short) ==="
+            echo "Esto es lo que dio failure en 52 s en el job 101865710233."
+            echo
+            go test -race ./... 2>&1
+            echo "EXIT_igual_que_main=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 2 - cada candidato SOLO, bajo -race
+        if: always()
+        run: |
+          set +e
+          D=verificacion/resultados-actions
+
+          aislar() {
+            # $1 nombre del test, $2 sufijo del archivo
+            OUT="$D/porton-rojo-2-$2.txt"
+            {
+              echo "=== $1 SOLO, con -race ==="
+              echo "Si este es el que cae, aca esta su numero y su mensaje."
+              echo
+              go test -race -v -count=1 -timeout 20m -run "^$1\$" ./gateway/... 2>&1
+              echo "EXIT=$?"
+            } > "$OUT" 2>&1
+            echo "--- $1 ---"
+            grep -E '^(--- PASS|--- FAIL|ok|FAIL|EXIT=)' "$OUT"
+            echo
+          }
+
+          aislar TestLatenciaP99DeLaEspera                    latencia-p99
+          aislar TestControlPositivoDeCola_CandadoGlobal      control-de-cola
+          aislar TestControlDeContencion_ElArnesVeLaDiferencia control-de-contencion
+          aislar TestCostoDelCandado_ContraElHMAC             costo-contra-hmac
+
+      - name: 3 - el mismo test SIN -race, para tener el par comparable
+        if: always()
+        run: |
+          set +e
+          OUT=verificacion/resultados-actions/porton-rojo-3-sin-race.txt
+          {
+            echo "=== los 4 candidatos SIN -race ==="
+            echo "El par con el paso 2 es lo que separa 'el guard es fragil' de"
+            echo "'el detector infla el piso y tapa la senal'."
+            echo
+            go test -v -count=1 -timeout 20m \
+              -run '^(TestLatenciaP99DeLaEspera|TestControlPositivoDeCola_CandadoGlobal|TestControlDeContencion_ElArnesVeLaDiferencia|TestCostoDelCandado_ContraElHMAC)$' \
+              ./gateway/... 2>&1
+            echo "EXIT_sin_race=$?"
+          } > "$OUT" 2>&1
+          grep -E '^(--- PASS|--- FAIL|ok|FAIL|EXIT_)' "$OUT"
+
+      - name: 4 - el discriminador del MECANISMO
+        if: always()
+        run: |
+          set +e
+          D=verificacion/resultados-actions
+          OUT=$D/porton-rojo-4-mecanismo.txt
+          CR=$D/porton-rojo-2-latencia-p99.txt
+          SR=$D/porton-rojo-3-sin-race.txt
+          {
+            echo "=== EL PISO DEL RELOJ EN LAS DOS CONDICIONES ==="
+            echo
+            echo "La pregunta no es solo QUE guard cae, es POR QUE. GUARD 1 exige"
+            echo "que el p99 patologico supere al piso del reloj por 3x. Bajo -race"
+            echo "los dos se inflan; si el piso se infla MAS, el factor se cae solo"
+            echo "y el guard no es fragil: el detector le tapa la senal."
+            echo
+            echo "--- CON -race ---"
+            grep -E 'PISO: par time.Now|ESPERA: 1 candado, 8|ESPERA: 1 candado por|GUARD 1|GUARD 2|GUARD 3' "$CR"
+            echo
+            echo "--- SIN -race ---"
+            grep -E 'PISO: par time.Now|ESPERA: 1 candado, 8|ESPERA: 1 candado por|GUARD 1|GUARD 2|GUARD 3' "$SR"
+            echo
+            echo "--- los dos factores de GUARD 1, uno al lado del otro ---"
+            printf 'con -race : %s\n' "$(grep -o 'GUARD 1.*' "$CR" | head -1)"
+            printf 'sin -race : %s\n' "$(grep -o 'GUARD 1.*' "$SR" | head -1)"
+            echo
+            echo "--- el mensaje EXACTO del Fatalf que corta, si hubo ---"
+            grep -E 'latencia_test\.go:[0-9]+:|candado_bench_test\.go:[0-9]+:' "$CR" | grep -vE 'GOMAXPROCS|CLASIF|GUARD|===|PISO|ESPERA|PAQUETE|MAX INUT|p99|max:' | head -20
+            echo "(vacio = el Fatalf no dejo linea propia; ver el archivo del paso 2)"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 5 - veredicto
+        if: always()
+        run: |
+          set +e
+          D=verificacion/resultados-actions
+          OUT=$D/porton-rojo-5-veredicto.txt
+          {
+            echo "=== QUIEN CAE ==="
+            for par in "TestLatenciaP99DeLaEspera:latencia-p99" \
+                       "TestControlPositivoDeCola_CandadoGlobal:control-de-cola" \
+                       "TestControlDeContencion_ElArnesVeLaDiferencia:control-de-contencion" \
+                       "TestCostoDelCandado_ContraElHMAC:costo-contra-hmac"; do
+              NOM="${par%%:*}"; SUF="${par##*:}"
+              F="$D/porton-rojo-2-$SUF.txt"
+              if grep -q "^--- FAIL: $NOM" "$F"; then EST=CAE; else
+                if grep -q "^--- PASS: $NOM" "$F"; then EST=pasa; else EST=SIN_RESULTADO; fi
+              fi
+              printf '%-52s con -race: %s\n' "$NOM" "$EST"
+            done
+            echo
+            echo "=== y sin -race, para contraste ==="
+            grep -E '^--- (PASS|FAIL)' "$D/porton-rojo-3-sin-race.txt"
+            echo
+            echo "=== el paso 1 reprodujo el rojo de main? ==="
+            grep -E 'EXIT_igual_que_main=' "$D/porton-rojo-1-igual-que-main.txt"
+            grep -E '^--- FAIL' "$D/porton-rojo-1-igual-que-main.txt" | head -6
+            echo
+            echo "=== conteos ==="
+            echo "tests que CAEN con -race: $(grep -c '^--- FAIL' $D/porton-rojo-2-*.txt | awk -F: '{s+=$2} END {print s+0}')"
+            echo "tests que caen SIN -race: $(grep -c '^--- FAIL' $D/porton-rojo-3-sin-race.txt)"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: Commitear todo
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/porton-rojo-*.txt
+          git commit -m 'evidencia: el rojo del porton reproducido, con el guard aislado [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Este job NO falla por el rojo reproducido
+        if: always()
+        run: |
+          echo 'El rojo es el SUJETO de este job, no su resultado.'
+          echo 'Falla solo si algun candidato no dejo resultado.'
+          grep -q 'SIN_RESULTADO' verificacion/resultados-actions/porton-rojo-5-veredicto.txt && {
+            echo 'Hay candidatos sin resultado: la medicion esta incompleta.'
+            cat verificacion/resultados-actions/porton-rojo-5-veredicto.txt
+            exit 1
+          }
+          cat verificacion/resultados-actions/porton-rojo-5-veredicto.txt

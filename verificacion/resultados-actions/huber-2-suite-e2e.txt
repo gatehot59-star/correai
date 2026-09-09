@@ -1,0 +1,23 @@
+=== go test -race -v -count=1 -run '^TestE2E_' ./gateway/... ===
+Sobre el gateway REAL con los dos fixes. Ya no hace falta mutar nada
+para medir D-46, D-47, el anti-replay ni D-26 en el callsite.
+
+# github.com/gatehot59-star/kampe-ir/gateway [github.com/gatehot59-star/kampe-ir/gateway.test]
+gateway/gateway.go:278:11: no new variables on left side of :=
+FAIL	github.com/gatehot59-star/kampe-ir/gateway [build failed]
+FAIL
+EXIT_suite=1
+TESTS_PASS=0
+TESTS_FAIL=0
+TESTS_SKIP=0
+RACES=0
+FIX_MEDIDO=0
+CONTROL_RAFAGA=0
+D48_ABIERTO=0
+VENTANA_DESDE_LLEGADA=0
+ARNES_VALIDADO=0
+E3_REPLAY=0
+D46=0
+D47=0
+D26=0
+RECHAZOS_INDISTINGUIBLES=0

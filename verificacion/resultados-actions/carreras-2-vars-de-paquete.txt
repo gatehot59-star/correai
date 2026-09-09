@@ -1,0 +1,55 @@
+=== POR QUE ESTE PASO ===
+El bug de hace dos horas era exactamente esto: un var de paquete
+escrito por 8 goroutines. Asi que la lente no es solo correr el
+detector: es enumerar la SUPERFICIE de estado compartido y
+clasificar cada pieza a mano.
+
+=== vars de paquete en los TESTS ===
+./gateway/candado_bench_test.go:50:var candadoGlobal sync.Mutex
+./gateway/latencia_test.go:221:var sumideros [64]ranuraSumidero
+./gateway/race_test.go:283:var contadorSinProteccion int
+
+=== vars de paquete en PRODUCCION ===
+./gateway/gateway.go:34:var (
+
+=== contenido del bloque var() de produccion ===
+var (
+	bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := make([]byte, maxBufferedBytes)
+			return &buf
+		},
+	}
+
+	packetPool = sync.Pool{
+		New: func() interface{} {
+			return &PerimeterPacket{}
+		},
+	}
+
+	ackBytes    = []byte{0x00}
+	rejectBytes = []byte{0xFF}
+)
+
+=== quien toca cada identificador compartido ===
+--- sumideros ---
+./gateway/latencia_test.go:214:// sumideros evita que el compilador elimine el trabajo sintetico. Hay UNO POR
+./gateway/latencia_test.go:221:var sumideros [64]ranuraSumidero
+./gateway/latencia_test.go:237:	sumideros[ranura&63].valor = dot / (normF + DefaultEpsilon)
+--- contadorSinProteccion ---
+./gateway/race_test.go:280:// contadorSinProteccion es la carrera sembrada del control positivo. No tiene
+./gateway/race_test.go:283:var contadorSinProteccion int
+./gateway/race_test.go:292:				contadorSinProteccion++
+./gateway/race_test.go:314:	t.Logf("detector armado: %d reporte(s) sobre la carrera sembrada de contadorSinProteccion",
+--- candadoGlobal ---
+./gateway/candado_bench_test.go:47:// candadoGlobal es el candado unico del brazo D. No es codigo de produccion:
+./gateway/candado_bench_test.go:50:var candadoGlobal sync.Mutex
+./gateway/candado_bench_test.go:59:	candadoGlobal.Lock()
+./gateway/candado_bench_test.go:60:	defer candadoGlobal.Unlock()
+./gateway/candado_bench_test.go:69:	candadoGlobal.Lock()
+./gateway/candado_bench_test.go:70:	defer candadoGlobal.Unlock()
+
+=== tests en paralelo (grep del fuente, no de esta prosa) ===
+T_PARALLEL_HITS=0
+(0 = los tests corren secuenciales, asi que un var de paquete
+ compartido ENTRE tests no puede correr contra otro test)

@@ -1,0 +1,24 @@
+=== brazo 3-brazoC-agentes-aislados ===
+regex : BenchmarkCandado/C_NagentesAislados_candadoPorAgente
+espera: CERO carreras: un agente por goroutine, el caso real
+
+go test -race -run '^$' -bench 'BenchmarkCandado/C_NagentesAislados_candadoPorAgente' -benchtime=20000x -cpu=4
+(carga chica a proposito: bajo -race cada acceso se instrumenta.
+ Aca NO se miden tiempos, se busca si el detector ve una carrera.)
+
+goos: linux
+goarch: amd64
+pkg: github.com/gatehot59-star/kampe-ir/gateway
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=1-4         	   20000	      2036 ns/op	         0.4912 Mop/s	         1.000 goroutines	      2036 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=2-4         	   20000	      1073 ns/op	         0.9323 Mop/s	         2.000 goroutines	      1073 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=4-4         	   20000	       935.1 ns/op	         1.069 Mop/s	         4.000 goroutines	       935.1 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=8-4         	   20000	       869.3 ns/op	         1.150 Mop/s	         8.000 goroutines	       869.3 ns/op-real
+BenchmarkCandado/C_NagentesAislados_candadoPorAgente/g=16-4        	   20000	       882.7 ns/op	         1.133 Mop/s	        16.00 goroutines	       882.6 ns/op-real
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	1.132s
+EXIT_brazo=0
+REPORTES_DETECTOR=0
+CITA_FILTERS_GO=0
+CITA_BENCH_TEST=0
+SUBBENCH_CORRIDOS=5

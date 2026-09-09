@@ -1,0 +1,413 @@
+# Mide `handleConn` punta a punta con el cliente mTLS real, contra DOS SUJETOS.
+#
+# EL HUECO QUE CERRO: hasta este commit ningun test toco el camino de red del
+# gateway. Y lo primero que la medicion encontro no era lo que iba a medir:
+#
+#   EL GATEWAY RECHAZA EL PRIMER PAQUETE DE TODA CONEXION, SIEMPRE.
+#
+# 11 de 11 combinaciones de payload y espera dieron rechazo. Por eso este job
+# corre los mismos tests contra dos sujetos, y los declara:
+#
+#   SUJETO 1 - el gateway REAL. Los guards exigen el hallazgo: cero ACK, E1 en
+#              modo caracterizacion, y los 4 tests que necesitan un ACK
+#              declarando NO MEDIDO via t.Skip.
+#
+#   SUJETO 2 - una copia con el BLOQUEO del HuberFilter desactivado. Se usa
+#              `agent.Huber.Update(...) && false`, que deja la LLAMADA al filtro
+#              viva (asi el detector de carreras sigue teniendo sujeto) y solo
+#              anula el rechazo. Ahi los guards exigen las mediciones.
+#
+# Sin el sujeto 2 no habria un solo ACK en ninguna parte, y sin un ACK de
+# referencia ningun rechazo de este arnes seria atribuible a su causa.
+#
+# LAS CINCO REGLAS DE ESCRITURA DE EVIDENCIA:
+#   R1. Un guard no busca una palabra: lee un NUMERO calculado (`^CLAVE=[0-9]+`).
+#   R2. Rutas ABSOLUTAS con $GITHUB_WORKSPACE.
+#   R3. El veredicto se TRUNCA, no se acumula.
+#   R4. El VALOR ESPERADO tambien es una medicion: se deriva del fuente, y de
+#       TODOS los archivos.
+#   R5. Un workflow que no parsea es INVISIBLE. Y el nombre de un paso no puede
+#       tener ": " adentro.
+name: handleconn-e2e
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - titan/cliente-mtls-e2e
+
+permissions:
+  contents: write
+
+jobs:
+  medir-handleconn:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 0 - validar YAML, entorno, build y vet
+        if: always()
+        run: |
+          set +e
+          mkdir -p "$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-0-entorno.txt"
+          # R4: los esperados se DERIVAN del fuente.
+          TESTS_E2E=$(grep -rh '^func TestE2E_' gateway/ | wc -l)
+          SKIPS_ESPERADOS=$(grep -c 'saltearSiElGatewayNoAcepta(t' gateway/handleconn_e2e_test.go)
+          {
+            echo "Maquina: Actions ubuntu-latest (VM limpia)"
+            echo "Commit:  ${GITHUB_SHA}"
+            echo "Rama:    ${GITHUB_REF_NAME}"
+            echo "Fecha:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "cpu:     $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+            echo "nproc:   $(nproc)"
+            go version
+            for f in gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go \
+                     gateway/huber_frontera_e2e_test.go gateway/gateway.go \
+                     gateway/filters.go; do
+              echo "sha256 $(basename $f): $(sha256sum $f | cut -d' ' -f1)"
+            done
+            echo
+            echo "=== R5: todos los workflows parsean? ==="
+            ROTOS=0
+            for f in .github/workflows/*.yml; do
+              if python3 -c "import yaml; yaml.safe_load(open('$f'))" 2>/tmp/err; then
+                echo "OK    $f"
+              else
+                echo "ROTO  $f"; sed 's/^/        /' /tmp/err | head -5; ROTOS=$((ROTOS+1))
+              fi
+            done
+            echo "WORKFLOWS_ROTOS=$ROTOS"
+            echo
+            echo "=== R4: esperados derivados del fuente ==="
+            grep -rn '^func TestE2E_' gateway/
+            echo "TESTS_E2E_DECLARADOS=$TESTS_E2E"
+            echo "SKIPS_ESPERADOS=$SKIPS_ESPERADOS"
+            echo "(los skips son los tests que necesitan un ACK previo para medir)"
+            echo
+            echo "=== gofmt de los tres archivos del arnes ==="
+            gofmt -l gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go gateway/huber_frontera_e2e_test.go
+            gofmt -w gateway/cliente_mtls_test.go gateway/handleconn_e2e_test.go gateway/huber_frontera_e2e_test.go
+            echo "(vacio arriba = ya estaban formateados)"
+            echo
+            echo "=== go build ./... ==="
+            go build ./... 2>&1
+            echo "EXIT_build=$?"
+            echo
+            echo "=== go vet ./... ==="
+            go vet ./... 2>&1
+            echo "EXIT_vet=$?"
+          } > "$OUT" 2>&1
+          cat "$OUT"
+
+      - name: 1 - SUJETO 1, el gateway REAL
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-1-gateway-real.txt"
+          LOG=/tmp/real.log
+          {
+            echo "=== SUJETO 1: el gateway REAL, tal como esta en el repo ==="
+            echo "go test -race -v -count=1 -run '^TestE2E_' ./gateway/..."
+            echo
+            echo "Se espera: cero ACK en el barrido, E1 en modo caracterizacion, y los"
+            echo "tests que necesitan un ACK previo declarando NO MEDIDO."
+            echo
+          } > "$OUT"
+          go test -race -v -count=1 -timeout 25m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1
+          EX=$?
+          {
+            cat "$LOG"
+            echo "EXIT_real=$EX"
+            echo "TESTS_PASS=$(grep -cE '^--- PASS: TestE2E_' "$LOG")"
+            echo "TESTS_FAIL=$(grep -cE '^--- FAIL: TestE2E_' "$LOG")"
+            echo "TESTS_SKIP=$(grep -cE '^--- SKIP: TestE2E_' "$LOG")"
+            echo "RACES_EN_PROCESO=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "HALLAZGO_MEDIDO=$(grep -c 'E0 HALLAZGO MEDIDO' "$LOG")"
+            echo "PREDICCION_REFUTADA=$(grep -c 'E0 MI PREDICCION QUEDA REFUTADA' "$LOG")"
+            echo "E1_CARACTERIZACION=$(grep -c 'E1 CARACTERIZACION' "$LOG")"
+            echo "E1_ARNES_VALIDADO=$(grep -c 'E1 ARNES VALIDADO' "$LOG")"
+            echo "RECHAZOS_INDISTINGUIBLES=$(grep -c 'UNA sola respuesta' "$LOG")"
+          } >> "$OUT"
+          echo "--- resumen del gateway REAL ---"
+          grep -E '^--- (PASS|FAIL|SKIP)' "$LOG"
+
+      - name: 2 - SUJETO 2, el gateway sin el bloqueo del HuberFilter
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-2-gateway-sin-huber.txt"
+          LOG=/tmp/sinhuber.log
+          COPIA=/tmp/sin-huber/repo
+          {
+            echo "=== SUJETO 2: copia con el BLOQUEO del HuberFilter desactivado ==="
+            echo
+            echo "La mutacion es minima y deliberada: se le agrega '&& false' a la"
+            echo "condicion, asi que la LLAMADA al filtro sigue ocurriendo (el detector"
+            echo "de carreras sigue teniendo sujeto) y lo unico que se anula es el"
+            echo "rechazo. No se toca ninguna otra linea del gateway."
+            echo
+            echo "ESTE SUJETO NO ES EL PRODUCTO. Es el gateway con su defecto mas grave"
+            echo "desactivado, y existe para poder medir D-46, D-47 y D-26 en el camino"
+            echo "real, que sobre el gateway de verdad son inalcanzables."
+            echo
+            rm -rf /tmp/sin-huber && mkdir -p /tmp/sin-huber
+            cp -r "$GITHUB_WORKSPACE" "$COPIA"
+            rm -rf "$COPIA/.git"
+            echo "--- la linea ANTES ---"
+            grep -n 'agent.Huber.Update' "$COPIA/gateway/gateway.go"
+            sed -i 's/if agent\.Huber\.Update(volumeKB, dt) {/if agent.Huber.Update(volumeKB, dt) \&\& false {/' "$COPIA/gateway/gateway.go"
+            echo "--- la linea DESPUES ---"
+            grep -n 'agent.Huber.Update' "$COPIA/gateway/gateway.go"
+            echo "MUTACION_APLICADA=$(grep -c 'agent.Huber.Update(volumeKB, dt) && false' "$COPIA/gateway/gateway.go")"
+            echo
+            ( cd "$COPIA" && go vet ./... 2>&1 )
+            echo "EXIT_vet_mutado=$?"
+            echo
+            echo "--- los mismos tests, sobre este sujeto ---"
+            ( cd "$COPIA" && go test -race -v -count=1 -timeout 25m -run '^TestE2E_' ./gateway/... > "$LOG" 2>&1 )
+            echo "EXIT_sinhuber=$?"
+            cat "$LOG"
+          } > "$OUT" 2>&1
+          {
+            echo "MUT_TESTS_PASS=$(grep -cE '^--- PASS: TestE2E_' "$LOG")"
+            echo "MUT_TESTS_FAIL=$(grep -cE '^--- FAIL: TestE2E_' "$LOG")"
+            echo "MUT_TESTS_SKIP=$(grep -cE '^--- SKIP: TestE2E_' "$LOG")"
+            echo "MUT_RACES=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "MUT_ARNES_VALIDADO=$(grep -c 'E1 ARNES VALIDADO' "$LOG")"
+            echo "MUT_D46=$(grep -c 'D-46 MEDIDO EN EL CAMINO REAL' "$LOG")"
+            echo "MUT_D46_MECANISMO=$(grep -c 'E6 MECANISMO CONFIRMADO' "$LOG")"
+            echo "MUT_D47=$(grep -c 'D-47 MEDIDO EN EL CAMINO REAL' "$LOG")"
+            echo "MUT_D26=$(grep -c 'D-26 MEDIDO EN EL CALLSITE REAL' "$LOG")"
+            echo "MUT_E3_REPLAY=$(grep -c 'E3 MEDIDO' "$LOG")"
+            echo "MUT_E9_HALLAZGO=$(grep -c 'E9 HALLAZGO' "$LOG")"
+          } >> "$OUT"
+          echo "--- resumen del gateway SIN Huber ---"
+          grep -E '^--- (PASS|FAIL|SKIP)' "$LOG"
+          tail -14 "$OUT"
+
+      - name: 3 - el porton de main, con los tests nuevos adentro
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-3-porton-de-main.txt"
+          LOG=/tmp/porton.log
+          {
+            echo "=== go test -race ./...   (el comando LITERAL del ci.yml de main) ==="
+            echo "Los tests E2E no se saltean con -short, asi que entran al porton"
+            echo "compartido. Este paso mide si lo fortalecen o lo rompen."
+            echo
+          } > "$OUT"
+          go test -race -timeout 40m ./... > "$LOG" 2>&1
+          EX=$?
+          {
+            cat "$LOG"
+            echo "EXIT_porton=$EX"
+            echo "RACES_EN_PROCESO=$(grep -c 'race detected during execution of test' "$LOG")"
+          } >> "$OUT"
+          cat "$OUT"
+
+      - name: 4 - control de carreras, sacandole el mutex a los filtros reales
+        if: always()
+        run: |
+          set +e
+          OUT="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-4-mutacion-candados.txt"
+          LOG=/tmp/mut-cand.log
+          COPIA=/tmp/mut-cand/repo
+          {
+            echo "=== CONTROL DE CARRERAS SOBRE EL CAMINO REAL ==="
+            echo "Cero reportes del detector solo significa algo si este arnes PUEDE ver"
+            echo "una carrera en los filtros. Se copia el repo, se le saca el bloqueo del"
+            echo "Huber (para que los paquetes lleguen a los filtros) Y los Lock/Unlock,"
+            echo "y se corre E9: tiene que reportar carrera CITANDO filters.go."
+            echo
+            rm -rf /tmp/mut-cand && mkdir -p /tmp/mut-cand
+            cp -r "$GITHUB_WORKSPACE" "$COPIA"
+            rm -rf "$COPIA/.git"
+            sed -i 's/if agent\.Huber\.Update(volumeKB, dt) {/if agent.Huber.Update(volumeKB, dt) \&\& false {/' "$COPIA/gateway/gateway.go"
+            sed -i 's/^\(\s*\)f\.mtx\.Lock()/\1\/\/ MUTADO: f.mtx.Lock()/' "$COPIA/gateway/filters.go"
+            sed -i 's/^\(\s*\)defer f\.mtx\.Unlock()/\1\/\/ MUTADO: defer f.mtx.Unlock()/' "$COPIA/gateway/filters.go"
+            sed -i 's/^\(\s*\)c\.mtx\.Lock()/\1\/\/ MUTADO: c.mtx.Lock()/' "$COPIA/gateway/filters.go"
+            sed -i 's/^\(\s*\)defer c\.mtx\.Unlock()/\1\/\/ MUTADO: defer c.mtx.Unlock()/' "$COPIA/gateway/filters.go"
+            echo "CANDADOS_COMENTADOS=$(grep -c 'MUTADO:' "$COPIA/gateway/filters.go")"
+            echo "HUBER_DESACTIVADO=$(grep -c 'agent.Huber.Update(volumeKB, dt) && false' "$COPIA/gateway/gateway.go")"
+            echo
+            ( cd "$COPIA" && go test -race -v -count=1 -timeout 20m \
+                -run '^TestE2E_09_DosConexionesDelMismoCertificado$' ./gateway/... > "$LOG" 2>&1 )
+            echo "EXIT_mutado=$?"
+            grep -vE '^\s+(/opt/|/home/|testing\.|runtime|created by)' "$LOG" | head -60
+          } > "$OUT" 2>&1
+          {
+            echo "MUTACION_REPORTO=$(grep -c 'race detected during execution of test' "$LOG")"
+            echo "MUTACION_CITA_FILTERS=$(grep -c 'gateway/filters.go' "$LOG")"
+          } >> "$OUT"
+          tail -10 "$OUT"
+
+      - name: 5 - veredicto
+        if: always()
+        run: |
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          OUT=$D/e2e-5-veredicto.txt
+          FALLAS=0
+
+          leer() {
+            V=$(grep -oE "^$2=[0-9]+" "$1" 2>/dev/null | tail -1 | cut -d= -f2)
+            [ -n "$V" ] && echo "$V" || echo NA
+          }
+          comparar() {
+            if [ "$2" = "$3" ]; then
+              printf 'PASS  %-56s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-56s obtenido=%-6s esperado=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+          al_menos() {
+            if [ "$2" != "NA" ] && [ "$2" -ge "$3" ] 2>/dev/null; then
+              printf 'PASS  %-56s obtenido=%-6s esperado>=%s\n' "$1" "$2" "$3"
+            else
+              printf 'FAIL  %-56s obtenido=%-6s esperado>=%s\n' "$1" "$2" "$3"
+              FALLAS=$((FALLAS+1))
+            fi
+          }
+
+          E=$D/e2e-0-entorno.txt
+          A=$D/e2e-1-gateway-real.txt
+          B=$D/e2e-2-gateway-sin-huber.txt
+          P=$D/e2e-3-porton-de-main.txt
+          T=$D/e2e-4-mutacion-candados.txt
+
+          ROTOS=$(leer "$E" WORKFLOWS_ROTOS)
+          DECL=$(leer "$E" TESTS_E2E_DECLARADOS)
+          SKESP=$(leer "$E" SKIPS_ESPERADOS)
+          BUILD=$(leer "$E" EXIT_build);  VET=$(leer "$E" EXIT_vet)
+
+          RPASS=$(leer "$A" TESTS_PASS); RFAIL=$(leer "$A" TESTS_FAIL)
+          RSKIP=$(leer "$A" TESTS_SKIP); RRACES=$(leer "$A" RACES_EN_PROCESO)
+          RHALL=$(leer "$A" HALLAZGO_MEDIDO); RREF=$(leer "$A" PREDICCION_REFUTADA)
+          RCAR=$(leer "$A" E1_CARACTERIZACION); RVAL=$(leer "$A" E1_ARNES_VALIDADO)
+          RIND=$(leer "$A" RECHAZOS_INDISTINGUIBLES); REXR=$(leer "$A" EXIT_real)
+
+          MAPL=$(leer "$B" MUTACION_APLICADA)
+          MPASS=$(leer "$B" MUT_TESTS_PASS); MFAIL=$(leer "$B" MUT_TESTS_FAIL)
+          MSKIP=$(leer "$B" MUT_TESTS_SKIP); MRACES=$(leer "$B" MUT_RACES)
+          MVAL=$(leer "$B" MUT_ARNES_VALIDADO)
+          M46=$(leer "$B" MUT_D46); M46M=$(leer "$B" MUT_D46_MECANISMO)
+          M47=$(leer "$B" MUT_D47); M26=$(leer "$B" MUT_D26)
+          M3=$(leer "$B" MUT_E3_REPLAY); M9=$(leer "$B" MUT_E9_HALLAZGO)
+          MEX=$(leer "$B" EXIT_sinhuber)
+
+          EXP=$(leer "$P" EXIT_porton); PRACES=$(leer "$P" RACES_EN_PROCESO)
+          CCAND=$(leer "$T" CANDADOS_COMENTADOS); CHUB=$(leer "$T" HUBER_DESACTIVADO)
+          CREP=$(leer "$T" MUTACION_REPORTO); CFIL=$(leer "$T" MUTACION_CITA_FILTERS)
+
+          # R3: se trunca
+          {
+            echo "Veredicto de la corrida ${GITHUB_SHA}"
+            echo "Fecha: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "=== EL HALLAZGO DEL TURNO ==="
+            echo "El gateway RECHAZA EL PRIMER PAQUETE DE TODA CONEXION, siempre."
+            echo "11 de 11 combinaciones de payload y espera dieron rechazo, y eso"
+            echo "REFUTO mi propia prediccion aritmetica en 4 de ellas."
+            echo "Nadie lo sabia porque hasta este commit el repo no tenia cliente."
+            echo
+            echo "=== SUJETO 1, el gateway REAL ==="
+            echo "tests: PASS=$RPASS  FAIL=$RFAIL  SKIP=$RSKIP   (declarados: $DECL)"
+            echo "el hallazgo quedo medido        : $RHALL"
+            echo "mi prediccion quedo refutada    : $RREF"
+            echo "E1 en modo caracterizacion      : $RCAR"
+            echo "E1 valido el codificador        : $RVAL   (0 esperado: no acepta nada)"
+            echo "los rechazos son indistinguibles: $RIND"
+            echo "carreras en proceso             : $RRACES"
+            echo
+            echo "=== SUJETO 2, el gateway SIN el bloqueo del HuberFilter ==="
+            echo "NO ES EL PRODUCTO: es el gateway con su defecto mas grave desactivado,"
+            echo "y existe para poder medir lo que sobre el real es inalcanzable."
+            echo "tests: PASS=$MPASS  FAIL=$MFAIL  SKIP=$MSKIP"
+            echo "E1 VALIDO EL CODIFICADOR        : $MVAL"
+            echo "E3 anti-replay medido           : $M3"
+            echo "D-46 medido en el camino real   : $M46"
+            echo "D-46 mecanismo confirmado       : $M46M"
+            echo "D-47 medido en el camino real   : $M47"
+            echo "D-26 medido en el CALLSITE real : $M26"
+            echo "hallazgo de conexiones concurr. : $M9"
+            echo "carreras en proceso             : $MRACES"
+            echo
+            echo "=== CONTROL DE CARRERAS (sin mutex, el arnes ve la carrera?) ==="
+            echo "candados comentados       : $CCAND"
+            echo "Huber desactivado         : $CHUB"
+            echo "carreras reportadas       : $CREP"
+            echo "lineas citando filters.go : $CFIL"
+            echo
+            echo "=== VEREDICTO (numeros calculados, esperados derivados) ==="
+            comparar 'CERO workflows rotos (R5)'                  "$ROTOS" 0
+            comparar 'compila'                                    "$BUILD" 0
+            comparar 'go vet limpio'                              "$VET"   0
+            echo "  -- sujeto 1, el gateway REAL --"
+            al_menos 'el HALLAZGO quedo medido'                   "$RHALL" 1
+            al_menos 'mi prediccion quedo REFUTADA y escrita'     "$RREF"  1
+            al_menos 'E1 en modo caracterizacion'                 "$RCAR"  1
+            comparar 'E1 NO valido el codificador (no acepta)'    "$RVAL"  0
+            comparar 'los N tests que necesitan ACK se saltearon' "$RSKIP" "$SKESP"
+            comparar 'ningun test en FAIL'                        "$RFAIL" 0
+            comparar 'la corrida salio en 0'                      "$REXR"  0
+            comparar 'CERO carreras'                              "$RRACES" 0
+            al_menos 'los rechazos son indistinguibles (Testis)'  "$RIND"  1
+            echo "  -- sujeto 2, sin el bloqueo del Huber --"
+            comparar 'la mutacion se aplico'                      "$MAPL"  1
+            al_menos 'EL CODIFICADOR QUEDO VALIDADO'              "$MVAL"  1
+            comparar 'ya no se saltea ningun test'                "$MSKIP" 0
+            comparar 'pasaron los N declarados'                   "$MPASS" "$DECL"
+            comparar 'ningun test en FAIL'                        "$MFAIL" 0
+            comparar 'la corrida salio en 0'                      "$MEX"   0
+            comparar 'CERO carreras'                              "$MRACES" 0
+            al_menos 'E3 anti-replay medido'                      "$M3"    1
+            al_menos 'D-46 medido en el camino real'              "$M46"   1
+            al_menos 'D-47 medido en el camino real'              "$M47"   1
+            al_menos 'D-26 medido en el CALLSITE real'            "$M26"   1
+            echo "  -- porton de main y control de carreras --"
+            comparar 'el porton de main sigue verde'              "$EXP"   0
+            comparar 'CERO carreras en el porton'                 "$PRACES" 0
+            comparar 'el control comento los 4 candados'          "$CCAND" 4
+            comparar 'el control desactivo el Huber'              "$CHUB"  1
+            al_menos 'CONTROL el arnes SI ve la carrera'          "$CREP"  1
+            al_menos 'CONTROL y la atribuye a filters.go'         "$CFIL"  1
+            echo
+            echo "FALLAS_DE_VEREDICTO=$FALLAS"
+            if [ "$FALLAS" -eq 0 ]; then echo "RESULTADO=VERDE"; else echo "RESULTADO=ROJO"; fi
+            echo
+            echo "LECTURA. Los dos sujetos son distintos y hay que citarlos distinto:"
+            echo "lo del sujeto 1 es el estado del PRODUCTO; lo del sujeto 2 son"
+            echo "hallazgos del codigo del gateway medidos sobre una copia con el"
+            echo "HuberFilter desactivado. D-46, D-47 y D-26 quedan medidos en el camino"
+            echo "real por primera vez, con ese sujeto declarado."
+          } > "$OUT"
+          cat "$OUT"
+
+      - name: Commitear todo
+        if: always()
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git add verificacion/resultados-actions/e2e-*.txt gateway/*_test.go
+          git commit -m 'evidencia: handleConn medido punta a punta contra dos sujetos [skip ci]' || echo 'sin cambios'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Fallar si el veredicto no es verde
+        if: always()
+        run: |
+          V="$GITHUB_WORKSPACE/verificacion/resultados-actions/e2e-5-veredicto.txt"
+          grep -q 'RESULTADO=VERDE' "$V" || {
+            echo 'El veredicto no es verde.'
+            grep -E '^(PASS|FAIL) |FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
+            exit 1
+          }
+          grep -E 'FALLAS_DE_VEREDICTO=|RESULTADO=' "$V"
