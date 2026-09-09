@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   cuatro-brazos-pre-fix-real:
@@ -13,59 +13,67 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-
-      - name: Guard y cuatro brazos con referencia historica real
+      - name: Guard, cuatro brazos y recibo crudo
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
+          D="$GITHUB_WORKSPACE/verificacion/resultados-actions"
+          mkdir -p "$D"
+          OUT="$D/k6-0-recibo.txt"
+          exec > >(tee "$OUT") 2>&1
+          FALLAS=0
           PRE=a5f01c8
-          PRE_DIR=/tmp/pre-fix
-          rm -rf "$PRE_DIR"
-          mkdir -p "$PRE_DIR"
-          git archive "$PRE" | tar -x -C "$PRE_DIR"
-
-          # K6/A-10: los controles B y D parten del arbol PRE-FIX real.
-          llegada=$(grep -c 'llegada := time.Now()' "$PRE_DIR/gateway/gateway.go")
-          dt_old=$(grep -c 'dt := now.Sub' "$PRE_DIR/gateway/gateway.go")
-          filter_old=$(grep -c 'if !f.visto {' "$PRE_DIR/gateway/filters.go")
+          echo "K6 commit=${GITHUB_SHA} fecha=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "go=$(go version)"
+          rm -rf /tmp/pre-fix
+          mkdir -p /tmp/pre-fix
+          git archive "$PRE" | tar -x -C /tmp/pre-fix
+          E=$?
+          echo "archive_pre_fix_exit=$E"
+          llegada=$(grep -c 'llegada := time.Now()' /tmp/pre-fix/gateway/gateway.go)
+          dt_old=$(grep -c 'dt := now.Sub' /tmp/pre-fix/gateway/gateway.go)
+          filter_old=$(grep -c 'if !f.visto {' /tmp/pre-fix/gateway/filters.go)
           echo "PRE=$PRE llegada=$llegada dt_old=$dt_old filter_old=$filter_old"
-          test "$llegada" = 0
-          test "$dt_old" = 1
-          test "$filter_old" = 0
-          echo GUARD_A10=OK
-
-          # A: los dos fixes. B: solo filters. C: solo gateway. D: ninguno.
+          [ "$E" = 0 ] || FALLAS=$((FALLAS+1))
+          [ "$llegada" = 0 ] || FALLAS=$((FALLAS+1))
+          [ "$dt_old" = 1 ] || FALLAS=$((FALLAS+1))
+          [ "$filter_old" = 0 ] || FALLAS=$((FALLAS+1))
+          [ "$FALLAS" = 0 ] && echo GUARD_A10=OK || echo GUARD_A10=ROJO
           for brazo in A B C D; do
             rm -rf "/tmp/$brazo"
             cp -a "$GITHUB_WORKSPACE" "/tmp/$brazo"
             rm -rf "/tmp/$brazo/.git"
           done
-          cp "$PRE_DIR/gateway/gateway.go" /tmp/B/gateway/gateway.go
-          cp "$PRE_DIR/gateway/gateway.go" /tmp/D/gateway/gateway.go
-          cp "$PRE_DIR/gateway/filters.go" /tmp/C/gateway/filters.go
-          cp "$PRE_DIR/gateway/filters.go" /tmp/D/gateway/filters.go
-
+          cp /tmp/pre-fix/gateway/gateway.go /tmp/B/gateway/gateway.go
+          cp /tmp/pre-fix/gateway/gateway.go /tmp/D/gateway/gateway.go
+          cp /tmp/pre-fix/gateway/filters.go /tmp/C/gateway/filters.go
+          cp /tmp/pre-fix/gateway/filters.go /tmp/D/gateway/filters.go
           for brazo in A B C D; do
+            echo "=== BRAZO $brazo ==="
             (cd "/tmp/$brazo" && go build ./...)
-            set +e
-            (cd "/tmp/$brazo" && go test -count=1 -timeout 20m -v \
-              -run '^TestE2E_00_ElGatewayAceptaElPrimerPaquete$' ./gateway/...) \
-              > "/tmp/$brazo.log" 2>&1
-            rc=$?
-            set -e
-            ack=$(grep -E '^\s+payload=' "/tmp/$brazo.log" | grep -c ACK || true)
-            rechazo=$(grep -E '^\s+payload=' "/tmp/$brazo.log" | grep -c RECHAZO || true)
-            echo "BRAZO=$brazo BUILD=0 RC=$rc ACK=$ack RECHAZO=$rechazo"
-            test "$rc" = 0
+            BUILD=$?
+            (cd "/tmp/$brazo" && go test -count=1 -timeout 20m -v -run '^TestE2E_00_ElGatewayAceptaElPrimerPaquete$' ./gateway/...) > "/tmp/$brazo.log" 2>&1
+            RC=$?
+            ACK=$(grep -E '^\s+payload=' "/tmp/$brazo.log" | grep -c ACK || true)
+            RECH=$(grep -E '^\s+payload=' "/tmp/$brazo.log" | grep -c RECHAZO || true)
+            echo "BRAZO=$brazo BUILD=$BUILD RC=$RC ACK=$ACK RECHAZO=$RECH"
+            cat "/tmp/$brazo.log"
             case "$brazo" in
-              A) test "$ack" = 11 ;;
-              B) test "$ack" = 11 ;;
-              C) test "$ack" = 4 ;;
-              D) test "$ack" = 0 ;;
+              A) EA=11;; B) EA=11;; C) EA=4;; D) EA=0;;
             esac
+            [ "$BUILD" = 0 ] || FALLAS=$((FALLAS+1))
+            [ "$RC" = 0 ] || FALLAS=$((FALLAS+1))
+            [ "$ACK" = "$EA" ] || FALLAS=$((FALLAS+1))
           done
-          echo RESULTADO=VERDE
+          echo "FALLAS_DE_VEREDICTO=$FALLAS"
+          [ "$FALLAS" = 0 ] && echo RESULTADO=VERDE || echo RESULTADO=ROJO
+          mkdir -p "$D"
+          git -C "$GITHUB_WORKSPACE" config user.name 'github-actions[bot]'
+          git -C "$GITHUB_WORKSPACE" config user.email 'github-actions[bot]@users.noreply.github.com'
+          git -C "$GITHUB_WORKSPACE" add verificacion/resultados-actions/k6-0-recibo.txt
+          git -C "$GITHUB_WORKSPACE" commit -m 'evidencia: recibo crudo del K6, incluido si el guard cae [skip ci]' || true
+          git -C "$GITHUB_WORKSPACE" push origin "HEAD:${GITHUB_REF_NAME}" || true
+          [ "$FALLAS" = 0 ]
