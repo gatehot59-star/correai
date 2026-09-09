@@ -11,7 +11,14 @@
 
 **DOS entregas de este turno tienen su CI en `queued`, no en `success`.** Las corridas `34312687284` y `34313580686` llevan más de 15 minutos encoladas.
 
-Eso significa, con precisión: **el cableado de Testis a `handleConn` y su test son código ESCRITO y NO VERIFICADO.** No compilaron. No corrieron. En `brain-env` no hay toolchain de Go (`go: not found`, medido), así que el autor **no puede** haberlos compilado.
+Eso significa, con precisión: **el cableado de Testis a `handleConn` y su test NO FUERON COMPILADOS.** No es que hayan fallado al compilar: nadie los compiló. En `brain-env` no hay toolchain de Go (`go: not found`, medido), así que el autor **no puede** haberlo hecho, y el CI todavía no arrancó.
+
+**CORRECCIÓN DE FABLE 5.1, ACEPTADA (K5).** La primera versión de este reporte
+titulaba "NO COMPILARON". Eso afirma un **rojo**; lo medido es un **NO MEDIDO**.
+Son dos de los tres estados de este proyecto y confundirlos es exactamente el
+patrón que el propio reporte se cobra en la sección 7 ("contar palabras en vez de
+leer estructura"), aplicado a sí mismo. El cuerpo decía "no verificado" y el
+título decía otra cosa: gana el más débil, porque es el que se lee primero.
 
 Lo pongo primero y no en los NO MEDIDO porque el reporte v1 se apoyaba enteramente en "todo verde lo firma un instrumento ajeno". Presentar esto como verde sería el error más caro del proyecto.
 
@@ -125,7 +132,8 @@ Respuesta completa: `respuestas/2026-09-09-01-falsacion-de-la-guia-de-merge-de-t
 
 ## 5 · Los 9 NO MEDIDO
 
-1. **El cableado y su test NO COMPILARON.** CI en `queued`. Lo más importante de esta lista.
+1. **El cableado y su test NO FUERON COMPILADOS.** CI en `queued`, no en `failure`:
+   nadie los compiló, así que no hay rojo ni verde. Lo más importante de esta lista.
 2. **El paquete `testis` NO está en `main`**: vive en rama. `git cat-file -e main:testis/testis.go` falla.
 3. **`Testis` no tiene llamador en `main`.** Existe como código, no como feature. Es exactamente el estado del Zod Gate de MUDH cuando se midió.
 4. **Cero Postgres.** Las 5 tablas de `schema.sql` no existen en ninguna base. La columna `delivery_token_sha256` es DDL **sin aplicar**, y no hay migración (un `ALTER TABLE` sin destino es teatro).
@@ -140,6 +148,28 @@ Respuesta completa: `respuestas/2026-09-09-01-falsacion-de-la-guia-de-merge-de-t
 ## 6 · Verificaciones adversariales, cada una puede dar rojo
 
 **V-1 · ¿El CI del cableado habló?** Pedí los **check runs** de las corridas `34312687284` y `34313580686`. Si siguen en `queued`, este reporte dice la verdad. **Si alguna dio `failure`, el reporte está desactualizado y vos lo sabrás antes que yo.**
+
+**ACTUALIZACIÓN 2026-09-09 05:2xZ · LA HIPÓTESIS (c) DE FABLE QUEDÓ FALSADA, Y
+FUE ÉL QUIEN DIO EL FALSADOR.** Su observación era correcta y precisa: los dos
+runs encolados eran `workflow_dispatch`, y el único que corrió
+(`34312092430`, 59 s) fue `pull_request`. De ahí propuso su K1: abrir un PR y ver
+si arranca.
+
+Ejecutado. Los dos runs se **cancelaron** (`34312687284` y `34313580686`, HTTP 202
+los dos, ahora `cancelled`) para no leer tres veces el mismo silencio, y se abrió
+el **PR #18** `titan/testis-cableado → main`. El run `34314707276` nació con
+`event: pull_request`, exactamente como su K1 pedía.
+
+**También quedó `queued`.**
+
+Eso **descarta la hipótesis (c)** (algo en `ci.yml` que trate distinto al
+dispatch) y deja las dos primeras: **incidente de Actions** o **límite de la
+cuenta**. El dato que orienta: todo lo encolado nace a partir de las 04:52Z y
+nada corrió desde entonces, mientras el run de las 04:43Z cerró en 59 s. No es
+el evento: es una ventana temporal.
+
+Un falsador que refuta la hipótesis de quien lo propuso vale más que uno que la
+confirma, y el crédito es suyo.
 
 **V-2 · ¿Los golden coinciden?**
 ```bash
@@ -171,7 +201,10 @@ Tiene que decir **NO**. Si dice SÍ, alguien mergeo y este reporte quedó viejo.
 
 **Lo débil, sin adornos:**
 
-- **Dos entregas sin compilar.** El turno cierra con código cuyo único testigo posible no habló.
+- **Dos entregas sin compilar, y el título de este reporte las llamó un rojo.**
+  El turno cierra con código cuyo único testigo posible no habló, y con el autor
+  confundiendo NO MEDIDO con REFUTADO en su propio encabezado. Lo cazó un auditor
+  externo, no un guard mío: no tengo instrumento que lea mis títulos.
 - **Seis guards propios en la historia del proyecto contaron palabras en vez de leer estructura.** Es un patrón, no un accidente. La sexta se cazó a tiempo; las cinco anteriores, no.
 - **El producto sigue sin tocar una base de datos** y sin un solo cliente.
 - Los cierres de este turno son **de código**, no de features: Testis existe y no está cableado en `main`.
