@@ -51,6 +51,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: evidencia-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   medir-el-fix:
     runs-on: ubuntu-latest
@@ -83,7 +87,21 @@ jobs:
             grep -n 'body := buf\[frameHeaderSize:bodyEnd\]\|nowNs := uint64\|dt := now\.Sub\|lastSeen = now' gateway/gateway.go
             echo
             echo "=== aplicando el sed ==="
-            sed -i 's|^\(\s*\)body := buf\[frameHeaderSize:bodyEnd\]|\1body := buf[frameHeaderSize:bodyEnd]\n\n\1// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo\n\1// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj\n\1// del anti-replay. `now` se sigue usando para FSM.Allow y para el read\n\1// deadline, que SI deben mirar el inicio de la iteracion.\n\1llegada := time.Now()|' gateway/gateway.go
+            # R7. EL SED NO ES IDEMPOTENTE Y ESTE WORKFLOW CORRIO DOS VECES SOBRE
+            # LA MISMA RAMA (43ab1f0 y 27287be). La segunda pasada inserto el
+            # bloque de nuevo, `llegada := time.Now()` quedo declarado DOS veces
+            # y gateway.go dejo de compilar:
+            #   gateway/gateway.go:278:11: no new variables on left side of :=
+            # El guard del veredicto SI lo cazo (esperado=1 obtenido=2), pero el
+            # paso de commit tiene `if: always()` y publico el archivo roto igual.
+            # Ahora la insercion solo corre si el bloque NO esta.
+            YA_ESTA=$(grep -c 'llegada := time.Now()' gateway/gateway.go)
+            echo "BLOQUE_YA_PRESENTE_ANTES=$YA_ESTA"
+            if [ "$YA_ESTA" = "0" ]; then
+              sed -i 's|^\(\s*\)body := buf\[frameHeaderSize:bodyEnd\]|\1body := buf[frameHeaderSize:bodyEnd]\n\n\1// FIX E0. La llegada REAL del paquete. El `now` de arriba se capturo\n\1// ANTES del io.ReadFull, asi que no sirve ni para dt ni para el reloj\n\1// del anti-replay. `now` se sigue usando para FSM.Allow y para el read\n\1// deadline, que SI deben mirar el inicio de la iteracion.\n\1llegada := time.Now()|' gateway/gateway.go
+            else
+              echo "IDEMPOTENCIA: el bloque ya estaba, NO lo inserto de nuevo"
+            fi
             sed -i 's|nowNs := uint64(now\.UnixNano())|nowNs := uint64(llegada.UnixNano())|' gateway/gateway.go
             sed -i 's|dt := now\.Sub(lastSeen)\.Seconds()|dt := llegada.Sub(lastSeen).Seconds()|' gateway/gateway.go
             sed -i 's|^\(\s*\)lastSeen = now$|\1lastSeen = llegada|' gateway/gateway.go
@@ -400,7 +418,18 @@ jobs:
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git pull --rebase origin "${GITHUB_REF_NAME}" || true
-          git add verificacion/resultados-actions/huber-*.txt gateway/gateway.go gateway/filters.go gateway/huber_frontera_e2e_test.go
+          # R7 (segunda mitad). La EVIDENCIA se commitea siempre: un recibo rojo
+          # es un recibo. El CODIGO solo se commitea si el guard del parche dio
+          # exactamente 1. Asi fue como se publico un gateway.go que no compila.
+          git add verificacion/resultados-actions/huber-*.txt
+          PL=$(grep -oE '^PARCHE_LLEGADA_DECLARADA=[0-9]+' verificacion/resultados-actions/huber-0-parche.txt | tail -1 | cut -d= -f2)
+          echo "guard del parche: PARCHE_LLEGADA_DECLARADA=$PL"
+          if [ "$PL" = "1" ]; then
+            git add gateway/gateway.go gateway/filters.go gateway/huber_frontera_e2e_test.go
+          else
+            echo 'EL PARCHE NO QUEDO EN 1: NO commiteo codigo, solo la evidencia.'
+            git checkout -- gateway/gateway.go || true
+          fi
           git commit -m 'fix(E0)+evidencia: el reloj de dt y del anti-replay pasa a ser la llegada del paquete [skip ci]' || echo 'sin cambios'
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
