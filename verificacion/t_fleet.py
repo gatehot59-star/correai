@@ -2,7 +2,8 @@
 """Verificador del Fleet Manager (KAMPE IR) sin fastapi, asyncpg ni broker.
 
 Mide tres cosas que no necesitan servidor: (1) si el delivery_token que el
-endpoint de descarga exige llega a existir en algun lado, (2) si el tamano
+endpoint de descarga exige se persiste y se COMPARA (D-08, cerrado el
+2026-09-09, con control positivo por mutacion), (2) si el tamano
 exacto que el OTA acepta coincide con lo que el motor tiene en memoria, y
 (3) si el usuario MQTT derivado de tenant+node es inyectivo.
 
@@ -31,16 +32,54 @@ def defecto(n, sigue):
     if not sigue: fallos += 1
 
 print("== 1. el delivery_token que /ota/download exige ==")
-apariciones = [l.strip() for l in fuente.splitlines() if "delivery_token" in l]
-for l in apariciones:
-    print(f"   {l}")
-en_schema = "delivery_token" in schema
-comparado = bool(re.search(r"delivery_token\s*(==|!=)|compare_digest", fuente))
-print(f"   apariciones en el codigo: {len(apariciones)}")
-print(f"   columna en audit/schema.sql: {en_schema}")
-print(f"   se compara alguna vez contra algo: {comparado}")
-defecto("D-08 el header X-Delivery-Token se exige, nunca se persiste y nunca "
-        "se compara: cualquier valor entra", not en_schema and not comparado)
+# ----------------------------------------------------------------------
+# D-08 CERRADO el 2026-09-09. Esta seccion INVIRTIO su polaridad: antes
+# afirmaba que el defecto seguia presente, ahora afirma que el fix esta.
+#
+# Y el guard cambio de instrumento, porque el viejo era falsable por mi
+# propio comentario: buscaba la CADENA "compare_digest" en el fuente, y el
+# fix trae un comentario que la nombra para explicar por que no se usa `==`.
+# Contando cadenas el archivo da 2; contando LLAMADAS con el AST da 1. Es la
+# sexta vez en este proyecto que un guard mio cuenta una palabra en vez de
+# leer estructura, y esta vez se caza antes de publicar el numero.
+# ----------------------------------------------------------------------
+arbol = ast.parse(fuente)
+
+def llamadas_compare_digest(codigo):
+    return [n for n in ast.walk(ast.parse(codigo))
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+            and n.func.attr == "compare_digest"]
+
+n_cmp     = len(llamadas_compare_digest(fuente))
+en_schema = "delivery_token_sha256" in schema
+en_claro  = bool(re.search(r"delivery_token\s*(==|!=)\s*", fuente))
+hashea    = "hashlib.sha256(delivery_token.encode())" in fuente
+rechaza   = "status_code=403" in fuente
+
+apariciones = [l.strip() for l in fuente.splitlines()
+               if "delivery_token" in l and not l.strip().startswith("#")]
+print(f"   lineas de CODIGO que lo mencionan: {len(apariciones)}")
+print(f"   columna delivery_token_sha256 en audit/schema.sql: {en_schema}")
+print(f"   llamadas reales a compare_digest (AST): {n_cmp}")
+print(f"   el token se hashea antes de comparar: {hashea}")
+print(f"   la descarga rechaza con 403: {rechaza}")
+print(f"   se compara con '==' en algun lado: {en_claro}  (tiene que ser False)")
+
+invariante("D-08 el delivery_token se PERSISTE hasheado en el schema", en_schema)
+invariante("D-08 la descarga lo COMPARA con compare_digest, no con ==",
+           n_cmp == 1 and not en_claro)
+invariante("D-08 se compara hash contra hash, no el token en claro", hashea)
+invariante("D-08 un token invalido corta con 403, no entrega el binario", rechaza)
+
+# CONTROL POSITIVO: si le saco la comparacion al fuente, el guard TIENE que
+# ponerse rojo. Sin esto, los cuatro verdes de arriba no distinguen "esta bien"
+# de "mi guard no esta mirando".
+mutado = fuente.replace(
+    "if not secrets.compare_digest(esperado, recibido):",
+    "if False:")
+cayo = len(llamadas_compare_digest(mutado)) == 0
+print(f"   CONTROL POSITIVO: con la comparacion mutada el guard cae: {cayo}")
+invariante("D-08 el control positivo por mutacion pone el guard en ROJO", cayo)
 
 print("\n== 2. cuantos bytes acepta el OTA vs cuantos tiene el motor ==")
 ota = None

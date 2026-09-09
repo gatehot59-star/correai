@@ -102,6 +102,9 @@ CREATE TABLE IF NOT EXISTS ota_packages (
     binary_hash    text        NOT NULL,
     bytes_received integer     NOT NULL,
     storage_path   text        NOT NULL, -- FIX: ruta donde vive el binario
+    -- FIX D-08: sha256 del delivery_token, NUNCA el token en claro. La descarga
+    -- compara hash contra hash con secrets.compare_digest.
+    delivery_token_sha256 text  NOT NULL,
     created_at     timestamptz NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (tenant_id, package_id)
 );

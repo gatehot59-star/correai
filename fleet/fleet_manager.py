@@ -374,6 +374,12 @@ async def upload_ota(
     package_id     = str(uuid.uuid4())
     delivery_token = secrets.token_hex(16)
 
+    # FIX D-08. El token se PERSISTE hasheado, no en claro: la base es el lugar
+    # donde un dump o un backup lo expondria, y un token en claro en reposo vale
+    # lo mismo que no tenerlo. Se guarda sha256 y en la descarga se compara
+    # hash contra hash.
+    delivery_token_sha256 = hashlib.sha256(delivery_token.encode()).hexdigest()
+
     # FIX: persistir el binario en disco antes de notificar a los nodos.
     tenant_dir = OTA_STORAGE_DIR / tenant_id
     tenant_dir.mkdir(parents=True, exist_ok=True)
@@ -399,8 +405,9 @@ async def upload_ota(
                 """
                 INSERT INTO ota_packages
                     (tenant_id, package_id, version,
-                     binary_hash, bytes_received, storage_path, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, clock_timestamp())
+                     binary_hash, bytes_received, storage_path,
+                     delivery_token_sha256, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, clock_timestamp())
                 """,
                 tenant_id,
                 package_id,
@@ -408,6 +415,7 @@ async def upload_ota(
                 binary_hash,
                 total_bytes,
                 str(storage_path),  # FIX: ruta real del binario
+                delivery_token_sha256,
             )
 
             nodes = await conn.fetch(
@@ -452,7 +460,7 @@ async def download_ota(
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT storage_path, binary_hash
+            SELECT storage_path, binary_hash, delivery_token_sha256
             FROM ota_packages
             WHERE tenant_id = $1 AND package_id = $2
             """,
@@ -462,6 +470,30 @@ async def download_ota(
 
     if row is None:
         raise HTTPException(status_code=404, detail="Paquete OTA no encontrado")
+
+    # ------------------------------------------------------------------
+    # FIX D-08. EL HEADER SE EXIGIA Y NUNCA SE COMPARABA.
+    #
+    # `Header(...)` obliga a que el header VENGA, no a que valga algo: FastAPI
+    # devolvia 422 si faltaba y 200 con cualquier cadena si estaba. Un header
+    # exigido y no verificado es peor que no tenerlo, porque parece un control.
+    #
+    # Se compara con `secrets.compare_digest`, NO con `==`: los dos operandos
+    # son hexdigests de largo fijo y `==` de Python corta en el primer byte
+    # distinto, o sea filtra por tiempo cuanto prefijo acerto el atacante.
+    #
+    # El codigo es 403 y no 404: el paquete existe y el tenant es el dueno; lo
+    # que falla es la autorizacion de ESTA descarga. Un 404 aca mentiria sobre
+    # la existencia del paquete a quien ya probo ser el tenant.
+    # ------------------------------------------------------------------
+    esperado = row["delivery_token_sha256"]
+    recibido = hashlib.sha256(delivery_token.encode()).hexdigest()
+    if not secrets.compare_digest(esperado, recibido):
+        logger.warning(
+            "OTA download con delivery_token invalido: tenant=%s package=%s",
+            tenant_id, package_id,
+        )
+        raise HTTPException(status_code=403, detail="delivery_token invalido")
 
     storage_path = Path(row["storage_path"])
     if not storage_path.exists():
