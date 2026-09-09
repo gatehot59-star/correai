@@ -1,0 +1,89 @@
+K6 commit=fc32b7fa00ae5c3092ca4e37adbaaf5a283b769c fecha=2026-09-09T11:22:13Z
+go=go version go1.22.12 linux/amd64
+archive_pre_fix_exit=0
+PRE=a5f01c8 llegada=0 dt_old=1 filter_old=0
+GUARD_A10=OK
+=== BRAZO A ===
+BRAZO=A BUILD=0 RC=0 ACK=11 RECHAZO=0
+=== RUN   TestE2E_00_ElGatewayAceptaElPrimerPaquete
+    huber_frontera_e2e_test.go:173: E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline: 2s)
+          payload=8     B  espera=0s       ->  ACK
+          payload=8     B  espera=20ms     ->  ACK
+          payload=8     B  espera=100ms    ->  ACK
+          payload=8     B  espera=300ms    ->  ACK
+          payload=64    B  espera=0s       ->  ACK
+          payload=64    B  espera=300ms    ->  ACK
+          payload=64    B  espera=600ms    ->  ACK
+          payload=256   B  espera=0s       ->  ACK
+          payload=256   B  espera=1s       ->  ACK
+          payload=256   B  espera=1.9s     ->  ACK
+          payload=512   B  espera=1.9s     ->  ACK
+          ACK=11  RECHAZO=0  CERRADA=0  de 11 casos
+    huber_frontera_e2e_test.go:183: E0 FIX MEDIDO: 11 de 11 primeros paquetes ACEPTADOS, con cualquier payload y con o sin pausa. Antes del fix eran 0 de 11. El gateway puede atender a un agente por primera vez en la vida del proyecto.
+--- PASS: TestE2E_00_ElGatewayAceptaElPrimerPaquete (6.16s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	6.167s
+=== BRAZO B ===
+BRAZO=B BUILD=0 RC=0 ACK=11 RECHAZO=0
+=== RUN   TestE2E_00_ElGatewayAceptaElPrimerPaquete
+    huber_frontera_e2e_test.go:173: E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline: 2s)
+          payload=8     B  espera=0s       ->  ACK
+          payload=8     B  espera=20ms     ->  ACK
+          payload=8     B  espera=100ms    ->  ACK
+          payload=8     B  espera=300ms    ->  ACK
+          payload=64    B  espera=0s       ->  ACK
+          payload=64    B  espera=300ms    ->  ACK
+          payload=64    B  espera=600ms    ->  ACK
+          payload=256   B  espera=0s       ->  ACK
+          payload=256   B  espera=1s       ->  ACK
+          payload=256   B  espera=1.9s     ->  ACK
+          payload=512   B  espera=1.9s     ->  ACK
+          ACK=11  RECHAZO=0  CERRADA=0  de 11 casos
+    huber_frontera_e2e_test.go:183: E0 FIX MEDIDO: 11 de 11 primeros paquetes ACEPTADOS, con cualquier payload y con o sin pausa. Antes del fix eran 0 de 11. El gateway puede atender a un agente por primera vez en la vida del proyecto.
+--- PASS: TestE2E_00_ElGatewayAceptaElPrimerPaquete (6.16s)
+PASS
+ok  	github.com/gatehot59-star/kampe-ir/gateway	6.165s
+=== BRAZO C ===
+BRAZO=C BUILD=0 RC=1 ACK=4 RECHAZO=7
+=== RUN   TestE2E_00_ElGatewayAceptaElPrimerPaquete
+    huber_frontera_e2e_test.go:173: E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline: 2s)
+          payload=8     B  espera=0s       ->  RECHAZO
+          payload=8     B  espera=20ms     ->  RECHAZO
+          payload=8     B  espera=100ms    ->  ACK
+          payload=8     B  espera=300ms    ->  ACK
+          payload=64    B  espera=0s       ->  RECHAZO
+          payload=64    B  espera=300ms    ->  RECHAZO
+          payload=64    B  espera=600ms    ->  ACK
+          payload=256   B  espera=0s       ->  RECHAZO
+          payload=256   B  espera=1s       ->  RECHAZO
+          payload=256   B  espera=1.9s     ->  ACK
+          payload=512   B  espera=1.9s     ->  RECHAZO
+          ACK=4  RECHAZO=7  CERRADA=0  de 11 casos
+    huber_frontera_e2e_test.go:178: el fix NO cierra el hallazgo: solo 4 de 11 primeros paquetes fueron aceptados (rechazo=7 cerrada=0). Antes del fix eran 0 de 11
+--- FAIL: TestE2E_00_ElGatewayAceptaElPrimerPaquete (6.16s)
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	6.166s
+FAIL
+=== BRAZO D ===
+BRAZO=D BUILD=0 RC=1 ACK=0 RECHAZO=11
+=== RUN   TestE2E_00_ElGatewayAceptaElPrimerPaquete
+    huber_frontera_e2e_test.go:173: E0 BARRIDO CONTRA EL GATEWAY REAL (read deadline: 2s)
+          payload=8     B  espera=0s       ->  RECHAZO
+          payload=8     B  espera=20ms     ->  RECHAZO
+          payload=8     B  espera=100ms    ->  RECHAZO
+          payload=8     B  espera=300ms    ->  RECHAZO
+          payload=64    B  espera=0s       ->  RECHAZO
+          payload=64    B  espera=300ms    ->  RECHAZO
+          payload=64    B  espera=600ms    ->  RECHAZO
+          payload=256   B  espera=0s       ->  RECHAZO
+          payload=256   B  espera=1s       ->  RECHAZO
+          payload=256   B  espera=1.9s     ->  RECHAZO
+          payload=512   B  espera=1.9s     ->  RECHAZO
+          ACK=0  RECHAZO=11  CERRADA=0  de 11 casos
+    huber_frontera_e2e_test.go:178: el fix NO cierra el hallazgo: solo 0 de 11 primeros paquetes fueron aceptados (rechazo=11 cerrada=0). Antes del fix eran 0 de 11
+--- FAIL: TestE2E_00_ElGatewayAceptaElPrimerPaquete (6.16s)
+FAIL
+FAIL	github.com/gatehot59-star/kampe-ir/gateway	6.166s
+FAIL
+FALLAS_DE_VEREDICTO=2
+RESULTADO=ROJO
