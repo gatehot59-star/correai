@@ -39,6 +39,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: evidencia-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   cuatro-brazos:
     runs-on: ubuntu-latest
@@ -224,10 +228,26 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git pull --rebase origin "${GITHUB_REF_NAME}" || true
           git add verificacion/resultados-actions/brazos-*.txt
           git commit -m 'evidencia: los 4 brazos del fix del Huber, con el contador corregido [skip ci]' || echo 'sin cambios'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # R6. EL PUSH DEL RECIBO COMPITE CON OTROS WORKFLOWS DE LA MISMA RAMA.
+          # La corrida 34227120895 midio los 4 brazos y su paso Commitear FALLO:
+          # fix-huber-medicion arranco en el mismo push (los dos con created_at
+          # 2026-09-08T12:37:23Z) y este perdio la carrera. Medicion sin recibo
+          # persistente es NO MEDIDO, no verde. Ahora se reintenta con rebase y,
+          # si igual no entra, el paso FALLA: un recibo perdido en silencio es
+          # peor que un rojo.
+          OK=0
+          for i in 1 2 3 4 5; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}" || git rebase --abort
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then OK=1; break; fi
+            echo "push intento $i rechazado, reintento"
+            sleep $((i * 7))
+          done
+          [ "$OK" = 1 ] || { echo 'EL RECIBO NO QUEDO COMMITEADO'; exit 1; }
+          git log --oneline -1
+          ls -l verificacion/resultados-actions/brazos-*.txt
 
       - name: Fallar si el veredicto no es verde
         if: always()
