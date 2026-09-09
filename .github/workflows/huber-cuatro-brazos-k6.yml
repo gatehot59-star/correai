@@ -1,0 +1,71 @@
+name: huber-cuatro-brazos-k6
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cuatro-brazos-pre-fix-real:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Guard y cuatro brazos con referencia historica real
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRE=a5f01c8
+          PRE_DIR=/tmp/pre-fix
+          rm -rf "$PRE_DIR"
+          mkdir -p "$PRE_DIR"
+          git archive "$PRE" | tar -x -C "$PRE_DIR"
+
+          # K6/A-10: los controles B y D parten del arbol PRE-FIX real.
+          llegada=$(grep -c 'llegada := time.Now()' "$PRE_DIR/gateway/gateway.go")
+          dt_old=$(grep -c 'dt := now.Sub' "$PRE_DIR/gateway/gateway.go")
+          filter_old=$(grep -c 'if !f.visto {' "$PRE_DIR/gateway/filters.go")
+          echo "PRE=$PRE llegada=$llegada dt_old=$dt_old filter_old=$filter_old"
+          test "$llegada" = 0
+          test "$dt_old" = 1
+          test "$filter_old" = 0
+          echo GUARD_A10=OK
+
+          # A: los dos fixes. B: solo filters. C: solo gateway. D: ninguno.
+          for brazo in A B C D; do
+            rm -rf "/tmp/$brazo"
+            cp -a "$GITHUB_WORKSPACE" "/tmp/$brazo"
+            rm -rf "/tmp/$brazo/.git"
+          done
+          cp "$PRE_DIR/gateway/gateway.go" /tmp/B/gateway/gateway.go
+          cp "$PRE_DIR/gateway/gateway.go" /tmp/D/gateway/gateway.go
+          cp "$PRE_DIR/gateway/filters.go" /tmp/C/gateway/filters.go
+          cp "$PRE_DIR/gateway/filters.go" /tmp/D/gateway/filters.go
+
+          for brazo in A B C D; do
+            (cd "/tmp/$brazo" && go build ./...)
+            set +e
+            (cd "/tmp/$brazo" && go test -count=1 -timeout 20m -v \
+              -run '^TestE2E_00_ElGatewayAceptaElPrimerPaquete$' ./gateway/...) \
+              > "/tmp/$brazo.log" 2>&1
+            rc=$?
+            set -e
+            ack=$(grep -E '^\s+payload=' "/tmp/$brazo.log" | grep -c ACK || true)
+            rechazo=$(grep -E '^\s+payload=' "/tmp/$brazo.log" | grep -c RECHAZO || true)
+            echo "BRAZO=$brazo BUILD=0 RC=$rc ACK=$ack RECHAZO=$rechazo"
+            test "$rc" = 0
+            case "$brazo" in
+              A) test "$ack" = 11 ;;
+              B) test "$ack" = 11 ;;
+              C) test "$ack" = 4 ;;
+              D) test "$ack" = 0 ;;
+            esac
+          done
+          echo RESULTADO=VERDE
