@@ -92,7 +92,14 @@ type AgentState struct {
 	Coherence       *CoherenceFilter
 	mu              sync.Mutex
 	lastTimestampNs uint64 // FIX: para anti-replay monotónico
-}
+
+	// Estado de la cadena de Testis. Vive ACA y no en la pila de handleConn
+	// porque la cadena es UNA por agente, no una por conexion: un certificado
+	// puede abrir varias conexiones concurrentes, y si cada una llevara su
+	// propio seq, dos emitirian seq=1 y el validador leeria un salto de seq,
+	// o sea manipulacion donde solo hubo concurrencia.
+	chainSeq  uint64
+	chainPrev [32]byte
 
 // Gateway es el punto de entrada TLS mTLS del sistema.
 // FIX: incorpora hmacKey cargada desde variable de entorno
@@ -103,6 +110,22 @@ type Gateway struct {
 	shards         []*agentShard
 	initialBackoff time.Duration
 	hmacKey        []byte // FIX: clave para verificar HMAC de paquetes
+
+	// recorder puede ser nil: sin grabador el gateway funciona igual y NO emite
+	// evidencia. Es fail-open a proposito, y es una decision discutible que
+	// queda declarada: un gateway que se niega a atender porque no puede grabar
+	// convierte una falla del auditor en una caida del servicio.
+	recorder  Recorder
+	testisKey []byte // distinta de hmacKey: el que firma la evidencia no es el
+	// mismo que verifica paquetes. Si fueran la misma, quien puede hablarle al
+	// gateway podria refabricar su propia evidencia.
+}
+
+// UsarRecorder cablea el grabador de evidencia y la clave con la que se firman
+// los veredictos. La clave DEBE ser distinta de GATEWAY_HMAC_KEY.
+func (g *Gateway) UsarRecorder(r Recorder, testisKey []byte) {
+	g.recorder = r
+	g.testisKey = testisKey
 }
 
 // loadHMACKey carga la clave desde la variable de entorno GATEWAY_HMAC_KEY
@@ -242,6 +265,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		now := time.Now()
 
 		if !agent.FSM.Allow(now) {
+			g.emitir(agent, agentID, ReglaFSMBlocked, nil, now.UnixNano(), 0)
 			writeReject(conn)
 			return
 		}
@@ -254,6 +278,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 
 		size := binary.BigEndian.Uint32(buf[:frameHeaderSize])
 		if size == 0 || size > uint32(maxPacketSize) {
+			g.emitir(agent, agentID, ReglaFrameSize, nil, time.Now().UnixNano(), 0)
 			writeReject(conn)
 			return
 		}
@@ -273,6 +298,10 @@ func (g *Gateway) handleConn(conn net.Conn) {
 
 		pkt.Reset()
 		if !decodePerimeterPacket(body, pkt) {
+			// pkt=nil a proposito: el decode FALLO, asi que los campos del
+			// paquete no son de fiar. Emitir basura parseada a medias seria
+			// evidencia falsa.
+			g.emitir(agent, agentID, ReglaDecodeFailed, nil, llegada.UnixNano(), 0)
 			writeReject(conn)
 			agent.FSM.TriggerBlock(now)
 			return
@@ -281,6 +310,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		// FIX 1: Verificar que el AgentID del paquete coincide
 		// con el derivado del certificado TLS.
 		if pkt.AgentID != agentID {
+			g.emitir(agent, agentID, ReglaAgentIDMismatch, pkt, llegada.UnixNano(), 0)
 			writeReject(conn)
 			agent.FSM.TriggerBlock(now)
 			return
@@ -291,6 +321,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		// del servidor, y debe ser mayor al último timestamp aceptado.
 		nowNs := uint64(llegada.UnixNano())
 		if !validateTimestamp(nowNs, pkt.Timestamp, maxTimestampDriftNs) {
+			g.emitir(agent, agentID, ReglaTimestampWindow, pkt, llegada.UnixNano(), 0)
 			writeReject(conn)
 			agent.FSM.TriggerBlock(now)
 			return
@@ -300,6 +331,11 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		if pkt.Timestamp <= agent.lastTimestampNs {
 			// Replay detectado: timestamp no es estrictamente creciente.
 			agent.mu.Unlock()
+			// El emitir va DESPUES del Unlock, no antes: emitir() toma
+			// agent.mu para avanzar la cadena, y llamarlo con el candado ya
+			// tomado es un deadlock inmediato. Lo cazo aca porque el orden de
+			// estas tres lineas es lo unico que lo evita.
+			g.emitir(agent, agentID, ReglaReplay, pkt, llegada.UnixNano(), 0)
 			writeReject(conn)
 			agent.FSM.TriggerBlock(now)
 			return
@@ -311,6 +347,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		// El HMAC cubre los campos de identidad: AgentID + Timestamp +
 		// Epoch + Nonce, que son los que un atacante querría manipular.
 		if !g.verifyPacketHMAC(pkt) {
+			g.emitir(agent, agentID, ReglaHMACInvalid, pkt, llegada.UnixNano(), 0)
 			writeReject(conn)
 			agent.FSM.TriggerBlock(now)
 			return
@@ -333,12 +370,14 @@ func (g *Gateway) handleConn(conn net.Conn) {
 
 		if agent.Huber.Update(volumeKB, dt) {
 			agent.FSM.TriggerBlock(now)
+			g.emitir(agent, agentID, ReglaHuberTrip, pkt, llegada.UnixNano(), 0)
 			writeReject(conn)
 			return
 		}
 
 		if agent.Coherence.Update(pkt.Context) {
 			agent.FSM.TriggerBlock(now)
+			g.emitir(agent, agentID, ReglaCoherenceTrip, pkt, llegada.UnixNano(), 0)
 			writeReject(conn)
 			return
 		}
@@ -346,6 +385,11 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		// FIX 5: Registrar éxito para que DecayBackoff se active
 		// automáticamente tras éxitos consecutivos.
 		agent.FSM.RecordSuccess()
+
+		// El ACEPTADO tambien es evidencia. Una cadena que solo registra
+		// rechazos no prueba que el gateway estaba vivo entre dos rechazos:
+		// prueba que rechazo dos veces.
+		g.emitir(agent, agentID, ReglaAccepted, pkt, llegada.UnixNano(), 0)
 
 		writeAck(conn)
 	}
